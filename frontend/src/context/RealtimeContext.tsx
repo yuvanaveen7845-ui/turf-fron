@@ -70,91 +70,20 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [dispatchEvent]);
 
-  // Connect to SSE stream
-  const connectSSE = useCallback(() => {
-    if (typeof EventSource === "undefined") {
-      // Fallback to periodic polling for older environments
-      setStatus("CONNECTED");
-      pollIntervalRef.current = setInterval(executeDeltaPoll, 3000);
-      return;
-    }
-
-    try {
-      const rawApiUrl = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
-      const sseUrl = `${rawApiUrl}/realtime/stream/?channels=slots,gate,operations`;
-
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-
-      const es = new EventSource(sseUrl);
-      eventSourceRef.current = es;
-
-      es.onopen = () => {
-        setStatus("CONNECTED");
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      };
-
-      es.onmessage = (e) => {
-        try {
-          const parsed = JSON.parse(e.data);
-          if (parsed && parsed.type) {
-            dispatchEvent(parsed);
-          }
-        } catch (err) {}
-      };
-
-      // Listen to specific custom event types
-      const customEvents = [
-        "SLOT_LOCKED",
-        "SLOT_RELEASED",
-        "BOOKING_CONFIRMED",
-        "GATE_CHECK_IN",
-        "PRICE_CHANGED",
-        "OPERATIONS_UPDATE",
-        "WALK_IN_CREATED",
-      ];
-      customEvents.forEach((evtName) => {
-        es.addEventListener(evtName, (e: any) => {
-          try {
-            const parsed = JSON.parse(e.data);
-            if (parsed) dispatchEvent(parsed);
-          } catch (err) {}
-        });
-      });
-
-      es.onerror = () => {
-        setStatus("CONNECTING");
-        es.close();
-        // Start polling fallback while disconnected
-        if (!pollIntervalRef.current) {
-          pollIntervalRef.current = setInterval(executeDeltaPoll, 3000);
-        }
-        // Attempt SSE reconnection in 5 seconds
-        setTimeout(connectSSE, 5000);
-      };
-    } catch (e) {
-      setStatus("OFFLINE");
-      if (!pollIntervalRef.current) {
-        pollIntervalRef.current = setInterval(executeDeltaPoll, 3000);
-      }
-    }
-  }, [dispatchEvent, executeDeltaPoll]);
-
+  // Connect to Realtime engine using high-efficiency delta-polling (WSGI-safe)
   useEffect(() => {
-    connectSSE();
+    // Initial immediate poll
+    executeDeltaPoll();
+
+    // Regular interval poll every 3.5 seconds
+    const interval = setInterval(() => {
+      executeDeltaPoll();
+    }, 3500);
+
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
+      clearInterval(interval);
     };
-  }, [connectSSE]);
+  }, [executeDeltaPoll]);
 
   const subscribe = useCallback(
     (channel: string, eventType: string, callback: (event: RealtimeEvent) => void) => {

@@ -33,18 +33,30 @@ export const StaffWalkInPage: React.FC = () => {
     api
       .get("/turfs/")
       .then((res) => {
-        setTurfs(res.data);
-        if (res.data.length > 0) setSelectedTurfId(res.data[0].id);
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setTurfs(list);
+        if (list.length > 0) setSelectedTurfId(list[0].id);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        setTurfs([]);
+      });
   }, []);
 
   useEffect(() => {
     if (!selectedTurfId) return;
     api
       .get(`/turfs/${selectedTurfId}/availability/?date=${todayStr}`)
-      .then((res) => setTodaySlots(res.data.slots || []))
-      .catch((err) => console.error(err));
+      .then((res) => setTodaySlots(res.data?.slots || []))
+      .catch((err) => {
+        console.error(err);
+        setTodaySlots([]);
+      });
   }, [selectedTurfId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

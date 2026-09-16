@@ -25,8 +25,19 @@ export const TurfListingPage: React.FC = () => {
   useEffect(() => {
     api
       .get("/turfs/")
-      .then((res) => setTurfs(res.data))
-      .catch((err) => console.error(err))
+      .then((res) => {
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setTurfs(list);
+      })
+      .catch((err) => {
+        console.error("Failed to load turfs:", err);
+        setTurfs([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

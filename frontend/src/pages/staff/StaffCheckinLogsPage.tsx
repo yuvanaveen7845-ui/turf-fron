@@ -21,8 +21,19 @@ export const StaffCheckinLogsPage: React.FC = () => {
     setLoading(true);
     api
       .get("/qr/logs/")
-      .then((res) => setLogs(res.data))
-      .catch((err) => console.error(err))
+      .then((res) => {
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setLogs(list);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLogs([]);
+      })
       .finally(() => setLoading(false));
   };
 

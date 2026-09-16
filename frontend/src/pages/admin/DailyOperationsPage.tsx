@@ -192,7 +192,7 @@ export const DailyOperationsPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {opsData.turfs.map((t: any) => (
+              {Array.isArray(opsData?.turfs) && opsData.turfs.map((t: any) => (
                 <div
                   key={t.turf_id}
                   className={`p-5 rounded-3xl bg-white border transition-all ${

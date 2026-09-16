@@ -94,7 +94,13 @@ export const AdminSchedulePage: React.FC = () => {
     setLoading(true);
     try {
       const turfsRes = await api.get("/turfs/");
-      const activeTurfs: Turf[] = turfsRes.data.filter((t: Turf) => t.is_active);
+      const rawTurfs = turfsRes.data;
+      const turfList: Turf[] = Array.isArray(rawTurfs)
+        ? rawTurfs
+        : Array.isArray(rawTurfs?.results)
+          ? rawTurfs.results
+          : [];
+      const activeTurfs: Turf[] = turfList.filter((t: Turf) => t.is_active);
       setTurfs(activeTurfs);
 
       const rows: TurfScheduleRow[] = await Promise.all(
@@ -105,7 +111,7 @@ export const AdminSchedulePage: React.FC = () => {
             );
             return {
               turf,
-              slots: availRes.data.slots || [],
+              slots: availRes.data?.slots || [],
             };
           } catch (e) {
             return { turf, slots: [] };
@@ -115,6 +121,7 @@ export const AdminSchedulePage: React.FC = () => {
       setScheduleData(rows);
     } catch (err) {
       console.error(err);
+      setScheduleData([]);
     } finally {
       setLoading(false);
     }

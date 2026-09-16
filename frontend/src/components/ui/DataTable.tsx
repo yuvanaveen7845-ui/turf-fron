@@ -46,17 +46,20 @@ export function DataTable<T>({
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
+  // Safe Data Guard
+  const safeData = Array.isArray(data) ? data : [];
+
   // Filter
   const filteredData = React.useMemo(() => {
-    if (!searchTerm.trim() || !searchableKey) return data;
-    return data.filter((item) => {
+    if (!searchTerm.trim() || !searchableKey) return safeData;
+    return safeData.filter((item) => {
       const val =
         typeof searchableKey === "function"
           ? searchableKey(item)
           : String(item[searchableKey] || "");
       return val.toLowerCase().includes(searchTerm.toLowerCase());
     });
-  }, [data, searchTerm, searchableKey]);
+  }, [safeData, searchTerm, searchableKey]);
 
   // Sort
   const sortedData = React.useMemo(() => {

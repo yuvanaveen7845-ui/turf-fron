@@ -65,8 +65,19 @@ export const ManageStaffPage: React.FC = () => {
 
     api
       .get(url)
-      .then((res) => setStaffList(res.data))
-      .catch((err) => console.error(err))
+      .then((res) => {
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setStaffList(list);
+      })
+      .catch((err) => {
+        console.error(err);
+        setStaffList([]);
+      })
       .finally(() => setLoading(false));
   };
 

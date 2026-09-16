@@ -89,17 +89,18 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
     fetchSchedule();
   });
 
-  const filterSlotsByTime = (slots: ScheduleSlot[]) => {
+  const filterSlotsByTime = (slots?: ScheduleSlot[]) => {
+    const safeSlots = Array.isArray(slots) ? slots : [];
     if (selectedTimeFilter === "MORNING") {
-      return slots.filter((s) => s.start_time >= "06:00" && s.start_time < "12:00");
+      return safeSlots.filter((s) => s.start_time >= "06:00" && s.start_time < "12:00");
     }
     if (selectedTimeFilter === "AFTERNOON") {
-      return slots.filter((s) => s.start_time >= "12:00" && s.start_time < "17:00");
+      return safeSlots.filter((s) => s.start_time >= "12:00" && s.start_time < "17:00");
     }
     if (selectedTimeFilter === "NIGHT") {
-      return slots.filter((s) => s.start_time >= "17:00");
+      return safeSlots.filter((s) => s.start_time >= "17:00");
     }
-    return slots;
+    return safeSlots;
   };
 
   const formatTimeSlot = (timeStr: string) => {

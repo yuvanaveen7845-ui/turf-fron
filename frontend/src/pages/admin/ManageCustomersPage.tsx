@@ -51,8 +51,19 @@ export const ManageCustomersPage: React.FC = () => {
     setLoading(true);
     api
       .get("/auth/admin/customers/")
-      .then((res) => setCustomers(res.data))
-      .catch((err) => console.error(err))
+      .then((res) => {
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setCustomers(list);
+      })
+      .catch((err) => {
+        console.error(err);
+        setCustomers([]);
+      })
       .finally(() => setLoading(false));
   };
 

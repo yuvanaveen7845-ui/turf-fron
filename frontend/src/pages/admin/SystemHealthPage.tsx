@@ -112,7 +112,7 @@ export const SystemHealthPage: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {healthData.services.map((srv: any, idx: number) => {
+              {Array.isArray(healthData?.services) && healthData.services.map((srv: any, idx: number) => {
                 const isHealthy = srv.status === "HEALTHY" || srv.status === "CONFIGURED";
                 return (
                   <div

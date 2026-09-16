@@ -28,12 +28,21 @@ export const ManageReviewsPage: React.FC = () => {
 
   const fetchData = () => {
     setLoading(true);
-    Promise.all([api.get("/reviews/"), api.get("/reviews/analytics/")])
+    Promise.all([api.get("/reviews/"), api.get("/reviews/analytics/").catch(() => ({ data: null }))])
       .then(([rRes, aRes]) => {
-        setReviews(rRes.data);
+        const rawReviews = rRes.data;
+        const reviewList = Array.isArray(rawReviews)
+          ? rawReviews
+          : Array.isArray(rawReviews?.results)
+            ? rawReviews.results
+            : [];
+        setReviews(reviewList);
         setAnalytics(aRes.data);
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        setReviews([]);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -82,7 +91,8 @@ export const ManageReviewsPage: React.FC = () => {
     }
   };
 
-  const filteredReviews = reviews.filter(
+  const safeReviews = Array.isArray(reviews) ? reviews : [];
+  const filteredReviews = safeReviews.filter(
     (r) =>
       r.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
       r.turf_name?.toLowerCase().includes(search.toLowerCase()) ||

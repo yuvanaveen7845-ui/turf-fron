@@ -60,13 +60,22 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       api.get("/turfs/").then((res) => {
-        setTurfs(res.data);
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setTurfs(list);
         if (defaultTurfId) {
           setSelectedTurfId(defaultTurfId);
-        } else if (res.data.length > 0) {
-          setSelectedTurfId(res.data[0].id);
+        } else if (list.length > 0) {
+          setSelectedTurfId(list[0].id);
         }
-      }).catch(console.error);
+      }).catch((err) => {
+        console.error(err);
+        setTurfs([]);
+      });
     }
   }, [isOpen, defaultTurfId]);
 
@@ -75,11 +84,22 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     if (selectedTurfId && date) {
       api.get(`/turfs/${selectedTurfId}/slots/?date=${date}`)
         .then((res) => {
-          setAvailableSlots(res.data);
+          const raw = res.data;
+          const list = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.slots)
+              ? raw.slots
+              : Array.isArray(raw?.results)
+                ? raw.results
+                : [];
+          setAvailableSlots(list);
           setSelectedSlotIds([]);
           setPriceData(null);
         })
-        .catch(console.error);
+        .catch((err) => {
+          console.error(err);
+          setAvailableSlots([]);
+        });
     }
   }, [selectedTurfId, date]);
 

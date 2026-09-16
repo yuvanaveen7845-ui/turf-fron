@@ -40,9 +40,16 @@ export const ManageRefundsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.get("/payments/refunds/");
-      setRefunds(res.data);
+      const raw = res.data;
+      const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.results)
+          ? raw.results
+          : [];
+      setRefunds(list);
     } catch (err) {
       console.error("Failed to load refunds:", err);
+      setRefunds([]);
     } finally {
       setLoading(false);
     }

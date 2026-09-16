@@ -39,9 +39,18 @@ export const HomePage: React.FC = () => {
     api
       .get("/turfs/")
       .then((res) => {
-        setTurfs(res.data);
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : [];
+        setTurfs(list);
       })
-      .catch((err) => console.error("Failed to load turfs:", err))
+      .catch((err) => {
+        console.error("Failed to load turfs:", err);
+        setTurfs([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

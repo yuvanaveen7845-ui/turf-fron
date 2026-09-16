@@ -80,8 +80,8 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8001/api";
-      const sseUrl = `${apiUrl}/realtime/stream/?channels=slots,gate,operations`;
+      const rawApiUrl = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
+      const sseUrl = `${rawApiUrl}/realtime/stream/?channels=slots,gate,operations`;
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();

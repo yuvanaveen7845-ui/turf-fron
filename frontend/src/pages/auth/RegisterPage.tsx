@@ -50,22 +50,31 @@ export const RegisterPage: React.FC = () => {
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full space-y-8 bg-slate-900/90 border border-slate-800 p-8 rounded-3xl shadow-2xl backdrop-blur-xl">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-white shadow-xl shadow-emerald-500/20 mb-2">
-            <Trophy className="w-7 h-7" />
+      <div className="max-w-md w-full space-y-8 bg-white border border-slate-200 p-8 rounded-3xl shadow-pitch-card">
+        <div className="text-center space-y-3">
+          <div className="flex justify-center mb-1">
+            <img
+              src="/logo.png"
+              alt="Friends Turf"
+              className="w-20 h-20 object-contain drop-shadow-sm hover:scale-105 transition-transform"
+            />
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-white">
-            Join Friends Turf
-          </h2>
-          <p className="text-sm text-slate-400">
-            Unlock instant booking, loyalty points, and squad discounts
+          <div>
+            <span className="text-[11px] font-bold text-[#059669] tracking-widest uppercase block">
+              Player Membership
+            </span>
+            <h2 className="text-2xl font-black tracking-tight text-slate-900">
+              Join Friends Turf
+            </h2>
+          </div>
+          <p className="text-xs text-slate-600">
+            Unlock instant pitch bookings, match passes, and loyalty rewards
           </p>
         </div>
 
         {error && (
-          <div className="flex items-center space-x-2 p-3 bg-red-950/60 border border-red-800/80 rounded-xl text-xs text-red-300">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="flex items-center space-x-2 p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{error}</span>
           </div>
         )}
@@ -73,11 +82,11 @@ export const RegisterPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 First Name
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
                   type="text"
                   required
@@ -85,12 +94,12 @@ export const RegisterPage: React.FC = () => {
                   value={formData.first_name}
                   onChange={handleChange}
                   placeholder="Alex"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 outline-none"
+                  className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none transition-colors"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Last Name
               </label>
               <input
@@ -99,17 +108,17 @@ export const RegisterPage: React.FC = () => {
                 value={formData.last_name}
                 onChange={handleChange}
                 placeholder="Hunter"
-                className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 outline-none"
+                className="w-full px-3 py-2 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="email"
                 required
@@ -117,34 +126,34 @@ export const RegisterPage: React.FC = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="alex@example.com"
-                className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 outline-none"
+                className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Phone Number
             </label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+              <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder="+91 98765 00000"
-                className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 outline-none"
+                className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="password"
                 required
@@ -153,27 +162,27 @@ export const RegisterPage: React.FC = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="At least 6 characters"
-                className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 outline-none"
+                className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Referral Code{" "}
-              <span className="text-slate-500 font-normal">
+              <span className="text-slate-400 font-normal">
                 (Optional - get bonus ₹100 credit)
               </span>
             </label>
             <div className="relative">
-              <Tag className="w-4 h-4 text-emerald-400 absolute left-3 top-3" />
+              <Tag className="w-4 h-4 text-[#059669] absolute left-3 top-3" />
               <input
                 type="text"
                 name="referral_code"
                 value={formData.referral_code}
                 onChange={handleChange}
                 placeholder="e.g. FT12ABCD"
-                className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:border-emerald-500 outline-none uppercase font-mono"
+                className="w-full pl-9 pr-3 py-2 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none uppercase font-mono transition-colors"
               />
             </div>
           </div>
@@ -181,7 +190,7 @@ export const RegisterPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-emerald-glow flex items-center justify-center space-x-2 transition-all disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <span>Creating account...</span>
@@ -194,11 +203,11 @@ export const RegisterPage: React.FC = () => {
           </button>
         </form>
 
-        <p className="text-center text-xs text-slate-400">
+        <p className="text-center text-xs text-slate-600">
           Already have an account?{" "}
           <Link
             to="/login"
-            className="text-emerald-400 font-semibold hover:underline"
+            className="text-[#059669] font-bold hover:underline"
           >
             Sign In here
           </Link>

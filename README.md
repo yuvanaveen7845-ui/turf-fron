@@ -50,7 +50,7 @@ npm install
 ```
 
 ### 2. Configure Backend Proxy
-The development server is pre-configured in `vite.config.ts` to proxy `/api` requests to `http://127.0.0.1:8000`.
+The development server is pre-configured in `vite.config.ts` to proxy `/api` requests to `http://127.0.0.1:8001`.
 
 ### 3. Run Development Server
 ```bash

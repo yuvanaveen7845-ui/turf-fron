@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Bell, CheckCheck, Clock, Calendar, CheckCircle } from "lucide-react";
+import { Bell, CheckCheck, CheckCircle2, Clock } from "lucide-react";
 import api from "../../services/api";
 import { Notification } from "../../types";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { Button } from "../../components/ui/Button";
 
 export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -38,71 +41,82 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-8">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-5">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-5">
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center space-x-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] flex items-center space-x-1.5">
             <Bell className="w-3.5 h-3.5" />
             <span>Alerts & Activity</span>
           </span>
-          <h1 className="text-2xl font-black text-white tracking-tight">
+          <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-tight">
             Notification Center
           </h1>
+          <p className="text-sm text-slate-600 mt-0.5">
+            Match confirmations, slot reservations, automated refunds, and promotional alerts.
+          </p>
         </div>
 
-        <button
-          onClick={markAllRead}
-          className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-300 flex items-center space-x-1.5 transition-colors"
-        >
-          <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Mark All Read</span>
-        </button>
+        {unreadCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={markAllRead}
+            leftIcon={<CheckCheck className="w-4 h-4 text-[#059669]" />}
+          >
+            Mark All Read
+          </Button>
+        )}
       </div>
 
       {loading ? (
-        <div className="space-y-3 animate-pulse">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-slate-900 rounded-2xl" />
-          ))}
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
         </div>
       ) : notifications.length === 0 ? (
-        <div className="text-center py-20 bg-slate-900/40 rounded-3xl border border-slate-800 space-y-2">
-          <p className="text-sm font-bold text-slate-400">
-            No notifications in your inbox.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Bell className="w-8 h-8 text-slate-400" />}
+          title="Your inbox is clear"
+          description="You don't have any notifications right now. New booking updates, payment receipts, and slot reminders will appear here."
+        />
       ) : (
         <div className="space-y-3">
           {notifications.map((n) => (
             <div
               key={n.id}
               onClick={() => !n.is_read && markSingleRead(n.id)}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+              className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
                 n.is_read
-                  ? "bg-slate-900/50 border-slate-800/80 text-slate-400"
-                  : "bg-slate-900 border-emerald-500/40 text-white shadow-lg"
+                  ? "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                  : "bg-[#F0FDF4] border-emerald-300 text-slate-900 shadow-sm hover:border-emerald-400"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-white">
+                    <span className={`text-sm font-bold ${n.is_read ? "text-slate-800" : "text-slate-900"}`}>
                       {n.title}
                     </span>
                     {!n.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#059669] text-white">
+                        New
+                      </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {n.message}
                   </p>
-                  <span className="text-[10px] text-slate-500 block mt-2">
-                    {new Date(n.created_at).toLocaleString()}
-                  </span>
+                  <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 pt-1">
+                    <Clock className="w-3 h-3" />
+                    <span>{new Date(n.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                  </div>
                 </div>
 
-                <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 shrink-0">
+                <span className="text-[10px] uppercase font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 shrink-0">
                   {n.notification_type.replace("_", " ")}
                 </span>
               </div>

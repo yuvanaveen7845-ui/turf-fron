@@ -5,11 +5,15 @@ import { User, UserRole } from "../types";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  googleLogin: (credential: string) => Promise<User>;
+  register: (data: any) => Promise<User>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
-  quickLogin: (role: UserRole) => Promise<void>;
+  isAuthenticated: boolean;
+  isB2B: boolean;
+  isAdmin: boolean;
+  isStaff: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,22 +46,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     const res = await api.post("/auth/login/", { email, password });
     const { user: userData, tokens } = res.data;
     localStorage.setItem("ft_access_token", tokens.access);
     localStorage.setItem("ft_refresh_token", tokens.refresh);
     localStorage.setItem("ft_user", JSON.stringify(userData));
     setUser(userData);
+    return userData;
   };
 
-  const register = async (data: any) => {
+  const googleLogin = async (credential: string): Promise<User> => {
+    const res = await api.post("/auth/google/", { credential });
+    const { user: userData, tokens } = res.data;
+    localStorage.setItem("ft_access_token", tokens.access);
+    localStorage.setItem("ft_refresh_token", tokens.refresh);
+    localStorage.setItem("ft_user", JSON.stringify(userData));
+    setUser(userData);
+    return userData;
+  };
+
+  const register = async (data: any): Promise<User> => {
     const res = await api.post("/auth/register/", data);
     const { user: userData, tokens } = res.data;
     localStorage.setItem("ft_access_token", tokens.access);
     localStorage.setItem("ft_refresh_token", tokens.refresh);
     localStorage.setItem("ft_user", JSON.stringify(userData));
     setUser(userData);
+    return userData;
   };
 
   const logout = () => {
@@ -67,18 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser(null);
   };
 
-  const quickLogin = async (role: UserRole) => {
-    let email = "customer@friendsturf.com";
-    let password = "customer123";
-    if (role === "ADMIN") {
-      email = "admin@friendsturf.com";
-      password = "admin123";
-    } else if (role === "STAFF") {
-      email = "staff@friendsturf.com";
-      password = "staff123";
-    }
-    await login(email, password);
-  };
+  const isAuthenticated = !!user;
+  const isB2B = !!user && ["STAFF", "ADMIN"].includes(user.role) && user.status === "ACTIVE";
+  const isAdmin = !!user && (user.role === "ADMIN" || !!user.is_superuser);
+  const isStaff = !!user && ["STAFF", "ADMIN"].includes(user.role);
 
   return (
     <AuthContext.Provider
@@ -86,10 +94,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         login,
+        googleLogin,
         register,
         logout,
         refreshProfile,
-        quickLogin,
+        isAuthenticated,
+        isB2B,
+        isAdmin,
+        isStaff,
       }}
     >
       {children}

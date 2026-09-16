@@ -5,8 +5,13 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
+  Sparkles,
+  Clock,
+  User,
 } from "lucide-react";
 import api from "../../services/api";
+import { Button, DataTable, StatusBadge } from "../../components/ui";
+import { useGateRealtime } from "../../hooks/useRealtime";
 
 export const StaffCheckinLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
@@ -25,105 +30,127 @@ export const StaffCheckinLogsPage: React.FC = () => {
     fetchLogs();
   }, []);
 
-  return (
-    <div className="space-y-6 py-6">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-5">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center space-x-1.5">
-            <ClipboardCheck className="w-4 h-4" />
-            <span>Gate Security Records</span>
+  // Real-time listener for incoming gate admissions
+  useGateRealtime(() => {
+    fetchLogs();
+  });
+
+  const columns = [
+    {
+      key: "scanned_at",
+      header: "Scan Timestamp",
+      sortable: true,
+      render: (log: any) => (
+        <div className="flex items-center gap-1 text-slate-500 font-mono text-xs whitespace-nowrap">
+          <Clock className="w-3 h-3 text-slate-400" />
+          <span>{log.scanned_at}</span>
+        </div>
+      ),
+    },
+    {
+      key: "booking_id",
+      header: "Booking ID",
+      render: (log: any) => (
+        <span className="font-mono font-bold text-[#059669]">
+          {log.booking_id}
+        </span>
+      ),
+    },
+    {
+      key: "customer_name",
+      header: "Player Name",
+      render: (log: any) => (
+        <span className="font-bold text-slate-900">{log.customer_name}</span>
+      ),
+    },
+    {
+      key: "turf_name",
+      header: "Pitch Venue",
+      render: (log: any) => (
+        <span className="text-slate-700 font-medium">{log.turf_name}</span>
+      ),
+    },
+    {
+      key: "scanned_by",
+      header: "Staff Personnel",
+      render: (log: any) => (
+        <span className="text-slate-600 text-xs">{log.scanned_by}</span>
+      ),
+    },
+    {
+      key: "result",
+      header: "Validation Result",
+      render: (log: any) => {
+        const isValid = log.result === "VALID";
+        const isDuplicate = log.result === "ALREADY_USED";
+        return (
+          <span
+            className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+              isValid
+                ? "bg-emerald-50 text-[#059669] border-emerald-200"
+                : isDuplicate
+                ? "bg-amber-50 text-amber-800 border-amber-200"
+                : "bg-rose-50 text-rose-700 border-rose-200"
+            }`}
+          >
+            {isValid && <CheckCircle className="w-3 h-3" />}
+            {isDuplicate && <AlertTriangle className="w-3 h-3" />}
+            {!isValid && !isDuplicate && <XCircle className="w-3 h-3 text-rose-600" />}
+            <span>{log.result}</span>
           </span>
-          <h1 className="text-2xl font-black text-white tracking-tight">
+        );
+      },
+    },
+    {
+      key: "notes",
+      header: "Gate Notes",
+      render: (log: any) => (
+        <span className="text-slate-500 italic text-xs">
+          {log.notes || "—"}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#ECFDF5] border border-emerald-200 text-xs font-bold uppercase tracking-wider text-[#059669]">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Gate Security & Admission Logs</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">
             Gate Entry & Check-In Logs
           </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Audit history of all cryptographic QR scans, manual code entries, and gate decisions
+          </p>
         </div>
 
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={fetchLogs}
-          className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-300 flex items-center space-x-1.5 transition-colors"
+          isLoading={loading}
+          leftIcon={<RefreshCw className="w-3.5 h-3.5 text-[#059669]" />}
         >
-          <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-          <span>Refresh Records</span>
-        </button>
+          Refresh Logs
+        </Button>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500 animate-pulse text-xs">
-            Loading gate records...
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs">
-            No scan events recorded yet today.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
-                <tr>
-                  <th className="py-3.5 px-4">Time</th>
-                  <th className="py-3.5 px-4">Booking ID</th>
-                  <th className="py-3.5 px-4">Player</th>
-                  <th className="py-3.5 px-4">Pitch</th>
-                  <th className="py-3.5 px-4">Gate Staff</th>
-                  <th className="py-3.5 px-4">Verification Result</th>
-                  <th className="py-3.5 px-4">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {logs.map((log) => {
-                  const isValid = log.result === "VALID";
-                  const isDuplicate = log.result === "ALREADY_USED";
-
-                  return (
-                    <tr
-                      key={log.id}
-                      className="hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-400 font-mono">
-                        {log.scanned_at}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-white">
-                        {log.booking_id}
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-white">
-                        {log.customer_name}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-300">
-                        {log.turf_name}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-400">
-                        {log.scanned_by}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            isValid
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                              : isDuplicate
-                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                                : "bg-red-500/20 text-red-400 border border-red-500/30"
-                          }`}
-                        >
-                          {isValid && <CheckCircle className="w-3 h-3" />}
-                          {isDuplicate && <AlertTriangle className="w-3 h-3" />}
-                          {!isValid && !isDuplicate && (
-                            <XCircle className="w-3 h-3" />
-                          )}
-                          <span>{log.result}</span>
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-500 italic">
-                        {log.notes || "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Logs DataTable */}
+      <DataTable
+        columns={columns}
+        data={logs}
+        keyExtractor={(item) => item.id}
+        isLoading={loading}
+        searchPlaceholder="Search gate logs by booking ID, player, turf..."
+        searchableKey={(l) => `${l.booking_id} ${l.customer_name} ${l.turf_name} ${l.result}`}
+        emptyTitle="No gate scans recorded yet"
+        emptyDescription="When gate staff verify match pass QR codes at entry, admission logs will automatically appear here."
+      />
     </div>
   );
 };

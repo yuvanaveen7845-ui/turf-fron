@@ -1,208 +1,165 @@
-import React from "react";
-import { useLocation, Link, useNavigate } from "react-router-dom";
-import {
-  CheckCircle,
-  QrCode,
-  Calendar,
-  MapPin,
-  Clock,
-  ArrowRight,
-  Download,
-  Printer,
-  Share2,
-  ShieldCheck,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useLocation, useParams, Link } from "react-router-dom";
+import { CheckCircle, ArrowRight, ArrowLeft, Receipt, Ticket, Calendar } from "lucide-react";
+import api from "../../services/api";
 import { Booking } from "../../types";
+import { FriendsTurfMatchPass } from "../../components/booking/FriendsTurfMatchPass";
+import { ReceiptModal } from "../../components/payment/ReceiptModal";
+import { Button } from "../../components/ui";
 
 export const BookingConfirmationPage: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const state = location.state as { booking: Booking; payment?: any } | null;
+  const { bookingId } = useParams<{ bookingId: string }>();
 
-  if (!state?.booking) {
+  const state = location.state as { booking: Booking; payment?: any } | null;
+  const [passData, setPassData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+
+  useEffect(() => {
+    const targetId = bookingId || state?.booking?.booking_id;
+    if (targetId) {
+      api
+        .get(`/qr/pass/${targetId}/`)
+        .then((res) => {
+          setPassData(res.data);
+        })
+        .catch((err) => {
+          console.error("Failed to load pass:", err);
+          if (state?.booking) {
+            setPassData({
+              booking_id: state.booking.booking_id,
+              turf_name: state.booking.turf_details?.name || "Friends Turf Arena",
+              turf_location: state.booking.turf_details?.location || "Tiruppur",
+              surface_spec: state.booking.turf_details?.surface_spec || "50mm Pro Turf",
+              lighting_spec: state.booking.turf_details?.lighting_spec || "500 Lux Anti-Glare LED",
+              date: state.booking.date,
+              start_time: state.booking.start_time,
+              end_time: state.booking.end_time,
+              customer_name: "Player",
+              amount_paid: Number(state.booking.amount_paid || 0),
+              balance_due: Number(state.booking.balance_due || 0),
+              status: state.booking.status,
+              booking_status: state.booking.status,
+              qr_base64: state.booking.qr_ticket_data?.qr_base64 || "",
+            });
+          }
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [bookingId, state]);
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="h-96 rounded-3xl bg-white border border-slate-200 animate-pulse shadow-sm" />
+      </div>
+    );
+  }
+
+  if (!passData) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center space-y-4">
-        <p className="text-slate-400">No booking session found.</p>
-        <Link to="/" className="text-emerald-400 font-bold hover:underline">
-          Return Home
+        <p className="text-slate-600 font-semibold">No active match pass session found.</p>
+        <Link
+          to="/turfs"
+          className="px-5 py-2.5 rounded-xl bg-[#059669] text-white font-bold text-xs inline-flex items-center space-x-1.5 shadow-sm"
+        >
+          <span>Browse Turf Grounds</span>
         </Link>
       </div>
     );
   }
 
-  const { booking } = state;
-  const qrImage = booking.qr_ticket_data?.qr_base64;
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const bookingRef = passData.booking_id || bookingId || state?.booking?.booking_id;
+  const paidAmount = Number(passData.amount_paid || state?.booking?.amount_paid || state?.payment?.amount || 0);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 space-y-8">
-      {/* Success Badge */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-bounce">
-          <CheckCircle className="w-9 h-9" />
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-in fade-in duration-200">
+      {/* Success Hero Header (Requirement #16) */}
+      <div className="text-center space-y-3 print:hidden">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-200 shadow-sm animate-bounce">
+          <CheckCircle className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl font-black text-white tracking-tight">
-          Match Confirmed!
-        </h1>
-        <p className="text-sm text-slate-400">
-          Your slot is confirmed. Show the QR ticket below at the venue entrance
-          for gate verification.
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+            Payment Successful
+          </h1>
+          <p className="text-2xl font-black text-[#059669] mt-1 font-mono">
+            ₹{paidAmount.toLocaleString("en-IN")}
+          </p>
+          <div className="inline-flex items-center space-x-2 mt-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-mono font-bold text-slate-700">
+            <span>Booking confirmed:</span>
+            <span className="text-[#059669] font-black">{bookingRef}</span>
+          </div>
+        </div>
+        <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+          Your pitch reservation is locked and cryptographically verified. Present this digital match pass at the gate optical scanner for admission.
         </p>
-      </div>
 
-      {/* Ticket Pass Card */}
-      <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl overflow-hidden shadow-2xl relative">
-        {/* Top Header of Ticket */}
-        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 p-6 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center font-bold text-slate-950">
-              FT
-            </div>
-            <div>
-              <span className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">
-                Official Match Pass
-              </span>
-              <p className="text-xl font-black text-white font-mono tracking-wider">
-                {booking.booking_id}
-              </p>
-            </div>
-          </div>
+        {/* Action Buttons: [ View Booking ] [ View Pass ] [ View Receipt ] */}
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsReceiptOpen(true)}
+            leftIcon={<Receipt className="w-4 h-4" />}
+          >
+            View Receipt
+          </Button>
 
-          <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold uppercase tracking-wider">
-            {booking.status}
-          </span>
-        </div>
+          <a
+            href="#match-pass-section"
+            className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center space-x-1.5 shadow-sm transition"
+          >
+            <Ticket className="w-4 h-4 text-[#059669]" />
+            <span>View Match Pass</span>
+          </a>
 
-        {/* Ticket Body */}
-        <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-          {/* Match Details */}
-          <div className="md:col-span-7 space-y-5">
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-400">
-                Venue / Ground
-              </span>
-              <h3 className="text-xl font-bold text-white">
-                {booking.turf_details?.name}
-              </h3>
-              <p className="text-xs text-slate-400 flex items-center space-x-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>{booking.turf_details?.location}</span>
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
-              <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Match Date
-                </span>
-                <p className="text-sm font-bold text-white flex items-center space-x-1.5 mt-0.5">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>
-                    {new Date(booking.date).toLocaleDateString("en-US", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Match Time
-                </span>
-                <p className="text-sm font-bold text-white flex items-center space-x-1.5 mt-0.5">
-                  <Clock className="w-3.5 h-3.5 text-teal-400" />
-                  <span>
-                    {booking.start_time.slice(0, 5)} -{" "}
-                    {booking.end_time.slice(0, 5)}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
-              <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Amount Paid
-                </span>
-                <p className="text-base font-black text-emerald-400">
-                  ₹{booking.amount_paid}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400">
-                  Balance Due at Venue
-                </span>
-                <p
-                  className={`text-base font-black ${Number(booking.balance_due) > 0 ? "text-amber-400" : "text-slate-400"}`}
-                >
-                  ₹{booking.balance_due}
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-1">
-              <span className="text-[11px] text-slate-400 flex items-center space-x-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>
-                  Single-entry pass. Validated automatically at entrance.
-                </span>
-              </span>
-            </div>
-          </div>
-
-          {/* QR Code Graphic */}
-          <div className="md:col-span-5 flex flex-col items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-            {qrImage ? (
-              <img
-                src={qrImage}
-                alt="Booking QR Code"
-                className="w-44 h-44 rounded-xl shadow-lg border border-slate-700 bg-white p-2"
-              />
-            ) : (
-              <div className="w-44 h-44 rounded-xl bg-slate-800 flex items-center justify-center">
-                <QrCode className="w-16 h-16 text-slate-500" />
-              </div>
-            )}
-            <div className="text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-mono tracking-widest block">
-                {booking.qr_ticket_data?.ticket_code || "QR CODE PASS"}
-              </span>
-              <span className="text-xs font-semibold text-emerald-400">
-                Scan at Entrance
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Ticket Footer Actions */}
-        <div className="bg-slate-950/80 px-6 py-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handlePrint}
-              className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-200 flex items-center space-x-1.5 transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print Pass</span>
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Link
-              to="/my-bookings"
-              className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center space-x-1.5 transition-colors"
-            >
-              <span>View My Bookings</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          <Link
+            to="/my-bookings"
+            className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center space-x-1.5 shadow-sm transition"
+          >
+            <Calendar className="w-4 h-4 text-blue-600" />
+            <span>My Bookings</span>
+          </Link>
         </div>
       </div>
+
+      {/* Render Official Match Pass Component */}
+      <div id="match-pass-section">
+        <FriendsTurfMatchPass passData={passData} showActions={true} />
+      </div>
+
+      {/* Post-Booking Navigation Links */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 max-w-2xl mx-auto print:hidden">
+        <Link
+          to="/turfs"
+          className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 hover:text-[#059669] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Book Another Session</span>
+        </Link>
+
+        <Link
+          to="/my-bookings"
+          className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#059669] hover:text-[#047857] transition-colors"
+        >
+          <span>View All My Bookings</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
+      {/* Receipt Modal */}
+      {isReceiptOpen && (
+        <ReceiptModal
+          isOpen={isReceiptOpen}
+          onClose={() => setIsReceiptOpen(false)}
+          identifier={bookingRef}
+        />
+      )}
     </div>
   );
 };

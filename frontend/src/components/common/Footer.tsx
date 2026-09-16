@@ -8,77 +8,63 @@ import {
   ShieldCheck,
   Zap,
   Heart,
+  Calendar,
 } from "lucide-react";
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-slate-950 text-slate-400 border-t border-slate-800">
+    <footer className="bg-white text-slate-600 border-t border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Col */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-white" />
+            <div className="flex items-center space-x-3">
+              <img
+                src="/logo.png"
+                alt="Friends Turf Logo"
+                className="w-12 h-12 object-contain drop-shadow-sm"
+              />
+              <div>
+                <span className="text-xl font-black text-slate-900 tracking-tight block leading-tight">
+                  FRIENDS <span className="text-[#059669]">TURF</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  Sports Complex & Pitches
+                </span>
               </div>
-              <span className="text-xl font-black text-white tracking-tight">
-                FRIENDS TURF
-              </span>
             </div>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              India's state-of-the-art sports turf network. Experience seamless
-              slot bookings, dynamic pricing, instant QR match entry, and elite
-              tournament grounds.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Friends Turf is Tiruppur's premier athletic complex featuring high-grade turf pitches for Football, Box Cricket, and multi-sport tournaments.
             </p>
-            <div className="flex items-center space-x-2 text-xs text-emerald-400 font-semibold">
-              <Zap className="w-4 h-4" />
-              <span>Real-Time Instant Slot Locking Active</span>
+            <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-emerald-200 text-xs text-[#059669] font-bold">
+              <Zap className="w-3.5 h-3.5 text-[#059669]" />
+              <span>Real-Time 5-Min Slot Lock Active</span>
             </div>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
               Quick Navigation
             </h3>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2.5 text-sm font-medium">
               <li>
-                <Link
-                  to="/turfs"
-                  className="hover:text-emerald-400 transition-colors"
-                >
-                  Browse Turfs & Pitches
+                <Link to="/turfs" className="hover:text-[#059669] transition-colors">
+                  Our Pitches & Arenas
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/offers"
-                  className="hover:text-emerald-400 transition-colors"
-                >
-                  Discounts & Promo Coupons
+                <Link to="/offers" className="hover:text-[#059669] transition-colors">
+                  Promo Coupons & Offers
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/membership"
-                  className="hover:text-emerald-400 transition-colors"
-                >
-                  VIP Memberships
+                <Link to="/loyalty" className="hover:text-[#059669] transition-colors">
+                  Loyalty Points Converter
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/loyalty"
-                  className="hover:text-emerald-400 transition-colors"
-                >
-                  Loyalty Rewards Program
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/wallet"
-                  className="hover:text-emerald-400 transition-colors"
-                >
+                <Link to="/wallet" className="hover:text-[#059669] transition-colors">
                   Turf Cash Wallet
                 </Link>
               </li>
@@ -87,66 +73,68 @@ export const Footer: React.FC = () => {
 
           {/* Facilities */}
           <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-              Turf Amenities
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
+              Pitch & Arena Quality
             </h3>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>FIFA-Standard Turf</span>
+            <ul className="space-y-2.5 text-sm">
+              <li className="flex items-center space-x-2 text-slate-700">
+                <ShieldCheck className="w-4 h-4 text-[#059669] shrink-0" />
+                <span>Shockpad Artificial Grass</span>
               </li>
-              <li className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>High-Lumen Night Floodlights</span>
+              <li className="flex items-center space-x-2 text-slate-700">
+                <ShieldCheck className="w-4 h-4 text-[#059669] shrink-0" />
+                <span>Anti-Glare LED Floodlights</span>
               </li>
-              <li className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>Lockers & Showers</span>
+              <li className="flex items-center space-x-2 text-slate-700">
+                <ShieldCheck className="w-4 h-4 text-[#059669] shrink-0" />
+                <span>Clean Restrooms & Washrooms</span>
               </li>
-              <li className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>Secure Camera Parking</span>
+              <li className="flex items-center space-x-2 text-slate-700">
+                <ShieldCheck className="w-4 h-4 text-[#059669] shrink-0" />
+                <span>Two-Wheeler & Car Parking</span>
               </li>
-              <li className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>Purified Chilled Water</span>
+              <li className="flex items-center space-x-2 text-slate-700">
+                <ShieldCheck className="w-4 h-4 text-[#059669] shrink-0" />
+                <span>Purified RO Drinking Water</span>
               </li>
             </ul>
           </div>
 
           {/* Contact & Hours */}
           <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-              Venue & Support
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
+              Campus & Booking Lines
             </h3>
             <div className="space-y-3 text-sm">
-              <p className="flex items-start space-x-2.5">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Koramangala, Indiranagar & HSR Layout, Bengaluru</span>
+              <p className="flex items-start space-x-2.5 text-slate-700">
+                <MapPin className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
+                <span>Near Sirupooluvapatti, Kamatchepuram, Tiruppur, Tamil Nadu 641603 (RTO Office Backside)</span>
               </p>
-              <p className="flex items-center space-x-2.5">
-                <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>+91 98765 43210 (24/7 Match Line)</span>
-              </p>
-              <p className="flex items-center space-x-2.5">
-                <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="flex items-start space-x-2.5 text-slate-700">
+                <Phone className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
+                <div className="flex flex-col">
+                  <a href="tel:9361989494" className="font-semibold hover:text-[#059669]">+91 93619 89494</a>
+                  <a href="tel:9363989494" className="font-semibold hover:text-[#059669]">+91 93639 89494</a>
+                </div>
+              </div>
+              <p className="flex items-center space-x-2.5 text-slate-700">
+                <Mail className="w-4 h-4 text-[#059669] shrink-0" />
                 <span>play@friendsturf.com</span>
               </p>
-              <div className="pt-2">
-                <span className="inline-block px-3 py-1 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded-full text-xs font-semibold">
-                  Open Daily: 06:00 AM – 11:00 PM
+              <div className="pt-1">
+                <span className="inline-block px-3 py-1.5 bg-[#F0FDF4] border border-emerald-200 text-[#059669] rounded-xl text-xs font-bold">
+                  Open Daily: 05:00 AM – 12:00 AM
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Friends Turf. All rights reserved.</p>
-          <p className="flex items-center space-x-1 mt-2 sm:mt-0">
-            <span>Crafted with</span>
+        <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium">
+          <p>© {new Date().getFullYear()} Friends Turf Systems. All rights reserved.</p>
+          <p className="flex items-center space-x-1.5 mt-2 sm:mt-0">
+            <span>Built with precision for athletic performance</span>
             <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            <span>for sports lovers</span>
           </p>
         </div>
       </div>

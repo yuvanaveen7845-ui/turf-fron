@@ -14,19 +14,20 @@ import {
   LayoutDashboard,
   Bell,
   Search,
-  ShieldAlert,
   ChevronDown,
   Sparkles,
+  Shield,
   Layers,
 } from "lucide-react";
 import api from "../../services/api";
+import { useRealtime } from "../../context/RealtimeContext";
 
 export const Navbar: React.FC = () => {
-  const { user, logout, quickLogin } = useAuth();
+  const { user, logout } = useAuth();
+  const { status: realtimeStatus } = useRealtime();
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [showRoleMenu, setShowRoleMenu] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
 
   useEffect(() => {
@@ -40,148 +41,74 @@ export const Navbar: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const handleRoleSwitch = async (role: "CUSTOMER" | "STAFF" | "ADMIN") => {
-    setShowRoleMenu(false);
-    await quickLogin(role);
-    if (role === "ADMIN") navigate("/admin");
-    else if (role === "STAFF") navigate("/staff");
-    else navigate("/");
-  };
-
   return (
-    <nav className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-emerald-900/30 text-white">
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.03)] text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
           <div className="flex items-center space-x-3">
-            <Link to="/" className="flex items-center space-x-2.5 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-                <Trophy className="w-5 h-5 text-white" />
-              </div>
+            <Link to="/" className="flex items-center space-x-3 group">
+              <img
+                src="/logo.png"
+                alt="Friends Turf"
+                className="w-11 h-11 object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
+              />
               <div>
-                <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
-                  FRIENDS TURF
+                <span className="text-xl font-extrabold tracking-tight text-slate-900 leading-tight block">
+                  FRIENDS <span className="text-[#059669]">TURF</span>
                 </span>
-                <span className="hidden sm:block text-[10px] text-emerald-400/80 font-medium tracking-widest uppercase -mt-1">
-                  Turf Arena & Booking
+                <span className="hidden sm:block text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+                  Official Arena & Pitch Booking
                 </span>
               </div>
             </Link>
-
-            {/* Quick Role Badge Switcher for pair testing */}
-            <div className="relative ml-2">
-              <button
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center space-x-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"
-                title="Switch Demo Role"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{user ? user.role : "DEMO ROLES"}</span>
-                <ChevronDown className="w-3 h-3 opacity-70" />
-              </button>
-
-              {showRoleMenu && (
-                <div className="absolute left-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-3 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Quick Role Switch
-                  </div>
-                  <button
-                    onClick={() => handleRoleSwitch("CUSTOMER")}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-emerald-600/20 hover:text-emerald-400 flex items-center justify-between"
-                  >
-                    <span>Customer View</span>
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">
-                      Player
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleRoleSwitch("STAFF")}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-amber-600/20 hover:text-amber-400 flex items-center justify-between"
-                  >
-                    <span>Staff Gate View</span>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
-                      Scanner
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleRoleSwitch("ADMIN")}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-purple-600/20 hover:text-purple-400 flex items-center justify-between"
-                  >
-                    <span>Admin Dashboard</span>
-                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
-                      Manager
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Navigation Links according to user role */}
-          <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
+          <div className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
             {(!user || user.role === "CUSTOMER") && (
               <>
                 <Link
                   to="/"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/")
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-[#ECFDF5] text-[#059669]"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
-                  Home
+                  Explore
                 </Link>
                 <Link
                   to="/turfs"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/turfs")
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-[#ECFDF5] text-[#059669]"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
-                  Book Turf
+                  Our Pitches
                 </Link>
                 {user && (
                   <>
                     <Link
                       to="/my-bookings"
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                         isActive("/my-bookings")
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                          ? "bg-[#ECFDF5] text-[#059669]"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                       }`}
                     >
                       My Bookings
                     </Link>
                     <Link
                       to="/offers"
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                         isActive("/offers")
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                          ? "bg-[#ECFDF5] text-[#059669]"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                       }`}
                     >
-                      Offers
-                    </Link>
-                    <Link
-                      to="/wallet"
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive("/wallet")
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-                      }`}
-                    >
-                      Wallet
-                    </Link>
-                    <Link
-                      to="/loyalty"
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isActive("/loyalty")
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-                      }`}
-                    >
-                      Loyalty
+                      Coupons & Offers
                     </Link>
                   </>
                 )}
@@ -192,49 +119,39 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/staff"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/staff")
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-amber-50 text-amber-800"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <span className="flex items-center space-x-1.5">
                     <LayoutDashboard className="w-4 h-4" />
-                    <span>Staff Dashboard</span>
+                    <span>Staff Portal</span>
                   </span>
                 </Link>
                 <Link
                   to="/staff/scanner"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/staff/scanner")
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-[#ECFDF5] text-[#059669]"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <span className="flex items-center space-x-1.5">
                     <QrCode className="w-4 h-4" />
-                    <span>QR Scanner</span>
+                    <span>Gate Scanner</span>
                   </span>
                 </Link>
                 <Link
                   to="/staff/walk-in"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/staff/walk-in")
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-[#ECFDF5] text-[#059669]"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   Walk-ins
-                </Link>
-                <Link
-                  to="/staff/search"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive("/staff/search")
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-                  }`}
-                >
-                  Search Booking
                 </Link>
               </>
             )}
@@ -243,10 +160,10 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/admin"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/admin")
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-purple-50 text-purple-700"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <span className="flex items-center space-x-1.5">
@@ -256,40 +173,30 @@ export const Navbar: React.FC = () => {
                 </Link>
                 <Link
                   to="/admin/bookings"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/admin/bookings")
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-purple-50 text-purple-700"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   Bookings
                 </Link>
                 <Link
                   to="/admin/turfs"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/admin/turfs")
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-purple-50 text-purple-700"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   Turfs
                 </Link>
                 <Link
-                  to="/admin/pricing"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive("/admin/pricing")
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-                  }`}
-                >
-                  Pricing
-                </Link>
-                <Link
                   to="/admin/reports"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors ${
                     isActive("/admin/reports")
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "bg-purple-50 text-purple-700"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   Reports
@@ -300,20 +207,48 @@ export const Navbar: React.FC = () => {
 
           {/* Right Action Items */}
           <div className="flex items-center space-x-3">
+            {/* Realtime Live Sync Status */}
+            <div
+              className={`hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                realtimeStatus === "CONNECTED"
+                  ? "bg-[#ECFDF5] border-emerald-200 text-[#059669]"
+                  : realtimeStatus === "CONNECTING"
+                  ? "bg-amber-50 border-amber-200 text-amber-700"
+                  : "bg-slate-100 border-slate-200 text-slate-500"
+              }`}
+              title={
+                realtimeStatus === "CONNECTED"
+                  ? "Real-time Live Sync Stream Active"
+                  : realtimeStatus === "CONNECTING"
+                  ? "Reconnecting to live sync stream..."
+                  : "Live sync offline (using polling fallback)"
+              }
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  realtimeStatus === "CONNECTED"
+                    ? "bg-[#10B981] animate-pulse"
+                    : realtimeStatus === "CONNECTING"
+                    ? "bg-amber-500 animate-ping"
+                    : "bg-slate-400"
+                }`}
+              />
+              <span className="uppercase tracking-wider">
+                {realtimeStatus === "CONNECTED" ? "Live" : realtimeStatus === "CONNECTING" ? "Syncing" : "Offline"}
+              </span>
+            </div>
+
             {user ? (
               <>
                 {/* Wallet Preview for Customer */}
                 {user.role === "CUSTOMER" && user.customer_profile && (
                   <Link
                     to="/wallet"
-                    className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/50 hover:border-emerald-500/50 transition-colors"
+                    className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-emerald-200 hover:bg-emerald-100 transition-colors"
                   >
-                    <Wallet className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-semibold text-emerald-300">
-                      ₹
-                      {Number(
-                        user.customer_profile.wallet_balance || 0,
-                      ).toLocaleString()}
+                    <Wallet className="w-4 h-4 text-[#059669]" />
+                    <span className="text-xs font-bold text-[#059669]">
+                      ₹{Number(user.customer_profile.wallet_balance || 0).toLocaleString("en-IN")}
                     </span>
                   </Link>
                 )}
@@ -321,12 +256,12 @@ export const Navbar: React.FC = () => {
                 {/* Notification Bell */}
                 <Link
                   to="/notifications"
-                  className="relative p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors"
+                  className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                   title="Notifications"
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                    <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
                       {unreadCount}
                     </span>
                   )}
@@ -336,54 +271,44 @@ export const Navbar: React.FC = () => {
                 <div className="relative">
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-800/60 transition-colors"
+                    className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-sm text-white">
+                    <div className="w-8 h-8 rounded-xl bg-[#059669] flex items-center justify-center font-bold text-sm text-white shadow-sm">
                       {user.first_name
                         ? user.first_name[0].toUpperCase()
                         : user.email[0].toUpperCase()}
                     </div>
-                    <span className="hidden sm:block text-xs font-medium text-slate-200">
+                    <span className="hidden sm:block text-xs font-bold text-slate-800">
                       {user.first_name || user.email.split("@")[0]}
                     </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
                   </button>
 
                   {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-2 z-50">
-                      <div className="px-4 py-2 border-b border-slate-700/60">
-                        <p className="text-sm font-bold text-white truncate">
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
+                      <div className="px-4 py-2.5 border-b border-slate-100">
+                        <p className="text-sm font-bold text-slate-900 truncate">
                           {user.full_name || user.email}
                         </p>
-                        <p className="text-xs text-emerald-400 font-medium">
+                        <p className="text-xs text-[#059669] font-semibold mt-0.5">
                           {user.role} Account
                         </p>
                       </div>
                       <Link
                         to="/profile"
                         onClick={() => setShowUserMenu(false)}
-                        className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                        className="flex items-center space-x-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-[#059669]"
                       >
-                        <UserIcon className="w-4 h-4" />
+                        <UserIcon className="w-4 h-4 text-slate-400" />
                         <span>Profile & Referral</span>
                       </Link>
-                      {user.role === "CUSTOMER" && (
-                        <Link
-                          to="/membership"
-                          onClick={() => setShowUserMenu(false)}
-                          className="flex items-center space-x-2 px-4 py-2 text-sm text-amber-300 hover:bg-slate-700/50"
-                        >
-                          <Award className="w-4 h-4 text-amber-400" />
-                          <span>Membership Club</span>
-                        </Link>
-                      )}
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
                           logout();
                           navigate("/login");
                         }}
-                        className="w-full text-left flex items-center space-x-2 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                        className="w-full text-left flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
                       >
                         <LogOut className="w-4 h-4" />
                         <span>Sign Out</span>
@@ -396,15 +321,15 @@ export const Navbar: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Link
                   to="/login"
-                  className="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                   Log In
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-1.5 rounded-lg text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 shadow-md shadow-emerald-500/20 transition-colors"
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-[#059669] text-white hover:bg-[#047857] shadow-emerald-glow transition-all"
                 >
-                  Register
+                  Get Started
                 </Link>
               </div>
             )}

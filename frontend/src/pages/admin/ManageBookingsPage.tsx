@@ -8,22 +8,41 @@ import {
   CheckCircle,
   XCircle,
   QrCode,
+  ShieldCheck,
+  User,
+  Sparkles,
+  Phone,
+  RefreshCw,
+  PlusCircle,
+  DollarSign,
 } from "lucide-react";
 import api from "../../services/api";
 import { Booking } from "../../types";
+import { Button, StatusBadge, DataTable, EmptyState } from "../../components/ui";
+import { ContextualBookingDrawer } from "../../components/admin/ContextualBookingDrawer";
+import { NewBookingWizardModal } from "../../components/admin/NewBookingWizardModal";
+import { RecordOfflinePaymentModal } from "../../components/admin/RecordOfflinePaymentModal";
 
 export const ManageBookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [search, setSearch] = useState("");
+
+  // Drawer & Modals State
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
+  const [isOfflinePaymentOpen, setIsOfflinePaymentOpen] = useState(false);
+  const [paymentBookingId, setPaymentBookingId] = useState<string | number | undefined>();
 
   const fetchBookings = () => {
     setLoading(true);
     api
       .get("/bookings/")
-      .then((res) => setBookings(res.data))
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        setBookings(list);
+      })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   };
@@ -32,231 +51,241 @@ export const ManageBookingsPage: React.FC = () => {
     fetchBookings();
   }, []);
 
+  const openDrawer = (b: Booking) => {
+    setSelectedBooking(b);
+    setIsDrawerOpen(true);
+  };
+
+  const handleOpenPayment = (bookingId: string | number) => {
+    setPaymentBookingId(bookingId);
+    setIsOfflinePaymentOpen(true);
+  };
+
   const filteredBookings = bookings.filter((b) => {
-    const matchesStatus = statusFilter === "ALL" || b.status === statusFilter;
-    const matchesSearch =
-      b.booking_id.toLowerCase().includes(search.toLowerCase()) ||
-      b.customer_details?.email.toLowerCase().includes(search.toLowerCase()) ||
-      b.turf_details?.name.toLowerCase().includes(search.toLowerCase());
-    return matchesStatus && matchesSearch;
+    return statusFilter === "ALL" || b.status === statusFilter;
   });
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+  const columns = [
+    {
+      key: "booking_id",
+      header: "Booking ID",
+      sortable: true,
+      render: (b: Booking) => (
+        <span
+          onClick={() => openDrawer(b)}
+          className="font-mono font-bold text-slate-900 text-xs sm:text-sm hover:text-[#059669] cursor-pointer"
+        >
+          #{b.booking_id || b.id}
+        </span>
+      ),
+    },
+    {
+      key: "turf",
+      header: "Pitch / Turf",
+      render: (b: Booking) => (
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
-            Master Operations
-          </span>
-          <h1 className="text-2xl font-black text-white tracking-tight">
-            All System Bookings
-          </h1>
+          <div className="font-bold text-slate-900">
+            {b.turf_details?.name || "Friends Turf Arena"}
+          </div>
+          <div className="text-[11px] text-slate-400">
+            {b.turf_details?.sport_type || "Pitch"}
+          </div>
         </div>
-
-        <button
-          onClick={fetchBookings}
-          className="text-xs font-bold text-purple-400 hover:underline"
-        >
-          ↻ Refresh Bookings
-        </button>
-      </div>
-
-      {/* Filters Bar */}
-      <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search booking ID, customer email, turf..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
-          />
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      render: (b: Booking) => (
+        <div>
+          <p className="font-bold text-slate-900">
+            {b.customer_details?.full_name || "Customer"}
+          </p>
+          <p className="text-[11px] text-slate-400">
+            {b.customer_details?.phone || b.customer_details?.email}
+          </p>
         </div>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 outline-none focus:border-purple-500"
-        >
-          <option value="ALL">All Statuses</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="CHECKED_IN">Checked-In</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="PAYMENT_PENDING">Payment Pending</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="NO_SHOW">No-Show</option>
-        </select>
-      </div>
-
-      {/* Bookings Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500 text-xs animate-pulse">
-            Loading all bookings...
-          </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs">
-            No bookings found matching filters.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
-                <tr>
-                  <th className="py-3.5 px-4">Booking ID</th>
-                  <th className="py-3.5 px-4">Turf</th>
-                  <th className="py-3.5 px-4">Customer</th>
-                  <th className="py-3.5 px-4">Date & Time</th>
-                  <th className="py-3.5 px-4">Amount</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {filteredBookings.map((b) => (
-                  <tr
-                    key={b.id}
-                    className="hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="py-4 px-4 font-mono font-bold text-white whitespace-nowrap">
-                      {b.booking_id}
-                    </td>
-                    <td className="py-4 px-4 font-medium text-white">
-                      {b.turf_details?.name}
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="font-bold text-white">
-                        {b.customer_details?.full_name || "Player"}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {b.customer_details?.email}
-                      </p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="font-semibold text-white">{b.date}</p>
-                      <p className="text-[11px] text-slate-400">
-                        {b.start_time.slice(0, 5)} - {b.end_time.slice(0, 5)}
-                      </p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="font-bold text-emerald-400">
-                        ₹{b.final_amount}
-                      </span>
-                      {Number(b.balance_due) > 0 && (
-                        <p className="text-[10px] text-amber-400">
-                          Due: ₹{b.balance_due}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-950 border border-slate-700 text-slate-200">
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <button
-                        onClick={() => setSelectedBooking(b)}
-                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold"
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Inspect Booking Modal */}
-      {selectedBooking && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 max-w-lg w-full rounded-3xl p-6 sm:p-8 space-y-5 animate-in fade-in">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <span className="font-mono font-bold text-purple-400 text-sm">
-                {selectedBooking.booking_id}
-              </span>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="text-slate-400 hover:text-white font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-bold">
-                  Turf
-                </span>
-                <p className="font-bold text-white mt-0.5">
-                  {selectedBooking.turf_details?.name}
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-bold">
-                  Customer
-                </span>
-                <p className="font-bold text-white mt-0.5">
-                  {selectedBooking.customer_details?.full_name}
-                </p>
-                <p className="text-slate-400">
-                  {selectedBooking.customer_details?.email}
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-bold">
-                  Date & Time
-                </span>
-                <p className="font-bold text-white mt-0.5">
-                  {selectedBooking.date} (
-                  {selectedBooking.start_time.slice(0, 5)} -{" "}
-                  {selectedBooking.end_time.slice(0, 5)})
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-bold">
-                  Financials
-                </span>
-                <p className="font-bold text-emerald-400 mt-0.5">
-                  Paid: ₹{selectedBooking.amount_paid} / Total: ₹
-                  {selectedBooking.final_amount}
-                </p>
-              </div>
-            </div>
-
-            {selectedBooking.pricing_breakdown && (
-              <div className="p-3 bg-slate-950 rounded-xl text-xs space-y-1">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">
-                  Pricing Breakdown
-                </span>
-                <div className="flex justify-between text-slate-400">
-                  <span>
-                    Subtotal: ₹{selectedBooking.pricing_breakdown.subtotal}
-                  </span>
-                  <span>
-                    GST: ₹{selectedBooking.pricing_breakdown.tax_amount}
-                  </span>
-                  <span>
-                    Discount: -₹
-                    {selectedBooking.pricing_breakdown.total_discount}
-                  </span>
-                </div>
-              </div>
+      ),
+    },
+    {
+      key: "datetime",
+      header: "Date & Match Time",
+      render: (b: Booking) => (
+        <div>
+          <p className="font-semibold text-slate-800 flex items-center gap-1">
+            <Calendar className="w-3 h-3 text-[#059669]" />
+            <span>{b.date}</span>
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
+            <Clock className="w-3 h-3 text-slate-400" />
+            <span>{b.start_time?.slice(0, 5)} - {b.end_time?.slice(0, 5)}</span>
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "financials",
+      header: "Amount & Balance",
+      render: (b: Booking) => {
+        const balance = Number(b.balance_due || 0);
+        return (
+          <div>
+            <span className="font-black text-slate-900 font-mono">
+              ₹{Number(b.final_amount).toLocaleString("en-IN")}
+            </span>
+            {balance > 0 ? (
+              <p className="text-[10px] text-amber-600 font-bold">
+                Due: ₹{balance.toLocaleString("en-IN")}
+              </p>
+            ) : (
+              <p className="text-[10px] text-[#059669] font-semibold">Fully Settled</p>
             )}
-
-            <button
-              onClick={() => setSelectedBooking(null)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-white font-bold text-xs"
-            >
-              Close
-            </button>
           </div>
+        );
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (b: Booking) => <StatusBadge status={b.status} size="sm" />,
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right" as const,
+      render: (b: Booking) => {
+        const balance = Number(b.balance_due || 0);
+        return (
+          <div className="flex items-center justify-end space-x-2">
+            {balance > 0 && b.status !== "CANCELLED" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenPayment(b.id)}
+                className="text-[#059669] hover:bg-emerald-50 border-emerald-200"
+              >
+                Pay ₹{balance}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openDrawer(b)}
+            >
+              Manage
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <div className="inline-flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-[#059669]">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Operational Booking Ledger</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Match Bookings
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Real-time ledger of player reservations, offline payments, slot adjustments, and pass status
+          </p>
         </div>
-      )}
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => {
+              setPaymentBookingId(undefined);
+              setIsOfflinePaymentOpen(true);
+            }}
+            leftIcon={<DollarSign className="w-4 h-4 text-[#059669]" />}
+          >
+            Record Payment
+          </Button>
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsNewBookingOpen(true)}
+            leftIcon={<PlusCircle className="w-4 h-4" />}
+          >
+            + New Booking
+          </Button>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-2">
+        {["ALL", "CONFIRMED", "CHECKED_IN", "PENDING", "CANCELLED"].map((st) => (
+          <button
+            key={st}
+            onClick={() => setStatusFilter(st)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              statusFilter === st
+                ? "bg-[#059669] text-white shadow-2xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            {st.replace("_", " ")}
+          </button>
+        ))}
+      </div>
+
+      {/* Bookings DataTable */}
+      <DataTable
+        columns={columns}
+        data={filteredBookings}
+        keyExtractor={(item) => item.id}
+        isLoading={loading}
+        searchPlaceholder="Search booking ID, customer, turf..."
+        searchableKey={(b) =>
+          `${b.booking_id} ${b.customer_details?.full_name} ${b.customer_details?.phone} ${b.turf_details?.name}`
+        }
+        emptyTitle="No match bookings found"
+        emptyDescription="Player reservations and walk-in counter bookings will appear in this ledger."
+        emptyActionText="+ Create Booking"
+        onEmptyAction={() => setIsNewBookingOpen(true)}
+      />
+
+      {/* Contextual Booking Drawer */}
+      <ContextualBookingDrawer
+        booking={selectedBooking}
+        isOpen={isDrawerOpen}
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setSelectedBooking(null);
+        }}
+        onBookingUpdated={fetchBookings}
+        onRecordPaymentClick={(id) => {
+          setIsDrawerOpen(false);
+          handleOpenPayment(id);
+        }}
+      />
+
+      {/* New Booking Wizard */}
+      <NewBookingWizardModal
+        isOpen={isNewBookingOpen}
+        onClose={() => setIsNewBookingOpen(false)}
+        onBookingCreated={fetchBookings}
+      />
+
+      {/* Record Offline Payment Modal */}
+      <RecordOfflinePaymentModal
+        isOpen={isOfflinePaymentOpen}
+        onClose={() => {
+          setIsOfflinePaymentOpen(false);
+          setPaymentBookingId(undefined);
+        }}
+        preselectedBookingId={paymentBookingId}
+        onPaymentSuccess={fetchBookings}
+      />
     </div>
   );
 };

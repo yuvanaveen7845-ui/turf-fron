@@ -10,6 +10,7 @@ import {
   Award,
   Save,
   Check,
+  Share2,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -43,85 +44,69 @@ export const ProfilePage: React.FC = () => {
   if (!user) return null;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       {/* Header */}
-      <div className="border-b border-slate-800 pb-5">
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+      <div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
           Account Center
         </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+        <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-tight">
           Player Profile & Settings
         </h1>
+        <p className="text-sm text-slate-600 mt-0.5">
+          Manage your personal details, booking preferences, and player wallet.
+        </p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Total Bookings
+            Matches Played
           </span>
-          <p className="text-2xl font-black text-white mt-1">
+          <p className="text-2xl font-black text-slate-900 mt-1">
             {user.customer_profile?.total_bookings || 0}
           </p>
         </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Total Spending
+            Wallet Balance
           </span>
-          <p className="text-2xl font-black text-emerald-400 mt-1">
-            ₹
-            {Number(
-              user.customer_profile?.total_spending || 0,
-            ).toLocaleString()}
+          <p className="text-2xl font-black text-[#059669] mt-1">
+            ₹{Number(user.customer_profile?.wallet_balance || 0).toLocaleString("en-IN")}
           </p>
         </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Club Membership
+            Reward Points
           </span>
-          <p className="text-2xl font-black text-amber-400 mt-1">
-            {user.customer_profile?.membership_tier || "REGULAR"}
-          </p>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Loyalty Points
-          </span>
-          <p className="text-2xl font-black text-teal-400 mt-1">
+          <p className="text-2xl font-black text-amber-500 mt-1">
             {user.customer_profile?.loyalty_points || 0}
+          </p>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+            Account Status
+          </span>
+          <p className="text-2xl font-black text-[#059669] mt-1">
+            ACTIVE
           </p>
         </div>
       </div>
 
       {/* Profile Form */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-        <div className="flex items-center space-x-3 pb-4 border-b border-slate-800">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-slate-950 font-black text-xl">
-            {user.first_name
-              ? user.first_name[0].toUpperCase()
-              : user.email[0].toUpperCase()}
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">
-              {user.full_name || user.email}
-            </h2>
-            <p className="text-xs text-emerald-400 font-semibold">
-              {user.role} Account • Ref Code: {user.referral_code}
-            </p>
-          </div>
-        </div>
-
-        {success && (
-          <div className="p-3 bg-emerald-950/80 border border-emerald-800 rounded-xl text-xs text-emerald-300 flex items-center space-x-2">
-            <Check className="w-4 h-4" />
-            <span>Profile updated successfully!</span>
-          </div>
-        )}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-pitch-card space-y-6">
+        <h3 className="text-base font-bold text-slate-900">
+          Personal Information
+        </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="text-xs font-bold text-slate-700 block mb-1">
                 First Name
               </label>
               <input
@@ -130,11 +115,12 @@ export const ProfilePage: React.FC = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, first_name: e.target.value })
                 }
-                className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-[#059669] outline-none"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="text-xs font-bold text-slate-700 block mb-1">
                 Last Name
               </label>
               <input
@@ -143,66 +129,89 @@ export const ProfilePage: React.FC = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, last_name: e.target.value })
                 }
-                className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-[#059669] outline-none"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Phone Number
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Email Address (Account ID)
               </label>
               <input
-                type="text"
+                type="email"
+                disabled
+                value={user.email}
+                className="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-medium text-slate-500 cursor-not-allowed"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Phone Number (For Match SMS)
+              </label>
+              <input
+                type="tel"
                 value={formData.phone}
                 onChange={(e) =>
                   setFormData({ ...formData, phone: e.target.value })
                 }
-                className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Date of Birth{" "}
-                <span className="text-slate-500 font-normal">
-                  (for birthday coupons)
-                </span>
-              </label>
-              <input
-                type="date"
-                value={formData.birthday || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, birthday: e.target.value })
-                }
-                className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                placeholder="+91 98765 43210"
+                className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-[#059669] outline-none"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">
-              Email (Primary ID)
-            </label>
-            <input
-              type="email"
-              disabled
-              value={user.email}
-              className="w-full p-2.5 bg-slate-950/40 border border-slate-800 text-slate-500 rounded-xl text-xs cursor-not-allowed"
-            />
-          </div>
-
-          <div className="pt-2">
+          <div className="pt-2 flex items-center justify-between">
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center space-x-2 transition-colors disabled:opacity-50"
+              className="px-6 py-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-emerald-glow flex items-center space-x-2 transition-all cursor-pointer"
             >
-              <Save className="w-4 h-4" />
-              <span>{loading ? "Saving..." : "Save Profile Changes"}</span>
+              {loading ? (
+                <span>Saving...</span>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Profile</span>
+                </>
+              )}
             </button>
+
+            {success && (
+              <span className="text-xs font-bold text-[#059669] flex items-center space-x-1">
+                <Check className="w-4 h-4" />
+                <span>Profile updated successfully</span>
+              </span>
+            )}
           </div>
         </form>
+      </div>
+
+      {/* Referral Code Box */}
+      <div className="bg-[#ECFDF5] border border-emerald-200 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <span className="text-[10px] font-bold text-[#059669] uppercase tracking-wider">
+            Your Personal Referral Code
+          </span>
+          <h4 className="text-xl font-mono font-black text-slate-900">
+            {user.referral_code}
+          </h4>
+          <p className="text-xs text-slate-600">
+            Share with friends to give ₹100 and receive ₹100 on their first pitch booking.
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(user.referral_code);
+            alert("Referral code copied to clipboard!");
+          }}
+          className="px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0"
+        >
+          Copy Referral Code
+        </button>
       </div>
     </div>
   );

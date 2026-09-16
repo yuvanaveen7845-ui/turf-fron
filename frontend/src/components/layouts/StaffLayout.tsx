@@ -10,6 +10,7 @@ import {
   Clock,
   ShieldCheck,
 } from "lucide-react";
+import { QuickActionAnywhere } from "../common/QuickActionAnywhere";
 
 export const StaffLayout: React.FC = () => {
   const location = useLocation();
@@ -24,16 +25,24 @@ export const StaffLayout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900">
       <Navbar />
 
       {/* Staff Sub-header Navigation */}
-      <div className="bg-slate-900 border-b border-amber-500/20 px-4 sm:px-6 lg:px-8 py-3">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+          <div className="flex items-center space-x-2.5">
+            <img
+              src="/logo.png"
+              alt="Friends Turf"
+              className="w-6 h-6 object-contain shrink-0"
+            />
+            <span className="text-xs font-bold uppercase tracking-wider text-[#059669]">
               Ground Operations Console
+            </span>
+            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669] border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
+              <span>Live Shift</span>
             </span>
           </div>
 
@@ -44,10 +53,10 @@ export const StaffLayout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                  className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                     isActive(item.path)
-                      ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800"
+                      ? "bg-[#059669] text-white shadow-sm shadow-emerald-500/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -62,6 +71,9 @@ export const StaffLayout: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
+
+      {/* Persistent Quick Action Anywhere (FAB + ⌘J) */}
+      <QuickActionAnywhere />
     </div>
   );
 };

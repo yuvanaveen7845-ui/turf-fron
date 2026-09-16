@@ -1,4 +1,5 @@
 export type UserRole = "CUSTOMER" | "STAFF" | "ADMIN";
+export type UserStatus = "ACTIVE" | "INVITED" | "SUSPENDED" | "DISABLED";
 
 export interface CustomerProfile {
   wallet_balance: number | string;
@@ -20,17 +21,63 @@ export interface StaffProfile {
 export interface User {
   id: string;
   email: string;
+  google_id?: string;
   first_name: string;
   last_name: string;
   full_name: string;
+  profile_image?: string;
   phone: string;
   role: UserRole;
+  status: UserStatus;
   referral_code: string;
   date_joined: string;
+  last_login_at?: string;
   is_superuser?: boolean;
   is_staff?: boolean;
+  permissions?: string[];
   customer_profile?: CustomerProfile;
   staff_profile?: StaffProfile;
+}
+
+export type FeatureFlagKey =
+  | "RECURRING_BOOKINGS"
+  | "PARTIAL_PAYMENTS"
+  | "WALK_IN_BOOKINGS"
+  | "DYNAMIC_PRICING"
+  | "QR_CHECKIN"
+  | "ONLINE_PAYMENTS"
+  | "OFFLINE_PAYMENTS"
+  | "COUPONS"
+  | "REVIEWS"
+  | "ADVANCED_REPORTING";
+
+export interface Payment {
+  id: string;
+  payment_id: string;
+  booking: string;
+  booking_reference?: string;
+  customer: string;
+  customer_email?: string;
+  provider: "RAZORPAY" | "WALLET" | "CASH";
+  provider_order_id?: string;
+  provider_payment_id?: string;
+  amount: number | string;
+  currency: string;
+  payment_method: string;
+  payment_type: "FULL" | "PARTIAL" | "BALANCE";
+  status:
+    | "PENDING"
+    | "PROCESSING"
+    | "PAID"
+    | "SUCCESSFUL"
+    | "FAILED"
+    | "TIMEOUT"
+    | "REFUNDED"
+    | "PARTIALLY_REFUNDED";
+  failure_reason?: string;
+  created_at: string;
+  paid_at?: string;
+  completed_at?: string;
 }
 
 export interface Facility {
@@ -50,6 +97,12 @@ export interface Turf {
   address: string;
   base_price: number | string;
   capacity: number;
+  surface_spec?: string;
+  is_fifa_certified?: boolean;
+  lighting_spec?: string;
+  dugout_spec?: string;
+  dimensions?: string;
+  fast_fill_threshold?: number;
   facilities_data: Facility[];
   images: string[];
   operating_hours_start: string;

@@ -20,6 +20,18 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8001',
         changeOrigin: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            if ((err as NodeJS.ErrnoException).code === 'ECONNRESET' || (err as NodeJS.ErrnoException).code === 'ECONNREFUSED') {
+              return;
+            }
+            console.error('[vite proxy error]', err);
+          });
+        },
+      },
+      '/media': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
       },
     },
   },

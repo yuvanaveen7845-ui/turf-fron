@@ -26,8 +26,10 @@ import {
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { ReceiptModal } from "../../components/payment/ReceiptModal";
+import { useToast } from "../../context/ToastContext";
 
 export const ManagePaymentsPage: React.FC = () => {
+  const toast = useToast();
   const { user } = useAuth();
 
   // Primary Data
@@ -166,9 +168,10 @@ export const ManagePaymentsPage: React.FC = () => {
       setCollectAmount("");
       setCollectRef("");
       setCollectNotes("");
+      toast.success("Payment recorded successfully.");
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to record payment.");
+      toast.error(err.response?.data?.error || "Failed to record payment.");
     } finally {
       setCollectLoading(false);
     }
@@ -197,7 +200,7 @@ export const ManagePaymentsPage: React.FC = () => {
     }
 
     if (!amtToRefund || amtToRefund <= 0) {
-      alert("Please enter a valid refund amount.");
+      toast.warning("Please enter a valid refund amount.");
       return;
     }
 
@@ -209,10 +212,12 @@ export const ManagePaymentsPage: React.FC = () => {
         reason: refundReason,
       });
 
+      const successText = `Successfully initiated refund of ₹${amtToRefund} via ${refundTo}.`;
       setFeedback({
         type: "success",
-        text: `Successfully initiated refund of ₹${amtToRefund} via ${refundTo}.`,
+        text: successText,
       });
+      toast.success(successText);
 
       setIsRefundModalOpen(false);
       setRefundPayment(null);
@@ -221,7 +226,7 @@ export const ManagePaymentsPage: React.FC = () => {
       }
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to process refund.");
+      toast.error(err.response?.data?.error || "Failed to process refund.");
     } finally {
       setRefundLoading(false);
     }
@@ -254,12 +259,14 @@ export const ManagePaymentsPage: React.FC = () => {
         notes: drawerNotes,
       });
       setCashDrawerData(res.data);
+      const drawerText = `Daily cash drawer count recorded (Variance: ₹${res.data.variance || 0}).`;
       setFeedback({
         type: "success",
-        text: `Daily cash drawer count recorded (Variance: ₹${res.data.variance || 0}).`,
+        text: drawerText,
       });
+      toast.success(drawerText);
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to close cash drawer.");
+      toast.error(err.response?.data?.error || "Failed to close cash drawer.");
     } finally {
       setDrawerLoading(false);
     }
@@ -288,17 +295,19 @@ export const ManagePaymentsPage: React.FC = () => {
         booking_id: anomaly.booking_id,
       });
 
+      const anomalyText = res.data.message || "Anomaly resolved successfully.";
       setFeedback({
         type: "success",
-        text: res.data.message || "Anomaly resolved successfully.",
+        text: anomalyText,
       });
+      toast.success(anomalyText);
 
       // Refresh reconciliation
       const reconRes = await api.get("/payments/reconciliation/");
       setAnomalies(reconRes.data.anomalies || []);
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to resolve anomaly.");
+      toast.error(err.response?.data?.error || "Failed to resolve anomaly.");
     } finally {
       setReconLoading(false);
     }

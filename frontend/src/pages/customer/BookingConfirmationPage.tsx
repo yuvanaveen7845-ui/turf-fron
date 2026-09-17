@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useParams, Link } from "react-router-dom";
+import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
 import { CheckCircle, ArrowRight, ArrowLeft, Receipt, Ticket, Calendar } from "lucide-react";
 import api from "../../services/api";
 import { Booking } from "../../types";
@@ -8,6 +8,7 @@ import { ReceiptModal } from "../../components/payment/ReceiptModal";
 import { Button } from "../../components/ui";
 
 export const BookingConfirmationPage: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const { bookingId } = useParams<{ bookingId: string }>();
 
@@ -99,24 +100,25 @@ export const BookingConfirmationPage: React.FC = () => {
           Your pitch reservation is locked and cryptographically verified. Present this digital match pass at the gate optical scanner for admission.
         </p>
 
-        {/* Action Buttons: [ View Booking ] [ View Pass ] [ View Receipt ] */}
+        {/* Action Buttons: [ Print Match Pass ] [ Print Receipt ] [ My Bookings ] */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setIsReceiptOpen(true)}
-            leftIcon={<Receipt className="w-4 h-4" />}
+            onClick={() => navigate(`/print/pass/${bookingRef}?autoprint=true`)}
+            leftIcon={<Ticket className="w-4 h-4" />}
           >
-            View Receipt
+            Print / Save Match Pass
           </Button>
 
-          <a
-            href="#match-pass-section"
-            className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 inline-flex items-center space-x-1.5 shadow-sm transition"
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/print/receipt/${bookingRef}?autoprint=true`)}
+            leftIcon={<Receipt className="w-4 h-4 text-[#059669]" />}
           >
-            <Ticket className="w-4 h-4 text-[#059669]" />
-            <span>View Match Pass</span>
-          </a>
+            Official Tax Invoice
+          </Button>
 
           <Link
             to="/my-bookings"

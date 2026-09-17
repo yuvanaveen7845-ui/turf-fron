@@ -20,8 +20,11 @@ import { User } from "../../types";
 import { Button, Input, Modal, DataTable, EmptyState } from "../../components/ui";
 import { QuickCustomerModal } from "../../components/admin/QuickCustomerModal";
 import { NewBookingWizardModal } from "../../components/admin/NewBookingWizardModal";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
 
 export const ManageCustomersPage: React.FC = () => {
+  const toast = useToast();
   const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,24 +49,16 @@ export const ManageCustomersPage: React.FC = () => {
   const [crmLoading, setCrmLoading] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [noteSubmitting, setNoteSubmitting] = useState(false);
+  const [crmModal, setCrmModal] = useState(false);
 
   const fetchCustomers = () => {
     setLoading(true);
     api
-      .get("/auth/admin/customers/")
+      .get("/auth/customers/")
       .then((res) => {
-        const raw = res.data;
-        const list = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.results)
-            ? raw.results
-            : [];
-        setCustomers(list);
+        setCustomers(normalizeList<User>(res.data));
       })
-      .catch((err) => {
-        console.error(err);
-        setCustomers([]);
-      })
+      .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   };
 
@@ -75,10 +70,11 @@ export const ManageCustomersPage: React.FC = () => {
     setCrmLoading(true);
     setCrmCustomer(null);
     try {
-      const res = await api.get(`/auth/customers/${user.id}/`);
+      const res = await api.get(`/auth/customers/${user.id}/crm/`);
       setCrmCustomer(res.data);
     } catch (err) {
       console.error("Failed to load customer CRM profile:", err);
+      toast.error("Failed to load CRM profile.");
     } finally {
       setCrmLoading(false);
     }
@@ -98,8 +94,9 @@ export const ManageCustomersPage: React.FC = () => {
         notes: [res.data, ...(prev?.notes || [])],
       }));
       setNewNoteText("");
+      toast.success("Customer note saved.");
     } catch (err) {
-      alert("Failed to save customer note.");
+      toast.error("Failed to save customer note.");
     } finally {
       setNoteSubmitting(false);
     }
@@ -113,8 +110,9 @@ export const ManageCustomersPage: React.FC = () => {
         ...prev,
         notes: prev.notes.filter((n: any) => n.id !== noteId),
       }));
+      toast.success("Note removed.");
     } catch (err) {
-      alert("Failed to delete note.");
+      toast.error("Failed to delete note.");
     }
   };
 

@@ -22,8 +22,11 @@ import {
 import api from "../../services/api";
 import { User, UserRole, UserStatus } from "../../types";
 import { Button, Input, Select, Modal, DataTable, StatusBadge, EmptyState } from "../../components/ui";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
 
 export const ManageStaffPage: React.FC = () => {
+  const toast = useToast();
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState<string>("");
@@ -120,11 +123,13 @@ export const ManageStaffPage: React.FC = () => {
   const handleStatusChange = async (userId: string, newStatus: UserStatus) => {
     try {
       await api.patch(`/auth/b2b-users/${userId}/`, { status: newStatus });
-      setActionSuccess(`User status updated to ${newStatus}`);
+      const msg = `User status updated to ${newStatus}`;
+      setActionSuccess(msg);
+      toast.success(msg);
       fetchStaff();
       setTimeout(() => setActionSuccess(""), 3000);
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to update status.");
+      toast.error(err.response?.data?.error || "Failed to update status.");
     }
   };
 
@@ -135,14 +140,14 @@ export const ManageStaffPage: React.FC = () => {
       await api.patch(`/auth/b2b-users/${roleChangeTarget.user.id}/`, {
         role: roleChangeTarget.newRole,
       });
-      setActionSuccess(
-        `Role for ${roleChangeTarget.user.full_name} updated to ${roleChangeTarget.newRole}`
-      );
+      const msg = `Role for ${roleChangeTarget.user.full_name} updated to ${roleChangeTarget.newRole}`;
+      setActionSuccess(msg);
+      toast.success(msg);
       setRoleChangeTarget(null);
       fetchStaff();
       setTimeout(() => setActionSuccess(""), 3500);
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to update role.");
+      toast.error(err.response?.data?.error || "Failed to update role.");
     } finally {
       setUpdatingRole(false);
     }

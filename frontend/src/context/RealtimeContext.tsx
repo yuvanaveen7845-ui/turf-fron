@@ -30,11 +30,17 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastTimestampRef = useRef<number>(Date.now() / 1000);
   const eventSourceRef = useRef<EventSource | null>(null);
   const pollIntervalRef = useRef<any>(null);
+  const reconnectTimerRef = useRef<any>(null);
+  const reconnectAttemptsRef = useRef(0);
+
+  const isMountedRef = useRef(true);
+  const isPollingRef = useRef(false);
 
   // Dispatch an incoming event to registered subscribers
   const dispatchEvent = useCallback((event: RealtimeEvent) => {
+    if (!isMountedRef.current) return;
     setLastEvent(event);
-    lastTimestampRef.current = Math.max(lastTimestampRef.current, event.timestamp);
+    lastTimestampRef.current = Math.max(lastTimestampRef.current, event.timestamp || 0);
 
     const specificKey = `${event.channel}:${event.type}`;
     const channelWildcard = `${event.channel}:*`;
@@ -54,10 +60,13 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, []);
 
-  // Polling fallback when SSE is not supported or re-connecting
+  // Safe Delta Polling
   const executeDeltaPoll = useCallback(async () => {
+    if (isPollingRef.current) return;
+    isPollingRef.current = true;
     try {
       const res = await api.get(`/realtime/poll/?since=${lastTimestampRef.current}&channels=slots,gate,operations`);
+      if (!isMountedRef.current) return;
       if (res.data && res.data.events && Array.isArray(res.data.events)) {
         res.data.events.forEach((ev: RealtimeEvent) => dispatchEvent(ev));
       }
@@ -66,36 +75,57 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       setStatus("CONNECTED");
     } catch (err) {
-      setStatus("OFFLINE");
+      if (isMountedRef.current) {
+        setStatus("OFFLINE");
+      }
+    } finally {
+      isPollingRef.current = false;
     }
   }, [dispatchEvent]);
+
+  const startPolling = useCallback(() => {
+    if (!pollIntervalRef.current) {
+      pollIntervalRef.current = setInterval(executeDeltaPoll, 5000);
+    }
+  }, [executeDeltaPoll]);
+
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
 
   // Connect to SSE stream
   const connectSSE = useCallback(() => {
     if (typeof EventSource === "undefined") {
-      // Fallback to periodic polling for older environments
       setStatus("CONNECTED");
-      pollIntervalRef.current = setInterval(executeDeltaPoll, 3000);
+      startPolling();
       return;
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8001/api";
+      const rawApi = import.meta.env.VITE_API_URL || "/api";
+      const apiUrl = rawApi.endsWith("/") ? rawApi.slice(0, -1) : rawApi;
       const sseUrl = `${apiUrl}/realtime/stream/?channels=slots,gate,operations`;
 
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
 
       const es = new EventSource(sseUrl);
       eventSourceRef.current = es;
 
       es.onopen = () => {
+        if (!isMountedRef.current) return;
         setStatus("CONNECTED");
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
+        reconnectAttemptsRef.current = 0;
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
         }
+        stopPolling();
       };
 
       es.onmessage = (e) => {
@@ -107,7 +137,6 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (err) {}
       };
 
-      // Listen to specific custom event types
       const customEvents = [
         "SLOT_LOCKED",
         "SLOT_RELEASED",
@@ -127,31 +156,43 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       es.onerror = () => {
-        setStatus("CONNECTING");
+        if (!isMountedRef.current) return;
         es.close();
-        // Start polling fallback while disconnected
-        if (!pollIntervalRef.current) {
-          pollIntervalRef.current = setInterval(executeDeltaPoll, 3000);
-        }
-        // Attempt SSE reconnection in 5 seconds
-        setTimeout(connectSSE, 5000);
+        eventSourceRef.current = null;
+        startPolling();
+
+        // Exponential backoff for SSE reconnect (10s, 20s, up to 60s)
+        reconnectAttemptsRef.current += 1;
+        const delay = Math.min(60000, 10000 * Math.pow(1.5, reconnectAttemptsRef.current - 1));
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) connectSSE();
+        }, delay);
       };
     } catch (e) {
-      setStatus("OFFLINE");
-      if (!pollIntervalRef.current) {
-        pollIntervalRef.current = setInterval(executeDeltaPoll, 3000);
+      if (isMountedRef.current) {
+        setStatus("OFFLINE");
+        startPolling();
       }
     }
-  }, [dispatchEvent, executeDeltaPoll]);
+  }, [dispatchEvent, startPolling, stopPolling]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     connectSSE();
     return () => {
+      isMountedRef.current = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
     };
   }, [connectSSE]);

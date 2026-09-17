@@ -10,9 +10,11 @@ import {
 import api from "../../services/api";
 import { LoyaltyTransaction } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 
 export const LoyaltyPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
+  const toast = useToast();
   const [points, setPoints] = useState<number>(0);
   const [transactions, setTransactions] = useState<LoyaltyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export const LoyaltyPage: React.FC = () => {
 
   const handleRedeem = async () => {
     if (points < 100) {
-      alert("You need at least 100 loyalty points to redeem.");
+      toast.warning("You need at least 100 loyalty points to redeem.");
       return;
     }
     setRedeemLoading(true);
@@ -49,10 +51,11 @@ export const LoyaltyPage: React.FC = () => {
       });
       setPoints(res.data.loyalty_points);
       setSuccessMsg(res.data.message);
+      toast.success(res.data.message || "Points successfully redeemed to wallet!");
       await refreshProfile();
       fetchLoyalty();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Redemption failed.");
+      toast.error(err.response?.data?.error || "Redemption failed.");
     } finally {
       setRedeemLoading(false);
     }

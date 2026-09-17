@@ -17,13 +17,18 @@ import {
   MapPin,
   Phone,
   Navigation,
+  Activity,
 } from "lucide-react";
 import api from "../../services/api";
 import { Turf } from "../../types";
+import { normalizeList } from "../../utils/helpers";
 import { PitchCard } from "../../components/common/PitchCard";
 import { SearchFilterBar } from "../../components/common/SearchFilterBar";
 import { AmenityGrid } from "../../components/common/AmenityGrid";
 import { DailyScheduleMatrix } from "../../components/common/DailyScheduleMatrix";
+import { SquadSplitWidget } from "../../components/common/SquadSplitWidget";
+import { VerifiedReviewsSection } from "../../components/common/VerifiedReviewsSection";
+import { MatchDayFAQ } from "../../components/common/MatchDayFAQ";
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,13 +44,7 @@ export const HomePage: React.FC = () => {
     api
       .get("/turfs/")
       .then((res) => {
-        const raw = res.data;
-        const list = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.results)
-            ? raw.results
-            : [];
-        setTurfs(list);
+        setTurfs(normalizeList<Turf>(res.data));
       })
       .catch((err) => {
         console.error("Failed to load turfs:", err);
@@ -66,21 +65,53 @@ export const HomePage: React.FC = () => {
       : turfs.filter((t) => t.sport_type === selectedSport);
 
   return (
-    <div className="space-y-12 sm:space-y-16 pb-16">
-      {/* 1. Hero Section */}
-      <section className="relative overflow-hidden pt-8 pb-12 sm:pt-14 sm:pb-16 bg-gradient-to-b from-white via-[#F8FAFC] to-[#F1F5F9] border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-8">
+    <div className="space-y-14 sm:space-y-20 pb-20">
+      {/* 1. Hero Section with Athletic Pitch Geometry & Ambient Stadium Atmosphere */}
+      <section className="relative overflow-hidden pt-8 pb-14 sm:pt-16 sm:pb-20 bg-gradient-to-b from-white via-slate-50/70 to-slate-100/60 border-b border-slate-200/80">
+        {/* Subtle Pitch Geometry Background Pattern */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.035] flex items-center justify-center">
+          <svg
+            className="w-full h-full max-w-6xl"
+            viewBox="0 0 1000 600"
+            fill="none"
+            stroke="#059669"
+            strokeWidth="3"
+          >
+            {/* Outer Pitch Boundary */}
+            <rect x="50" y="30" width="900" height="540" rx="8" />
+            {/* Halfway Line */}
+            <line x1="500" y1="30" x2="500" y2="570" />
+            {/* Center Circle & Spot */}
+            <circle cx="500" cy="300" r="110" />
+            <circle cx="500" cy="300" r="6" fill="#059669" />
+            {/* Left Penalty Box & Arc */}
+            <rect x="50" y="150" width="180" height="300" />
+            <rect x="50" y="210" width="70" height="180" />
+            <path d="M 230 240 A 80 80 0 0 1 230 360" />
+            {/* Right Penalty Box & Arc */}
+            <rect x="770" y="150" width="180" height="300" />
+            <rect x="880" y="210" width="70" height="180" />
+            <path d="M 770 240 A 80 80 0 0 0 770 360" />
+          </svg>
+        </div>
+
+        {/* Ambient Top Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[300px] bg-gradient-to-b from-emerald-500/10 via-emerald-500/5 to-transparent blur-3xl pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-8 sm:space-y-10">
           <div className="text-center max-w-3xl mx-auto space-y-4 sm:space-y-5">
-            {/* Eyebrow Badge */}
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#ECFDF5] border border-emerald-200 text-[#059669] text-xs font-bold tracking-wide">
-              <Flame className="w-3.5 h-3.5 text-[#F59E0B] fill-[#F59E0B]" />
-              <span>OFFICIAL BOOKING PLATFORM • FRIENDS TURF, TIRUPPUR</span>
+            {/* Live Operational Ticker Badge */}
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white border border-emerald-200 text-[#059669] text-xs font-bold shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+              <span className="tracking-wide">
+                OFFICIAL BOOKING PORTAL • FRIENDS TURF, TIRUPPUR
+              </span>
             </div>
 
             {/* Display / Hero H1 */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
               PLAY HARD.{" "}
-              <span className="text-[#059669]">
+              <span className="text-[#059669] drop-shadow-sm">
                 BOOK DIRECT.
               </span>
               <br />
@@ -88,12 +119,12 @@ export const HomePage: React.FC = () => {
             </h1>
 
             {/* Subtext */}
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-              Welcome to Friends Turf. Reserve our tournament-grade football & box cricket pitches in Tiruppur (Near Sirupooluvapatti, RTO Office Backside) with guaranteed 5-minute slot lock and instant entry.
+            <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-normal max-w-2xl mx-auto">
+              Reserve our tournament-grade artificial football & box cricket pitches in Tiruppur (Near Sirupooluvapatti, RTO Office Backside) with guaranteed 5-minute slot lock and instant digital pass.
             </p>
           </div>
 
-          {/* 2. Embedded Pitch & Slot Finder */}
+          {/* 2. Embedded Pitch & Slot Finder Bar */}
           <div className="max-w-4xl mx-auto">
             <SearchFilterBar
               selectedSport={selectedSport}
@@ -107,28 +138,28 @@ export const HomePage: React.FC = () => {
           </div>
 
           {/* 3. Live Stats Counter Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto pt-2">
-            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm text-center">
-              <p className="text-2xl sm:text-3xl font-extrabold text-[#059669]">Pro</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 max-w-4xl mx-auto pt-2">
+            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
+              <p className="text-2xl sm:text-3xl font-black text-[#059669]">Pro</p>
               <p className="text-xs font-bold text-slate-600 mt-0.5">Tournament Pitches</p>
             </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm text-center">
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">100%</p>
-              <p className="text-xs font-bold text-slate-600 mt-0.5">Direct Booking (Zero Broker Fee)</p>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
+              <p className="text-2xl sm:text-3xl font-black text-slate-900">100%</p>
+              <p className="text-xs font-bold text-slate-600 mt-0.5">Direct Booking (0% Brokerage)</p>
             </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm text-center">
-              <p className="text-2xl sm:text-3xl font-extrabold text-[#059669]">5 Min</p>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
+              <p className="text-2xl sm:text-3xl font-black text-[#059669]">5 Min</p>
               <p className="text-xs font-bold text-slate-600 mt-0.5">Auto Slot Hold Lock</p>
             </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm text-center">
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900">4.9 ★</p>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
+              <p className="text-2xl sm:text-3xl font-black text-slate-900">4.9 ★</p>
               <p className="text-xs font-bold text-slate-600 mt-0.5">Verified Player Rating</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Live Daily Pitch Schedule Matrix (Side-by-Side Timeline) */}
+      {/* 2. Live Daily Pitch Schedule Matrix */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <DailyScheduleMatrix selectedSport={selectedSport} />
       </section>
@@ -140,7 +171,7 @@ export const HomePage: React.FC = () => {
             <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
               Our Athletic Arenas
             </span>
-            <h2 className="text-[22px] sm:text-[26px] font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
               Pitches & Courts at Friends Turf, Tiruppur
             </h2>
             <p className="text-sm text-slate-600 mt-0.5">
@@ -176,13 +207,18 @@ export const HomePage: React.FC = () => {
         )}
       </section>
 
-      {/* 4. Amenity Section (AmenityGrid) */}
+      {/* 4. Interactive Squad Fee Split Calculator Widget */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <SquadSplitWidget turfs={turfs} />
+      </section>
+
+      {/* 5. Amenity Section (AmenityGrid) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
           <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
             Match-Day Amenities
           </span>
-          <h2 className="text-[22px] sm:text-[26px] font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
             Engineered for High Performance
           </h2>
           <p className="text-sm text-slate-600 mt-0.5">
@@ -193,14 +229,14 @@ export const HomePage: React.FC = () => {
         <AmenityGrid />
       </section>
 
-      {/* 5. Frictionless Workflow (4 Steps) */}
+      {/* 6. Frictionless Workflow (4 Steps) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 sm:p-10 space-y-8">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 sm:p-10 space-y-8">
           <div className="text-center max-w-2xl mx-auto space-y-2">
             <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
               Seamless Match Access
             </span>
-            <h2 className="text-[22px] sm:text-[26px] font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
               From Screen to Kickoff in 60 Seconds
             </h2>
             <p className="text-sm text-slate-600">
@@ -210,7 +246,7 @@ export const HomePage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Step 1 */}
-            <div className="space-y-3 p-4 rounded-xl bg-[#F8FAFC] border border-slate-100">
+            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
               <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
                 1
               </div>
@@ -221,7 +257,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Step 2 */}
-            <div className="space-y-3 p-4 rounded-xl bg-[#F8FAFC] border border-slate-100">
+            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
               <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
                 2
               </div>
@@ -232,7 +268,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Step 3 */}
-            <div className="space-y-3 p-4 rounded-xl bg-[#F8FAFC] border border-slate-100">
+            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
               <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
                 3
               </div>
@@ -243,7 +279,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             {/* Step 4 */}
-            <div className="space-y-3 p-4 rounded-xl bg-[#F8FAFC] border border-slate-100">
+            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
               <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
                 4
               </div>
@@ -256,7 +292,17 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 7. Friends Turf Campus Location & Contact Section */}
+      {/* 7. Verified Player Reviews & Community Feedback */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <VerifiedReviewsSection />
+      </section>
+
+      {/* 8. Match-Day FAQs & Guidelines Accordion */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <MatchDayFAQ />
+      </section>
+
+      {/* 9. Friends Turf Campus Location & Contact Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-xl">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">

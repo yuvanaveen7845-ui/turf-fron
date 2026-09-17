@@ -124,6 +124,9 @@ export interface TimeSlot {
   base_price?: number;
   applied_rules?: { name: string; type: string; amount: number }[];
   is_available: boolean;
+  is_past?: boolean;
+  is_ongoing?: boolean;
+  slot_state?: "AVAILABLE" | "LOCKED" | "BOOKED" | "MAINTENANCE" | "ONGOING" | "PAST" | "COMPLETED";
   locked_until?: string | null;
   booking_id?: string;
 }
@@ -133,6 +136,22 @@ export interface QRTicketData {
   qr_base64: string;
   is_used: boolean;
   used_at?: string | null;
+}
+
+export interface PriceBreakdown {
+  base_total: number;
+  rules_applied: Array<{
+    name: string;
+    adjustment_type: string;
+    adjustment_value: number;
+    amount: number;
+  }>;
+  subtotal: number;
+  coupon_discount: number;
+  membership_discount: number;
+  total_discount: number;
+  tax_amount: number;
+  final_amount: number;
 }
 
 export interface Booking {
@@ -165,7 +184,7 @@ export interface Booking {
   amount_paid: number | string;
   balance_due: number | string;
   coupon_code?: string;
-  pricing_breakdown?: any;
+  pricing_breakdown?: PriceBreakdown | any;
   participants?: any[];
   notes?: string;
   checked_in_at?: string | null;
@@ -323,5 +342,42 @@ export interface AuditLogEntry {
   resource_id: string;
   details: string;
   ip_address?: string;
+  created_at: string;
+}
+
+export interface ScanValidationResult {
+  valid: boolean;
+  status: "VALID" | "ALREADY_USED" | "EXPIRED" | "NOT_YET_VALID" | "CANCELLED" | "INVALID";
+  message: string;
+  booking?: Booking;
+  customer_name?: string;
+  turf_name?: string;
+  slot_time?: string;
+  booking_id?: string;
+  action_required?: "CHECK_IN" | "NONE" | "COLLECT_PAYMENT";
+  balance_due?: number;
+}
+
+export interface DailyOpsData {
+  date: string;
+  total_slots: number;
+  booked_slots: number;
+  occupancy_percentage: number;
+  total_revenue: number;
+  cash_collected: number;
+  digital_collected: number;
+  pending_payments: number;
+  check_ins_completed: number;
+  no_shows: number;
+  anomalies_count: number;
+}
+
+export interface CustomerNote {
+  id: string;
+  customer: string;
+  author: string;
+  author_name: string;
+  note: string;
+  is_pinned: boolean;
   created_at: string;
 }

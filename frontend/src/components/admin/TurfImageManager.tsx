@@ -14,6 +14,7 @@ import {
   Eye,
 } from "lucide-react";
 import api from "../../services/api";
+import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 
 interface TurfImageManagerProps {
   images: string[];
@@ -236,9 +237,12 @@ export const TurfImageManager: React.FC<TurfImageManagerProps> = ({
                   }`}
                 >
                   <img
-                    src={preset.url}
+                    src={resolveImageUrl(preset.url, preset.tag)}
                     alt={preset.name}
                     className="w-full h-16 object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => handleImageError(e, preset.tag)}
                   />
                   <div className="absolute inset-0 bg-slate-900/40 p-1.5 flex flex-col justify-between text-white">
                     <span className="text-[9px] font-bold bg-black/60 px-1 py-0.5 rounded self-start">
@@ -321,9 +325,12 @@ export const TurfImageManager: React.FC<TurfImageManagerProps> = ({
                   }`}
                 >
                   <img
-                    src={imgUrl}
+                    src={resolveImageUrl(imgUrl)}
                     alt={`Turf image ${idx + 1}`}
                     className="w-full h-24 object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={handleImageError}
                   />
 
                   {/* Cover badge */}
@@ -427,9 +434,12 @@ export const TurfImageManager: React.FC<TurfImageManagerProps> = ({
               </button>
             </div>
             <img
-              src={previewImage}
+              src={resolveImageUrl(previewImage)}
               alt="Preview"
               className="w-full max-h-[70vh] object-contain rounded-xl"
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              onError={handleImageError}
             />
           </div>
         </div>

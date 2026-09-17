@@ -16,8 +16,10 @@ import {
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import api from "../../services/api";
+import { useToast } from "../../context/ToastContext";
 
 export const DailyOperationsPage: React.FC = () => {
+  const toast = useToast();
   const [opsData, setOpsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -56,9 +58,10 @@ export const DailyOperationsPage: React.FC = () => {
       });
       setCloseSummary(res.data.summary);
       setIsCloseModalOpen(false);
+      toast.success("Day close executed successfully.");
       fetchOperations();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to execute day close.");
+      toast.error(err.response?.data?.error || "Failed to execute day close.");
     } finally {
       setSubmittingClose(false);
     }

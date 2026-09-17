@@ -21,12 +21,19 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Don't attempt to refresh if the failed request was the login/refresh endpoint itself
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes("/auth/login") &&
+      !originalRequest.url?.includes("/auth/refresh")
+    ) {
       originalRequest._retry = true;
       const refreshToken = localStorage.getItem("ft_refresh_token");
       if (refreshToken) {
         try {
-          const res = await axios.post("/api/auth/refresh/", {
+          const baseURL = api.defaults.baseURL || "/api";
+          const res = await axios.post(`${baseURL}/auth/refresh/`, {
             refresh: refreshToken,
           });
           const newAccess = res.data.access;
@@ -37,7 +44,9 @@ api.interceptors.response.use(
           localStorage.removeItem("ft_access_token");
           localStorage.removeItem("ft_refresh_token");
           localStorage.removeItem("ft_user");
-          window.location.href = "/login";
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+          }
         }
       }
     }

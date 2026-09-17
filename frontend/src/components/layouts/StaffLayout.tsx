@@ -1,5 +1,5 @@
-import React from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Navbar } from "../common/Navbar";
 import {
   LayoutDashboard,
@@ -9,12 +9,18 @@ import {
   ClipboardCheck,
   Clock,
   ShieldCheck,
+  Camera,
 } from "lucide-react";
 import { QuickActionAnywhere } from "../common/QuickActionAnywhere";
+import { useGlobalShortcuts } from "../../hooks/useGlobalShortcuts";
 
 export const StaffLayout: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isActive = (p: string) => location.pathname === p;
+
+  // Global Quick Scan Shortcut: ⌘Q / 'q'
+  useGlobalShortcuts();
 
   const staffNavItems = [
     { label: "Today's Schedule", path: "/staff", icon: LayoutDashboard },
@@ -29,7 +35,7 @@ export const StaffLayout: React.FC = () => {
       <Navbar />
 
       {/* Staff Sub-header Navigation */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3 pt-20 sm:pt-22">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-2.5">
             <img

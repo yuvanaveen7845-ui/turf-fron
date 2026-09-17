@@ -21,6 +21,9 @@ interface ScheduleSlot {
   status: "AVAILABLE" | "BOOKED" | "LOCKED" | "MAINTENANCE";
   price: number;
   is_available: boolean;
+  is_past?: boolean;
+  is_ongoing?: boolean;
+  slot_state?: "AVAILABLE" | "BOOKED" | "LOCKED" | "MAINTENANCE" | "ONGOING" | "PAST" | "COMPLETED";
 }
 
 interface ScheduleTurf {
@@ -281,22 +284,26 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
 
                   {/* Slot Pills Horizontal Scrollable / Wrap Strip */}
                   <div className="pt-4">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        Available Time Slots ({filteredSlots.length})
+                        Available Time Slots ({availableCount} Open)
                       </span>
-                      <div className="flex items-center space-x-3 text-[11px] font-semibold text-slate-500">
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-500">
                         <span className="flex items-center space-x-1">
                           <span className="w-2 h-2 rounded-full bg-[#059669]" />
                           <span>Available</span>
+                        </span>
+                        <span className="flex items-center space-x-1">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          <span>In Session</span>
                         </span>
                         <span className="flex items-center space-x-1">
                           <span className="w-2 h-2 rounded-full bg-slate-300" />
                           <span>Booked</span>
                         </span>
                         <span className="flex items-center space-x-1">
-                          <span className="w-2 h-2 rounded-full bg-amber-400" />
-                          <span>Locked</span>
+                          <span className="w-2 h-2 rounded-full bg-slate-200" />
+                          <span className="line-through text-slate-400">Past</span>
                         </span>
                       </div>
                     </div>
@@ -304,6 +311,8 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                     <div className="flex flex-wrap gap-2">
                       {filteredSlots.map((slot) => {
                         const isAvail = slot.is_available;
+                        const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
+                        const isPast = slot.is_past || slot.slot_state === "PAST" || slot.slot_state === "COMPLETED";
                         const isLocked = slot.status === "LOCKED";
                         const isBooked = slot.status === "BOOKED";
 
@@ -316,21 +325,38 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                             title={
                               isAvail
                                 ? `Click to book ${formatTimeSlot(slot.start_time)} (₹${slot.price})`
-                                : slot.status
+                                : isOngoing
+                                  ? `Match currently in session (${formatTimeSlot(slot.start_time)} - ${formatTimeSlot(slot.end_time)})`
+                                  : isPast
+                                    ? `Slot time has ended (${formatTimeSlot(slot.start_time)})`
+                                    : slot.status
                             }
-                            className={`group px-3 py-2 rounded-xl text-left transition-all text-xs font-semibold cursor-pointer ${
+                            className={`group px-3 py-2 rounded-xl text-left transition-all text-xs font-semibold ${
                               isAvail
-                                ? "bg-emerald-50 hover:bg-[#059669] hover:text-white border border-emerald-200 text-[#059669] hover:shadow-emerald-glow"
-                                : isLocked
-                                  ? "bg-amber-50 border border-amber-200 text-amber-800 cursor-not-allowed opacity-80"
-                                  : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed line-through"
+                                ? "bg-emerald-50 hover:bg-[#059669] hover:text-white border border-emerald-200 text-[#059669] hover:shadow-emerald-glow cursor-pointer"
+                                : isOngoing
+                                  ? "bg-amber-50/90 border border-amber-300 text-amber-900 cursor-not-allowed shadow-2xs"
+                                  : isPast
+                                    ? "bg-slate-100/70 border border-slate-200 text-slate-400 cursor-not-allowed opacity-60 line-through"
+                                    : isLocked
+                                      ? "bg-amber-50 border border-amber-200 text-amber-800 cursor-not-allowed opacity-80"
+                                      : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed line-through"
                             }`}
                           >
-                            <div className="font-bold whitespace-nowrap">
-                              {formatTimeSlot(slot.start_time)}
+                            <div className="font-bold whitespace-nowrap flex items-center">
+                              {isOngoing && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1 inline-block" />
+                              )}
+                              <span>{formatTimeSlot(slot.start_time)}</span>
                             </div>
-                            <div className="text-[10px] mt-0.5 opacity-80">
-                              {isAvail ? `₹${Number(slot.price)}` : slot.status.toLowerCase()}
+                            <div className="text-[10px] mt-0.5 opacity-85 font-medium">
+                              {isAvail
+                                ? `₹${Number(slot.price)}`
+                                : isOngoing
+                                  ? "in session"
+                                  : isPast
+                                    ? "ended"
+                                    : slot.status.toLowerCase()}
                             </div>
                           </button>
                         );

@@ -43,19 +43,46 @@ export interface StatusBadgeProps {
   showIcon?: boolean;
 }
 
+const LABEL_MAP: Record<string, string> = {
+  CONFIRMED: "Confirmed",
+  CHECKED_IN: "Checked In",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+  PAYMENT_PENDING: "Payment Pending",
+  NO_SHOW: "No-Show",
+  REFUNDED: "Refunded",
+  PAID: "Paid",
+  SUCCESSFUL: "Paid",
+  PROCESSING: "Processing",
+  FAILED: "Failed",
+  TIMEOUT: "Timed Out",
+  PARTIALLY_REFUNDED: "Partial Refund",
+  ACTIVE: "Active",
+  INVITED: "Invited",
+  SUSPENDED: "Suspended",
+  DISABLED: "Disabled",
+  AVAILABLE: "Available",
+  LOCKED: "Held",
+  BOOKED: "Booked",
+  MAINTENANCE: "Maintenance",
+  UPCOMING: "Upcoming",
+};
+
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
   size = "md",
   showIcon = true,
 }) => {
   const norm = (status || "").toUpperCase();
+  const label = LABEL_MAP[norm] ?? status;
 
   let styles = "bg-slate-100 text-slate-700 border-slate-200";
   let icon = <HelpCircle className="w-3 h-3" />;
-  let label = status;
 
   switch (norm) {
     case "CONFIRMED":
+    case "UPCOMING":
     case "PAID":
     case "SUCCESSFUL":
     case "ACTIVE":

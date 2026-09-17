@@ -265,23 +265,27 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         {/* Slot Selector */}
         <div>
           <label className="block font-bold text-slate-700 mb-1.5">
-            Available Time Slots ({availableSlots.filter((s) => s.status === "AVAILABLE").length} free)
+            Available Time Slots ({availableSlots.filter((s) => s.is_available).length} free)
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-40 overflow-y-auto p-1">
             {availableSlots.map((slot) => {
               const isSelected = selectedSlotIds.includes(slot.id);
-              const isAvailable = slot.status === "AVAILABLE";
+              const isAvailable = slot.is_available;
+              const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
               return (
                 <button
                   key={slot.id}
                   type="button"
                   disabled={!isAvailable}
                   onClick={() => toggleSlot(slot.id)}
-                  className={`p-2 rounded-xl text-center font-bold text-[11px] transition cursor-pointer ${
+                  title={isOngoing ? "In Session" : isAvailable ? "Available" : "Unavailable / Past"}
+                  className={`p-2 rounded-xl text-center font-bold text-[11px] transition ${
                     isSelected
-                      ? "bg-[#059669] text-white shadow-sm"
+                      ? "bg-[#059669] text-white shadow-sm cursor-pointer"
                       : isAvailable
-                      ? "bg-[#F8FAFC] hover:bg-slate-100 text-slate-800 border border-slate-200"
+                      ? "bg-[#F8FAFC] hover:bg-slate-100 text-slate-800 border border-slate-200 cursor-pointer"
+                      : isOngoing
+                      ? "bg-amber-50 text-amber-800 border border-amber-200 cursor-not-allowed"
                       : "bg-slate-100 text-slate-400 border border-slate-100 cursor-not-allowed line-through"
                   }`}
                 >

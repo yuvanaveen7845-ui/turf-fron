@@ -23,6 +23,7 @@ import api from "../../services/api";
 import { Turf, Facility } from "../../types";
 import { Button, ConfirmDialog, EmptyState } from "../../components/ui";
 import { QuickBlockSlotModal } from "../../components/admin/QuickBlockSlotModal";
+import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 import { QuickPriceChangeModal } from "../../components/admin/QuickPriceChangeModal";
 import { TurfCustomEditorModal } from "../../components/admin/TurfCustomEditorModal";
 import { useNavigate } from "react-router-dom";
@@ -136,9 +137,12 @@ export const ManageTurfsPage: React.FC = () => {
                 {/* Image Banner with gallery indicator */}
                 <div className="h-44 relative bg-slate-100 overflow-hidden">
                   <img
-                    src={turf.images?.[0] || "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1200&q=80"}
+                    src={resolveImageUrl(turf.images?.[0], turf.sport_type)}
                     alt={turf.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => handleImageError(e, turf.sport_type)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 

@@ -194,6 +194,13 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
               </div>
             </div>
 
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-bold text-emerald-800 text-left flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse shrink-0" />
+              <span>
+                Match Pass QR is now activated! Player can present their pass at the entrance gate scanner to check in and access the turf.
+              </span>
+            </div>
+
             <div className="pt-2 flex justify-center space-x-3">
               <Button
                 variant="outline"

@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Turf } from "../../types";
+import { resolveImageUrl, handleImageError, getTurfFallbackImage } from "../../utils/imageUrl";
 
 interface PitchCardProps {
   turf: Turf;
@@ -19,9 +20,10 @@ interface PitchCardProps {
 }
 
 export const PitchCard: React.FC<PitchCardProps> = ({ turf, featured = false }) => {
-  const defaultImage =
-    "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1200&q=80";
-  const displayImage = turf.images && turf.images.length > 0 ? turf.images[0] : defaultImage;
+  const displayImage = resolveImageUrl(
+    turf.images && turf.images.length > 0 ? turf.images[0] : null,
+    turf.sport_type
+  );
 
   const sportBadgeLabel: Record<string, string> = {
     FOOTBALL: "7v7 Football",
@@ -32,9 +34,14 @@ export const PitchCard: React.FC<PitchCardProps> = ({ turf, featured = false }) 
   };
 
   // Determine pitch badge e.g. "PITCH 1", "PITCH 2", "PITCH 3"
-  const pitchBadge = turf.name.startsWith("Pitch")
-    ? turf.name.split("—")[0].trim()
-    : "Pitch Arena";
+  const pitchBadgeMatch = turf.name.match(/^Pitch\s*\d+/i);
+  const pitchBadge = pitchBadgeMatch
+    ? pitchBadgeMatch[0].toUpperCase()
+    : turf.name.includes("—")
+      ? turf.name.split("—")[0].trim()
+      : turf.name.includes("-")
+        ? turf.name.split("-")[0].trim()
+        : turf.name || "Pitch Arena";
 
   return (
     <div className="group bg-white rounded-2xl border border-slate-200/80 shadow-pitch-card overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-emerald-300/80 hover:shadow-lg">
@@ -45,6 +52,9 @@ export const PitchCard: React.FC<PitchCardProps> = ({ turf, featured = false }) 
           alt={turf.name}
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
           loading="lazy"
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+          onError={(e) => handleImageError(e, turf.sport_type)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent" />
 

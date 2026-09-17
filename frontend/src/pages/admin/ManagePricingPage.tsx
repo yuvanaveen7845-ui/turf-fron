@@ -29,10 +29,13 @@ import {
 import api from "../../services/api";
 import { PricingRule, Turf, TimeSlot } from "../../types";
 import { Button, Input, Select, Modal, ConfirmDialog, EmptyState } from "../../components/ui";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export const ManagePricingPage: React.FC = () => {
+  const toast = useToast();
   const [rules, setRules] = useState<PricingRule[]>([]);
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,9 +391,10 @@ export const ManagePricingPage: React.FC = () => {
 
       await api.post("/pricing/rules/", payload);
       setSlotAdjustModalOpen(false);
+      toast.success("Slot pricing adjusted successfully.");
       fetchRules();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to adjust slot price.");
+      toast.error(err.response?.data?.error || "Failed to adjust slot price.");
     } finally {
       setSlotAdjustSubmitting(false);
     }
@@ -410,8 +414,9 @@ export const ManagePricingPage: React.FC = () => {
         duration_minutes: parseInt(simDuration) || 60,
       });
       setSimResult(res.data);
+      toast.success("Pricing simulation completed.");
     } catch (err: any) {
-      alert(err.response?.data?.error || "Pricing simulation failed.");
+      toast.error(err.response?.data?.error || "Pricing simulation failed.");
     } finally {
       setSimulating(false);
     }

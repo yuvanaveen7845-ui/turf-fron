@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import {
   User as UserIcon,
   Phone,
@@ -16,6 +17,7 @@ import api from "../../services/api";
 
 export const ProfilePage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
+  const toast = useToast();
   const [formData, setFormData] = useState({
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",
@@ -33,9 +35,10 @@ export const ProfilePage: React.FC = () => {
       await api.put("/auth/me/", formData);
       await refreshProfile();
       setSuccess(true);
+      toast.success("Profile updated successfully!");
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      alert("Failed to update profile.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to update profile.");
     } finally {
       setLoading(false);
     }
@@ -206,7 +209,7 @@ export const ProfilePage: React.FC = () => {
         <button
           onClick={() => {
             navigator.clipboard.writeText(user.referral_code);
-            alert("Referral code copied to clipboard!");
+            toast.success("Referral code copied to clipboard!");
           }}
           className="px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0"
         >

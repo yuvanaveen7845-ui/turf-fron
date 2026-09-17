@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Clock,
   QrCode,
+  Camera,
   Layers,
   Sliders,
   Ticket,
@@ -29,6 +30,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ExternalLink,
+  Home,
+  Globe,
 } from "lucide-react";
 import { GlobalSearchModal } from "../admin/GlobalSearchModal";
 import { NewBookingWizardModal } from "../admin/NewBookingWizardModal";
@@ -40,6 +43,7 @@ import { Button } from "../ui/Button";
 import { QuickActionAnywhere } from "../common/QuickActionAnywhere";
 import { useAuth } from "../../context/AuthContext";
 import { usePermission } from "../../context/PermissionContext";
+import { useGlobalShortcuts } from "../../hooks/useGlobalShortcuts";
 
 interface NavItem {
   label: string;
@@ -92,27 +96,11 @@ export const AdminLayout: React.FC = () => {
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isQuickActionMenuOpen, setIsQuickActionMenuOpen] = useState(false);
 
-  // Global Keyboard Shortcuts (⌘B for dock, ⌘K / '/' for search)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(
-        (document.activeElement?.tagName || "")
-      );
-
-      if ((e.key === "b" && (e.metaKey || e.ctrlKey)) || (e.key === "[" && !isInput)) {
-        e.preventDefault();
-        toggleSidebar();
-      }
-
-      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !isInput)) {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Consolidated Global Keyboard Shortcuts Hook (⌘B, ⌘K, ⌘Q)
+  useGlobalShortcuts({
+    onSearch: () => setIsSearchOpen(true),
+    onToggleSidebar: toggleSidebar,
+  });
 
   // Centralized Navigation Catalog
   const allNavSections: NavSection[] = [
@@ -122,6 +110,7 @@ export const AdminLayout: React.FC = () => {
         { label: "Overview", path: "/admin", icon: LayoutDashboard },
         { label: "Live Schedule", path: "/admin/schedule", icon: Clock },
         { label: "Bookings", path: "/admin/bookings", icon: CalendarDays, permission: "BOOKING_VIEW" },
+        { label: "QR Scanner", path: "/admin/scanner", icon: Camera, permission: "CHECKIN_SCAN" },
         { label: "Gate Check-In", path: "/admin/qr-management", icon: QrCode, permission: "CHECKIN_VIEW" },
       ],
     },
@@ -155,6 +144,12 @@ export const AdminLayout: React.FC = () => {
       items: [
         { label: "Audit Logs", path: "/admin/audit", icon: ShieldAlert, permission: "AUDIT_VIEW" },
         { label: "Settings", path: "/admin/settings", icon: Settings, permission: "SETTINGS_VIEW" },
+      ],
+    },
+    {
+      title: "PORTAL ACCESS",
+      items: [
+        { label: "Public Website / Home", path: "/", icon: Home },
       ],
     },
   ];
@@ -317,17 +312,17 @@ export const AdminLayout: React.FC = () => {
                 <div className="font-bold text-xs text-slate-900 truncate">
                   {user?.first_name ? `${user.first_name} ${user?.last_name || ""}` : user?.email}
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-[#059669]">
+                <div className="flex items-center justify-between gap-1.5 mt-1">
+                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-[#059669]">
                     {effectiveRole || "ADMIN"}
                   </span>
                   <Link
                     to="/"
-                    title="View Customer Arena"
-                    className="text-[10px] text-slate-400 hover:text-slate-700 inline-flex items-center gap-0.5"
+                    title="Return to Customer Home Page"
+                    className="text-[11px] font-bold text-slate-700 hover:text-[#059669] inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 shadow-2xs hover:border-emerald-300 transition"
                   >
-                    <span>Store</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
+                    <Home className="w-3 h-3 text-[#059669]" />
+                    <span>Home Page</span>
                   </Link>
                 </div>
               </div>
@@ -360,174 +355,209 @@ export const AdminLayout: React.FC = () => {
           </div>
         )}
 
-        {/* Clean Unified Top Command Bar */}
-        <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-6 sm:px-8 flex items-center justify-between gap-4">
-          {/* Breadcrumb & Live Pulse */}
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={toggleSidebar}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 md:hidden"
-            >
-              <PanelLeftOpen className="w-5 h-5" />
-            </button>
+        {/* Floating Dynamic Island Command Bar */}
+        <header className="sticky top-2.5 sm:top-4 z-30 px-3 sm:px-6 lg:px-8 pointer-events-none mb-1">
+          <div className="pointer-events-auto max-w-7xl mx-auto">
+            <div className="relative bg-white/90 backdrop-blur-2xl border border-white/80 shadow-[0_12px_40px_rgba(15,23,42,0.08),0_2px_10px_rgba(15,23,42,0.04)] rounded-full px-3 sm:px-4 py-2 flex items-center justify-between gap-3 ring-1 ring-slate-900/[0.06] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(15,23,42,0.12)]">
+              
+              {/* Subtle Island Top Accent Highlight */}
+              <div className="absolute top-0 inset-x-8 h-[1.5px] bg-gradient-to-r from-transparent via-[#10B981]/50 to-transparent rounded-full pointer-events-none" />
 
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#ECFDF5] border border-emerald-200">
-                <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-                  Live Command
-                </span>
-              </div>
-              <span className="text-slate-300 hidden sm:inline">•</span>
-              <span className="text-xs font-bold text-slate-600 hidden sm:inline">
-                {currentNavItem?.label || "Overview"}
-              </span>
-            </div>
-          </div>
-
-          {/* Controls: Role Preview, Search ⌘K & Quick Actions */}
-          <div className="flex items-center space-x-3">
-            {isAdmin && (
-              <div className="hidden lg:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">
-                <span className="text-[10px] uppercase font-bold px-1.5 text-slate-400 flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-slate-400" />
-                  <span>Clearance:</span>
-                </span>
+              {/* 1. Left Breadcrumb & Live Context */}
+              <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
                 <button
-                  onClick={() => setPreviewRole(null)}
-                  className={`px-2.5 py-0.5 rounded-lg transition cursor-pointer text-[11px] ${
-                    !isSimulating ? "bg-white text-slate-900 shadow-2xs font-bold" : "hover:text-slate-900"
-                  }`}
+                  onClick={toggleSidebar}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center md:hidden transition cursor-pointer"
+                  aria-label="Toggle Navigation Dock"
                 >
-                  Admin
+                  <PanelLeftOpen className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => setPreviewRole("STAFF")}
-                  className={`px-2.5 py-0.5 rounded-lg transition cursor-pointer text-[11px] ${
-                    previewRole === "STAFF" ? "bg-[#059669] text-white shadow-2xs font-bold" : "hover:text-slate-900"
-                  }`}
+
+                {/* Live Status & Page Title Capsule */}
+                <div className="flex items-center bg-slate-100/80 p-1 pl-2.5 pr-3 rounded-full border border-slate-200/60 backdrop-blur-md shadow-inner space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#059669]">
+                    Command
+                  </span>
+                  <span className="text-slate-300 text-xs hidden sm:inline">•</span>
+                  <span className="text-xs font-bold text-slate-800 hidden sm:inline truncate max-w-[150px]">
+                    {currentNavItem?.label || "Overview"}
+                  </span>
+                </div>
+
+                {/* Direct Public Website Link */}
+                <Link
+                  to="/"
+                  className="hidden xl:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-100/80 hover:bg-slate-200/80 text-slate-700 hover:text-slate-950 border border-slate-200/60 text-xs font-bold transition shadow-2xs active:scale-95 cursor-pointer"
+                  title="Return to Customer Home Page & Booking Arena"
                 >
-                  Staff
-                </button>
+                  <Home className="w-3.5 h-3.5 text-[#059669]" />
+                  <span>Main Website</span>
+                </Link>
               </div>
-            )}
 
-            {/* Global Search Button */}
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="flex items-center space-x-2 px-3.5 py-1.5 bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900 transition cursor-pointer"
-            >
-              <Search className="w-3.5 h-3.5 text-[#059669]" />
-              <span className="hidden md:inline">Search or type action...</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 rounded-md">
-                ⌘K
-              </kbd>
-            </button>
-
-            {/* Quick Actions Menu */}
-            <div className="relative">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsQuickActionMenuOpen(!isQuickActionMenuOpen)}
-                rightIcon={<ChevronDown className="w-3.5 h-3.5 opacity-80" />}
-              >
-                <span>+ Action</span>
-              </Button>
-
-              {isQuickActionMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsQuickActionMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 text-xs font-bold text-slate-700">
-                    {canAccess("BOOKING_CREATE") && (
-                      <button
-                        onClick={() => {
-                          setIsQuickActionMenuOpen(false);
-                          setIsNewBookingOpen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#ECFDF5] hover:text-[#059669] flex items-center space-x-2 transition cursor-pointer"
-                      >
-                        <PlusCircle className="w-4 h-4 text-[#059669]" />
-                        <span>+ New Booking / Walk-In</span>
-                      </button>
-                    )}
-
-                    {canAccess("PAYMENT_RECORD_OFFLINE", "OFFLINE_PAYMENTS") && (
-                      <button
-                        onClick={() => {
-                          setIsQuickActionMenuOpen(false);
-                          setIsOfflinePaymentOpen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2 transition cursor-pointer"
-                      >
-                        <DollarSign className="w-4 h-4 text-blue-500" />
-                        <span>+ Record Offline Payment</span>
-                      </button>
-                    )}
-
-                    {canAccess("FACILITY_BLOCK") && (
-                      <button
-                        onClick={() => {
-                          setIsQuickActionMenuOpen(false);
-                          setIsBlockSlotOpen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2 transition cursor-pointer"
-                      >
-                        <Lock className="w-4 h-4 text-amber-500" />
-                        <span>+ Block Pitch Slot</span>
-                      </button>
-                    )}
-
-                    {canAccess("PRICING_EDIT") && (
-                      <button
-                        onClick={() => {
-                          setIsQuickActionMenuOpen(false);
-                          setIsPriceChangeOpen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2 transition cursor-pointer"
-                      >
-                        <Sliders className="w-4 h-4 text-purple-500" />
-                        <span>+ Change Hourly Price</span>
-                      </button>
-                    )}
-
-                    {canAccess("CUSTOMER_EDIT") && (
-                      <button
-                        onClick={() => {
-                          setIsQuickActionMenuOpen(false);
-                          setIsAddCustomerOpen(true);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2 transition cursor-pointer"
-                      >
-                        <UserPlus className="w-4 h-4 text-teal-600" />
-                        <span>+ Add New Player</span>
-                      </button>
-                    )}
-
-                    {canAccess("STAFF_CREATE") && (
-                      <button
-                        onClick={() => {
-                          setIsQuickActionMenuOpen(false);
-                          navigate("/admin/staff");
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2 transition cursor-pointer"
-                      >
-                        <UserCog className="w-4 h-4 text-slate-600" />
-                        <span>+ Invite Staff Member</span>
-                      </button>
-                    )}
-                  </div>
-                </>
+              {/* 2. Middle Clearance Preview Segmented Control (Admin Only) */}
+              {isAdmin && (
+                <div className="hidden lg:flex items-center space-x-1 bg-slate-100/80 p-1 rounded-full text-xs font-bold text-slate-600 border border-slate-200/60 backdrop-blur-md shadow-inner">
+                  <span className="text-[10px] uppercase font-bold px-2 text-slate-400 flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-slate-400" />
+                    <span>Clearance:</span>
+                  </span>
+                  <button
+                    onClick={() => setPreviewRole(null)}
+                    className={`px-3 py-1 rounded-full transition cursor-pointer text-xs ${
+                      !isSimulating
+                        ? "bg-white text-slate-900 shadow-xs border border-slate-200/50 font-black scale-[1.02]"
+                        : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
+                    }`}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    onClick={() => setPreviewRole("STAFF")}
+                    className={`px-3 py-1 rounded-full transition cursor-pointer text-xs ${
+                      previewRole === "STAFF"
+                        ? "bg-[#059669] text-white shadow-xs font-black scale-[1.02]"
+                        : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
+                    }`}
+                  >
+                    Staff
+                  </button>
+                </div>
               )}
+
+              {/* 3. Right Action Dock */}
+              <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+                {/* Easy QR Scanner Header Shortcut */}
+                <Link
+                  to="/admin/scanner"
+                  className="hidden sm:inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50/90 hover:bg-emerald-100 text-[#059669] border border-emerald-200/80 text-xs font-bold transition shadow-2xs active:scale-95 cursor-pointer"
+                  title="Quick Optical Gate Scanner (⌘Q)"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Scan Pass</span>
+                  <kbd className="px-1.5 py-0.2 text-[9px] font-mono font-extrabold text-emerald-900 bg-emerald-100/90 rounded-md">
+                    ⌘Q
+                  </kbd>
+                </Link>
+
+                {/* Global Search Button */}
+                <button
+                  onClick={() => setIsSearchOpen(true)}
+                  className="flex items-center space-x-2 px-3.5 py-1.5 bg-slate-100/80 hover:bg-slate-200/80 border border-slate-200/60 rounded-full text-xs font-bold text-slate-600 hover:text-slate-950 transition shadow-2xs cursor-pointer"
+                >
+                  <Search className="w-3.5 h-3.5 text-[#059669]" />
+                  <span className="hidden md:inline">Search...</span>
+                  <kbd className="px-1.5 py-0.2 text-[9px] font-bold text-slate-500 bg-white border border-slate-200 rounded-md">
+                    ⌘K
+                  </kbd>
+                </button>
+
+                {/* Quick Actions Dropdown Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsQuickActionMenuOpen(!isQuickActionMenuOpen)}
+                    className="flex items-center space-x-1.5 px-3.5 sm:px-4 py-1.5 rounded-full bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold shadow-sm shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <span>+ Action</span>
+                    <ChevronDown className="w-3.5 h-3.5 opacity-80" />
+                  </button>
+
+                  {isQuickActionMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsQuickActionMenuOpen(false)}
+                      />
+                      <div className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-3xl shadow-[0_20px_50px_rgba(15,23,42,0.15)] z-50 p-2 space-y-1 text-xs font-bold text-slate-700 animate-in fade-in slide-in-from-top-2 duration-150">
+                        {canAccess("BOOKING_CREATE") && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              setIsNewBookingOpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-[#ECFDF5] hover:text-[#059669] flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <PlusCircle className="w-4 h-4 text-[#059669]" />
+                            <span>+ New Booking / Walk-In</span>
+                          </button>
+                        )}
+
+                        {canAccess("PAYMENT_RECORD_OFFLINE", "OFFLINE_PAYMENTS") && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              setIsOfflinePaymentOpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <DollarSign className="w-4 h-4 text-blue-500" />
+                            <span>+ Record Offline Payment</span>
+                          </button>
+                        )}
+
+                        {canAccess("FACILITY_BLOCK") && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              setIsBlockSlotOpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <Lock className="w-4 h-4 text-amber-500" />
+                            <span>+ Block Pitch Slot</span>
+                          </button>
+                        )}
+
+                        {canAccess("PRICING_EDIT") && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              setIsPriceChangeOpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <Sliders className="w-4 h-4 text-purple-500" />
+                            <span>+ Change Hourly Price</span>
+                          </button>
+                        )}
+
+                        {canAccess("CUSTOMER_EDIT") && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              setIsAddCustomerOpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <UserPlus className="w-4 h-4 text-teal-600" />
+                            <span>+ Add New Player</span>
+                          </button>
+                        )}
+
+                        {canAccess("STAFF_CREATE") && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              navigate("/admin/staff");
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-slate-50 hover:text-slate-900 flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <UserCog className="w-4 h-4 text-slate-600" />
+                            <span>+ Invite Staff Member</span>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pb-12 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>

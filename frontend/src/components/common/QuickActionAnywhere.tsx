@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Plus,
   CalendarPlus,
@@ -21,6 +21,7 @@ import { QuickCustomerModal } from "../admin/QuickCustomerModal";
 
 export const QuickActionAnywhere: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { canAccess, hasPermission } = usePermission();
 
@@ -120,7 +121,8 @@ export const QuickActionAnywhere: React.FC = () => {
       feature: "QR_CHECKIN",
       onClick: () => {
         setIsOpen(false);
-        navigate("/staff/scanner");
+        const targetPath = location.pathname.startsWith("/admin") || user?.role === "ADMIN" ? "/admin/scanner" : "/staff/scanner";
+        navigate(targetPath);
       },
     },
     {

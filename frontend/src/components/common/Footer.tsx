@@ -130,14 +130,25 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium">
+        <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium gap-3">
           <p>© {new Date().getFullYear()} Friends Turf Systems. All rights reserved.</p>
-          <p className="flex items-center space-x-1.5 mt-2 sm:mt-0">
-            <span>Built with precision for athletic performance</span>
-            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-          </p>
+          <div className="flex items-center space-x-4">
+            <Link to="/terms" className="hover:text-[#059669] transition-colors font-semibold">
+              Terms of Service
+            </Link>
+            <span>•</span>
+            <Link to="/privacy" className="hover:text-[#059669] transition-colors font-semibold">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <span className="flex items-center space-x-1 text-slate-400">
+              <span>FIFA-Certified Arena</span>
+              <Heart className="w-3 h-3 text-red-500 fill-red-500 ml-1" />
+            </span>
+          </div>
         </div>
       </div>
     </footer>
   );
 };
+

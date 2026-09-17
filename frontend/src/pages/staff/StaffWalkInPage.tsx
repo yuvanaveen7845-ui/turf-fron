@@ -14,15 +14,20 @@ import {
 import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
 import { Button, Input, Select } from "../../components/ui";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
+
+import { initiateRazorpayCheckout } from "../../services/razorpay";
 
 export const StaffWalkInPage: React.FC = () => {
+  const toast = useToast();
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [selectedTurfId, setSelectedTurfId] = useState<string>("");
   const [todaySlots, setTodaySlots] = useState<TimeSlot[]>([]);
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI">("CASH");
+  const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "RAZORPAY">("CASH");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [successBooking, setSuccessBooking] = useState<any>(null);
@@ -33,19 +38,11 @@ export const StaffWalkInPage: React.FC = () => {
     api
       .get("/turfs/")
       .then((res) => {
-        const raw = res.data;
-        const list = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.results)
-            ? raw.results
-            : [];
+        const list = normalizeList<Turf>(res.data);
         setTurfs(list);
         if (list.length > 0) setSelectedTurfId(list[0].id);
       })
-      .catch((err) => {
-        console.error(err);
-        setTurfs([]);
-      });
+      .catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {
@@ -62,29 +59,85 @@ export const StaffWalkInPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedSlotIds.length === 0) {
-      alert("Please select at least one open time slot.");
+      toast.warning("Please select at least one open time slot.");
       return;
     }
     setLoading(true);
     try {
-      const res = await api.post("/bookings/staff/walk-in/", {
-        turf_id: selectedTurfId,
-        slot_ids: selectedSlotIds,
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        notes: `${notes ? notes + " • " : ""}Paid via ${paymentMode} at reception counter`,
-      });
-      setSuccessBooking(res.data);
-      setSelectedSlotIds([]);
-      setCustomerName("");
-      setCustomerPhone("");
-      setNotes("");
-      // Refresh slots
-      api
-        .get(`/turfs/${selectedTurfId}/availability/?date=${todayStr}`)
-        .then((r) => setTodaySlots(r.data.slots));
+      if (paymentMode === "RAZORPAY") {
+        // Create server booking and Razorpay order
+        const res = await api.post("/bookings/staff/walk-in/", {
+          turf_id: selectedTurfId,
+          slot_ids: selectedSlotIds,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          notes: `${notes ? notes + " • " : ""}Desk Razorpay Digital Payment`,
+        });
+        const bookingData = res.data;
+
+        const orderRes = await api.post("/payments/razorpay/create-order/", {
+          turf_id: selectedTurfId,
+          date: todayStr,
+          slot_ids: selectedSlotIds,
+          payment_type: "FULL",
+          notes: `Walk-in booking for ${customerName}`,
+        });
+        const orderData = orderRes.data;
+
+        await initiateRazorpayCheckout({
+          orderData: {
+            order_id: orderData.order_id,
+            amount: orderData.amount,
+            currency: "INR",
+            key_id: orderData.key_id,
+            booking_id: bookingData.booking_id,
+            description: `Walk-in Match Pass (${bookingData.booking_id})`,
+          },
+          user: {
+            full_name: customerName,
+            phone: customerPhone,
+          },
+          onSuccess: async (verifyPayload) => {
+            await api.post("/payments/razorpay/verify/", {
+              razorpay_order_id: verifyPayload.razorpay_order_id,
+              razorpay_payment_id: verifyPayload.razorpay_payment_id,
+              razorpay_signature: verifyPayload.razorpay_signature,
+              booking_id: bookingData.booking_id,
+            });
+            setSuccessBooking(bookingData);
+            toast.success("Walk-in payment verified & match pass activated!");
+            setSelectedSlotIds([]);
+            setCustomerName("");
+            setCustomerPhone("");
+            setNotes("");
+            api
+              .get(`/turfs/${selectedTurfId}/availability/?date=${todayStr}`)
+              .then((r) => setTodaySlots(r.data.slots));
+          },
+          onError: (errMsg) => {
+            toast.error(errMsg || "Walk-in payment was not completed.");
+          },
+        });
+      } else {
+        const res = await api.post("/bookings/staff/walk-in/", {
+          turf_id: selectedTurfId,
+          slot_ids: selectedSlotIds,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          notes: `${notes ? notes + " • " : ""}Paid via ${paymentMode} at reception counter`,
+        });
+        setSuccessBooking(res.data);
+        toast.success("Walk-in booking created and confirmed!");
+        setSelectedSlotIds([]);
+        setCustomerName("");
+        setCustomerPhone("");
+        setNotes("");
+        api
+          .get(`/turfs/${selectedTurfId}/availability/?date=${todayStr}`)
+          .then((r) => setTodaySlots(r.data.slots));
+      }
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to create walk-in booking.");
+      toast.error(err.response?.data?.error || "Failed to create walk-in booking.");
     } finally {
       setLoading(false);
     }
@@ -105,7 +158,7 @@ export const StaffWalkInPage: React.FC = () => {
           Express Walk-In Match Booking
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Reserve an immediate pitch slot and collect counter Cash or UPI payment
+          Reserve an immediate pitch slot and collect counter Cash, UPI, or Razorpay payment
         </p>
       </div>
 
@@ -117,7 +170,7 @@ export const StaffWalkInPage: React.FC = () => {
             <h3 className="font-bold text-sm">Walk-in Booking Confirmed!</h3>
           </div>
           <p className="text-xs text-slate-700">
-            Booking ID: <strong className="font-mono text-[#059669]">{successBooking.booking_id}</strong> for <strong>{successBooking.customer_details?.full_name || customerName}</strong>. Amount Collected: <strong>₹{successBooking.amount_paid}</strong>. Gate check-in pass activated.
+            Booking ID: <strong className="font-mono text-[#059669]">{successBooking.booking_id}</strong> for <strong>{successBooking.customer_details?.full_name || customerName}</strong>. Amount Collected: <strong>₹{successBooking.amount_paid || totalAmount}</strong>. Gate check-in pass activated.
           </p>
           <button
             type="button"
@@ -156,7 +209,8 @@ export const StaffWalkInPage: React.FC = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-1 bg-[#F8FAFC] border border-slate-200 rounded-2xl">
             {todaySlots.map((slot) => {
-              const isAvailable = slot.status === "AVAILABLE";
+              const isAvailable = slot.is_available;
+              const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
               const isSelected = selectedSlotIds.includes(slot.id);
 
               return (
@@ -171,19 +225,21 @@ export const StaffWalkInPage: React.FC = () => {
                       );
                     else setSelectedSlotIds([...selectedSlotIds, slot.id]);
                   }}
-                  className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
                     isSelected
-                      ? "bg-[#059669] border-[#059669] text-white font-bold shadow-sm"
+                      ? "bg-[#059669] border-[#059669] text-white font-bold shadow-sm cursor-pointer"
                       : isAvailable
-                      ? "bg-white border-slate-200 text-slate-800 hover:border-emerald-300"
-                      : "bg-slate-100 border-slate-200 text-slate-400 line-through cursor-not-allowed"
+                      ? "bg-white border-slate-200 text-slate-800 hover:border-emerald-300 cursor-pointer"
+                      : isOngoing
+                      ? "bg-amber-50 border-amber-300 text-amber-900 cursor-not-allowed"
+                      : "bg-slate-100 border-slate-200 text-slate-400 line-through cursor-not-allowed opacity-60"
                   }`}
                 >
                   <p className="font-bold">
                     {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
                   </p>
-                  <p className={`text-[10px] mt-0.5 ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>
-                    ₹{slot.price} • {slot.status.toLowerCase()}
+                  <p className={`text-[10px] mt-0.5 ${isSelected ? "text-emerald-100" : isOngoing ? "text-amber-700" : "text-slate-500"}`}>
+                    {isAvailable ? `₹${slot.price} • open` : isOngoing ? "in session" : "ended / past"}
                   </p>
                 </button>
               );
@@ -215,7 +271,7 @@ export const StaffWalkInPage: React.FC = () => {
           <label className="block text-xs font-bold text-slate-700">
             Payment Mode Collected at Counter
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setPaymentMode("CASH")}
@@ -239,6 +295,18 @@ export const StaffWalkInPage: React.FC = () => {
             >
               <CreditCard className="w-4 h-4" />
               <span>Counter UPI QR</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMode("RAZORPAY")}
+              className={`p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
+                paymentMode === "RAZORPAY"
+                  ? "bg-emerald-50 border-[#059669] text-[#059669] ring-2 ring-emerald-500/20"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <CreditCard className="w-4 h-4 text-blue-600" />
+              <span>Razorpay Digital</span>
             </button>
           </div>
         </div>

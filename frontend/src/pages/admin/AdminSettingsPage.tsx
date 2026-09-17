@@ -15,8 +15,10 @@ import {
   Loader2,
 } from "lucide-react";
 import api from "../../services/api";
+import { useToast } from "../../context/ToastContext";
 
 export const AdminSettingsPage: React.FC = () => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<
     "features" | "company" | "booking" | "hours" | "payments" | "notifications"
   >("features");
@@ -126,9 +128,10 @@ export const AdminSettingsPage: React.FC = () => {
         api.put("/auth/features/", featureFlags),
       ]);
       setSaveSuccess(true);
+      toast.success("Settings successfully saved to server.");
       setTimeout(() => setSaveSuccess(false), 3500);
     } catch (err) {
-      alert("Failed to save settings to server.");
+      toast.error("Failed to save settings to server.");
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   QrCode,
+  Camera,
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
@@ -24,8 +26,11 @@ import {
   ConfirmDialog,
   StatusBadge,
 } from "../../components/ui";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
 
 export const ManageQRPage: React.FC = () => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<"logs" | "active_passes">("logs");
   const [analytics, setAnalytics] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
@@ -82,12 +87,14 @@ export const ManageQRPage: React.FC = () => {
         booking_id: revokeTargetBookingId,
         reason: revokeReason || "Administrative cancellation",
       });
-      setFeedbackMsg(`Pass for booking ${revokeTargetBookingId} has been revoked.`);
+      const msg = `Pass for booking ${revokeTargetBookingId} has been revoked.`;
+      setFeedbackMsg(msg);
+      toast.success(msg);
       setRevokeTargetBookingId(null);
       setRevokeReason("");
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to revoke pass.");
+      toast.error(err.response?.data?.error || "Failed to revoke pass.");
     } finally {
       setRevokeLoading(false);
     }
@@ -103,12 +110,14 @@ export const ManageQRPage: React.FC = () => {
         booking_id: regenTargetBookingId,
         reason: regenReason || "Customer requested pass replacement",
       });
-      setFeedbackMsg(`New version (${res.data.credential_version}) issued for ${regenTargetBookingId}.`);
+      const msg = `New version (${res.data.credential_version}) issued for ${regenTargetBookingId}.`;
+      setFeedbackMsg(msg);
+      toast.success(msg);
       setRegenTargetBookingId(null);
       setRegenReason("");
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to regenerate pass.");
+      toast.error(err.response?.data?.error || "Failed to regenerate pass.");
     } finally {
       setRegenLoading(false);
     }
@@ -234,14 +243,23 @@ export const ManageQRPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchData}
-          leftIcon={<RefreshCw className={`w-4 h-4 text-[#059669] ${loading ? "animate-spin" : ""}`} />}
-        >
-          Refresh Feed
-        </Button>
+        <div className="flex items-center space-x-2.5">
+          <Link
+            to="/admin/scanner"
+            className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-extrabold shadow-sm transition-all active:scale-[0.98]"
+          >
+            <Camera className="w-4 h-4" />
+            <span>Launch Live Scanner</span>
+          </Link>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            leftIcon={<RefreshCw className={`w-4 h-4 text-[#059669] ${loading ? "animate-spin" : ""}`} />}
+          >
+            Refresh Feed
+          </Button>
+        </div>
       </div>
 
       {feedbackMsg && (

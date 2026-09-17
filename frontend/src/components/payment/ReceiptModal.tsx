@@ -14,6 +14,7 @@ import {
   Wallet,
 } from "lucide-react";
 import api from "../../services/api";
+import { FriendsTurfLogo } from "../common/FriendsTurfLogo";
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -60,7 +61,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    window.print();
+    const targetId = identifier || receipt?.receipt_number || receipt?.booking_id || receipt?.payment?.id;
+    if (targetId) {
+      window.open(`/print/receipt/${targetId}?autoprint=true`, "_blank");
+    } else {
+      window.print();
+    }
   };
 
   return (
@@ -109,25 +115,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
           ) : receipt ? (
             <div id="printable-receipt" className="space-y-6">
-              {/* Receipt Header */}
+              {/* Receipt Header with Logo */}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-slate-200">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-7 h-7 rounded-lg bg-[#059669] text-white flex items-center justify-center font-black text-sm shadow-sm">
-                      FT
-                    </span>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight">
-                      FRIENDS TURF
-                    </h2>
-                  </div>
-                  <p className="text-[11px] font-semibold text-slate-500 mt-1">
-                    {receipt.business?.company_name || "Friends Turf Sports Arena"}
-                  </p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm mt-0.5">
+                <div className="space-y-2">
+                  <FriendsTurfLogo variant="print" size="md" />
+                  <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm mt-1">
                     {receipt.business?.address || "Near Sirupooluvapatti, Kamatchepuram, Tiruppur, Tamil Nadu 641603 (RTO Office Backside)"}
                   </p>
-                  <p className="text-[11px] font-bold text-slate-600 mt-1">
-                    GSTIN: <span className="font-mono text-slate-900">{receipt.business?.gstin || "29ABCDE1234F1Z5"}</span>
+                  <p className="text-[11px] font-bold text-slate-600">
+                    GSTIN: <span className="font-mono text-slate-900">{receipt.business?.gstin || "33ABCDE1234F1Z5"}</span> | SAC: <span className="font-mono text-slate-900">999651</span>
                   </p>
                 </div>
 

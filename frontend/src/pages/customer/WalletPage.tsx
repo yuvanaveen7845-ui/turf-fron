@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Wallet,
   PlusCircle,
@@ -7,20 +8,33 @@ import {
   ShieldCheck,
   Sparkles,
   CheckCircle2,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 import api from "../../services/api";
 import { WalletTransaction } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+
+import { initiateRazorpayCheckout } from "../../services/razorpay";
 
 export const WalletPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
+  const toast = useToast();
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [topUpAmount, setTopUpAmount] = useState<string>("500");
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [topUpStatus, setTopUpStatus] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [topUpSuccessPayload, setTopUpSuccessPayload] = useState<{
+    amount: number;
+    newBalance: number;
+    paymentId: string;
+  } | null>(null);
 
   const fetchWallet = () => {
     setLoading(true);
@@ -40,21 +54,80 @@ export const WalletPage: React.FC = () => {
 
   const handleTopUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    const amountVal = Number(topUpAmount);
+    if (!amountVal || amountVal < 10) {
+      toast.warning("Please enter a valid top-up amount of at least ₹10.");
+      return;
+    }
+
     setTopUpLoading(true);
+    setTopUpStatus("Creating secure payment order...");
     setSuccessMsg("");
+
     try {
-      const res = await api.post("/wallet/top-up/", {
-        amount: Number(topUpAmount),
+      // 1. Create Razorpay order for wallet top-up
+      const orderRes = await api.post("/wallet/razorpay/create-order/", {
+        amount: amountVal,
       });
-      setBalance(res.data.wallet_balance);
-      setShowTopUpModal(false);
-      setSuccessMsg(`Successfully added ₹${topUpAmount} to your wallet!`);
-      await refreshProfile();
-      fetchWallet();
+      const orderData = orderRes.data;
+
+      // 2. Open universal Razorpay checkout
+      await initiateRazorpayCheckout({
+        orderData: {
+          order_id: orderData.order_id,
+          amount: orderData.amount,
+          currency: orderData.currency || "INR",
+          key_id: orderData.key_id,
+          title: "Friends Turf Wallet Top-Up",
+          description: `Add ₹${amountVal} to Turf Cash Wallet`,
+        },
+        user: {
+          full_name: user?.full_name || user?.first_name || "Player",
+          email: user?.email || "customer@friendsturf.com",
+          phone: user?.phone || "9999999999",
+        },
+        onStatusChange: (statusText) => setTopUpStatus(statusText),
+        onSuccess: async (verifyPayload) => {
+          setTopUpStatus("Crediting your wallet balance...");
+          try {
+            const verifyRes = await api.post("/wallet/razorpay/verify/", {
+              razorpay_order_id: verifyPayload.razorpay_order_id,
+              razorpay_payment_id: verifyPayload.razorpay_payment_id,
+              razorpay_signature: verifyPayload.razorpay_signature,
+            });
+
+            const newBal = Number(verifyRes.data.wallet_balance ?? (balance + amountVal));
+            setBalance(newBal);
+            setShowTopUpModal(false);
+            setTopUpSuccessPayload({
+              amount: amountVal,
+              newBalance: newBal,
+              paymentId: verifyPayload.razorpay_payment_id,
+            });
+            const msg = `Successfully added ₹${amountVal} to your Turf Cash Wallet!`;
+            setSuccessMsg(msg);
+            toast.success(msg);
+            await refreshProfile();
+            fetchWallet();
+          } catch (verr: any) {
+            toast.error(verr.response?.data?.error || "Payment verification failed.");
+          }
+        },
+        onError: (errMsg) => {
+          toast.error(errMsg || "Payment was not completed.");
+        },
+        onDismiss: () => {
+          setTopUpLoading(false);
+          setTopUpStatus("");
+        },
+      });
     } catch (err: any) {
-      alert(err.response?.data?.error || "Top-up failed.");
+      toast.error(
+        err.response?.data?.error || "Failed to initialize wallet payment."
+      );
     } finally {
       setTopUpLoading(false);
+      setTopUpStatus("");
     }
   };
 
@@ -261,23 +334,104 @@ export const WalletPage: React.FC = () => {
               </div>
             </div>
 
+            {topUpStatus && (
+              <p className="text-xs font-semibold text-[#059669] animate-pulse text-center">
+                {topUpStatus}
+              </p>
+            )}
+
             <div className="flex items-center space-x-3 pt-2">
               <button
                 type="button"
+                disabled={topUpLoading}
                 onClick={() => setShowTopUpModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={topUpLoading}
-                className="flex-1 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-emerald-glow cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-emerald-glow cursor-pointer disabled:opacity-50"
               >
-                {topUpLoading ? "Adding..." : "Add ₹" + topUpAmount}
+                {topUpLoading ? "Processing..." : `Pay ₹${topUpAmount} via Razorpay`}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Top-Up Confirmed Celebration Modal */}
+      {topUpSuccessPayload && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-100 max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 text-center relative overflow-hidden">
+            {/* Background decorative glow */}
+            <div className="absolute -top-16 -right-16 w-36 h-36 bg-emerald-100 rounded-full blur-2xl opacity-60 pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-emerald-100 rounded-full blur-2xl opacity-60 pointer-events-none" />
+
+            {/* Glowing Success Badge */}
+            <div className="relative mx-auto w-16 h-16 rounded-2xl bg-[#ECFDF5] border border-emerald-200 flex items-center justify-center shadow-emerald-glow">
+              <Sparkles className="w-8 h-8 text-[#059669] animate-pulse" />
+            </div>
+
+            <div className="space-y-1">
+              <span className="inline-block text-[11px] font-extrabold uppercase tracking-widest text-[#059669] bg-[#ECFDF5] px-3 py-1 rounded-full border border-emerald-200">
+                Payment Authorized & Verified
+              </span>
+              <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                Wallet Top-Up Confirmed!
+              </h3>
+              <p className="text-xs text-slate-500">
+                Your payment was received and instantly credited to your Turf Cash account.
+              </p>
+            </div>
+
+            {/* Credited Amount & Balance Summary Box */}
+            <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                <span className="text-xs font-semibold text-slate-500">Credited Amount</span>
+                <span className="text-lg font-black text-[#059669]">
+                  +₹{Number(topUpSuccessPayload.amount).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500">Updated Wallet Balance</span>
+                <span className="text-base font-extrabold text-slate-900">
+                  ₹{Number(topUpSuccessPayload.newBalance).toLocaleString("en-IN")}
+                </span>
+              </div>
+              {topUpSuccessPayload.paymentId && (
+                <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Payment Ref ID:</span>
+                  <span className="font-mono font-medium text-slate-600">
+                    {topUpSuccessPayload.paymentId}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick action buttons */}
+            <div className="space-y-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setTopUpSuccessPayload(null);
+                  navigate("/turfs");
+                }}
+                className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-emerald-glow transition-all flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <span>⚽ Book a Pitch Now</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTopUpSuccessPayload(null)}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+              >
+                View Wallet & Transactions
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

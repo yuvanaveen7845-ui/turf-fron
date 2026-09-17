@@ -17,8 +17,11 @@ import { DataTable } from "../../components/ui/DataTable";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import api from "../../services/api";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
 
 export const ManageRefundsPage: React.FC = () => {
+  const toast = useToast();
   const [refunds, setRefunds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -71,14 +74,16 @@ export const ManageRefundsPage: React.FC = () => {
         reason: refundReason,
       });
 
-      setFeedbackMsg(`Refund of ₹${refundAmount} processed successfully to ${refundTo}!`);
+      const msg = `Refund of ₹${refundAmount} processed successfully to ${refundTo}!`;
+      setFeedbackMsg(msg);
+      toast.success(msg);
       setIsProcessModalOpen(false);
       setPaymentId("");
       setRefundAmount("");
       setRefundReason("");
       fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to process refund.");
+      toast.error(err.response?.data?.error || "Failed to process refund.");
     } finally {
       setSubmitting(false);
     }

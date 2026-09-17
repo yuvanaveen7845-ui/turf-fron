@@ -26,9 +26,10 @@ import { Modal } from "../ui/Modal";
 import { Input } from "../ui/Input";
 import api from "../../services/api";
 import { formatTimeWithRelative } from "../../utils/timeFormat";
+import { useToast } from "../../context/ToastContext";
 
 interface ContextualBookingDrawerProps {
-  booking: any | null;
+  booking: any;
   isOpen: boolean;
   onClose: () => void;
   onBookingUpdated?: () => void;
@@ -42,6 +43,7 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
   onBookingUpdated,
   onRecordPaymentClick,
 }) => {
+  const toast = useToast();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Sub-action modal states
@@ -101,9 +103,10 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
         reason: "Admin desk manual admission check-in",
       });
       setActionFeedback("Player successfully admitted & checked in!");
+      toast.success("Player successfully checked in!");
       if (onBookingUpdated) onBookingUpdated();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Check-in failed.");
+      toast.error(err.response?.data?.error || "Check-in failed.");
     } finally {
       setCheckinSubmitting(false);
     }
@@ -122,9 +125,10 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
       });
       setRescheduleModal(false);
       setActionFeedback("Match booking rescheduled successfully!");
+      toast.success("Booking rescheduled successfully!");
       if (onBookingUpdated) onBookingUpdated();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Reschedule failed.");
+      toast.error(err.response?.data?.error || "Reschedule failed.");
     } finally {
       setRescheduling(false);
     }
@@ -140,9 +144,10 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
       });
       setCancelModal(false);
       setActionFeedback("Booking cancelled. Released match slot to calendar.");
+      toast.success("Booking cancelled successfully.");
       if (onBookingUpdated) onBookingUpdated();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Cancellation failed.");
+      toast.error(err.response?.data?.error || "Cancellation failed.");
     } finally {
       setCancelling(false);
     }
@@ -163,9 +168,10 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
       });
       setRefundModal(false);
       setActionFeedback(`Refund of ₹${amountNum} initiated successfully!`);
+      toast.success(`Refund of ₹${amountNum} initiated!`);
       if (onBookingUpdated) onBookingUpdated();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Refund initiation failed.");
+      toast.error(err.response?.data?.error || "Refund initiation failed.");
     } finally {
       setRefunding(false);
     }

@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import api from "../../services/api";
+import { useToast } from "../../context/ToastContext";
 import {
   ResponsiveContainer,
   BarChart,
@@ -25,6 +26,7 @@ import {
 } from "recharts";
 
 export const AdminReportsPage: React.FC = () => {
+  const toast = useToast();
   const [dailySummary, setDailySummary] = useState<any>(null);
   const [reconciliation, setReconciliation] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
@@ -56,7 +58,10 @@ export const AdminReportsPage: React.FC = () => {
   }, [startDate, endDate]);
 
   const handlePrint = () => {
-    window.print();
+    window.open(
+      `/print/report?start_date=${startDate}&end_date=${endDate}&autoprint=true`,
+      "_blank"
+    );
   };
 
   const downloadCSV = async (type: "bookings" | "revenue" | "utilization") => {
@@ -71,8 +76,9 @@ export const AdminReportsPage: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      toast.success(`Exported ${type} report successfully.`);
     } catch (err) {
-      alert("Failed to export CSV report.");
+      toast.error("Failed to export CSV report.");
     }
   };
 

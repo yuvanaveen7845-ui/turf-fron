@@ -21,6 +21,7 @@ import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import { useSlotRealtime } from "../../hooks/useRealtime";
+import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 
 export const TurfDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -120,16 +121,44 @@ export const TurfDetailPage: React.FC = () => {
   });
 
   const toggleSlotSelection = (slot: TimeSlot) => {
-    if (slot.status !== "AVAILABLE") return;
+    if (!slot.is_available || slot.status !== "AVAILABLE") return;
+    setLockError("");
 
     if (selectedSlotIds.includes(slot.id)) {
-      setSelectedSlotIds(selectedSlotIds.filter((sId) => sId !== slot.id));
-    } else {
+      // Deselecting a slot
+      const remaining = selectedSlotIds.filter((sId) => sId !== slot.id);
+      setSelectedSlotIds(remaining);
+      return;
+    }
+
+    if (selectedSlotIds.length === 0) {
+      setSelectedSlotIds([slot.id]);
+      return;
+    }
+
+    // Get current selected slot objects sorted by start_time
+    const currentSelected = slots
+      .filter((s) => selectedSlotIds.includes(s.id))
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    const earliest = currentSelected[0];
+    const latest = currentSelected[currentSelected.length - 1];
+
+    // Check if clicked slot is adjacent to existing selection
+    if (slot.end_time === earliest.start_time || slot.start_time === latest.end_time) {
+      // Consecutive hour -> add to selection
       setSelectedSlotIds([...selectedSlotIds, slot.id]);
+    } else {
+      // Non-adjacent slot clicked -> start fresh continuous match selection from this slot
+      setSelectedSlotIds([slot.id]);
+      setLockError(
+        `Selected ${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)}. Match reservations require consecutive match hours.`
+      );
     }
   };
 
   const handleProceedToLock = async () => {
+    if (!turf) return;
     if (!user) {
       navigate(`/login?redirect=/turfs/${id}`);
       return;
@@ -144,12 +173,23 @@ export const TurfDetailPage: React.FC = () => {
 
     try {
       const res = await api.post("/bookings/lock/", {
+        turf_id: turf.id,
+        date: selectedDate,
         slot_ids: selectedSlotIds,
       });
 
       // Save preferred duration
       const durationMinutes = selectedSlotIds.length * 60;
       localStorage.setItem("ft_preferred_duration_minutes", String(durationMinutes));
+
+      const lockPayload = res.data.data || res.data;
+      const lockedUntil =
+        res.data.locked_until ||
+        lockPayload.locked_until ||
+        res.data.expires_at ||
+        new Date(Date.now() + 300000).toISOString();
+      const lockDurationSeconds =
+        res.data.lock_duration_seconds || lockPayload.lock_duration_seconds || 300;
 
       // Navigate to checkout with the active lock reservation
       navigate("/checkout", {
@@ -160,19 +200,21 @@ export const TurfDetailPage: React.FC = () => {
           slotIds: selectedSlotIds,
           selectedSlotIds,
           selectedSlots: selectedSlotsData,
-          lockedSlots: res.data.locked_slots,
+          lockedSlots: res.data.locked_slots || lockPayload.locked_slots || selectedSlotsData,
           lockData: {
-            locked_until: res.data.expires_at || new Date(Date.now() + 300000).toISOString(),
+            locked_until: lockedUntil,
             slot_ids: selectedSlotIds,
           },
-          lockDurationSeconds: res.data.lock_duration_seconds || 300,
-          expiresAt: res.data.expires_at,
+          lockDurationSeconds,
+          expiresAt: lockedUntil,
           totalPrice: totalAmount,
         },
       });
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.error ||
+        (typeof err.response?.data === "string" ? err.response?.data : null) ||
+        err.response?.data?.non_field_errors?.[0] ||
         "Could not lock the selected slots. Someone may have just reserved them.";
       setLockError(errorMsg);
       // Refresh slots
@@ -231,9 +273,12 @@ export const TurfDetailPage: React.FC = () => {
           {/* Main Photo with Overlay */}
           <div className="relative h-72 sm:h-96 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-pitch-card">
             <img
-              src={selectedImage || turf.images[0]}
+              src={resolveImageUrl(selectedImage || (turf.images && turf.images[0]), turf.sport_type)}
               alt={turf.name}
               className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              onError={(e) => handleImageError(e, turf.sport_type)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
 
@@ -275,7 +320,14 @@ export const TurfDetailPage: React.FC = () => {
                       : "border-slate-200 opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                  <img
+                    src={resolveImageUrl(img, turf.sport_type)}
+                    alt="thumbnail"
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => handleImageError(e, turf.sport_type)}
+                  />
                 </button>
               ))}
             </div>
@@ -434,8 +486,10 @@ export const TurfDetailPage: React.FC = () => {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
                 {slots.map((slot) => {
                   const isSelected = selectedSlotIds.includes(slot.id);
-                  const isAvail = slot.status === "AVAILABLE";
-                  const isMorning = slot.start_time < "12:00:00";
+                  const isAvail = slot.is_available;
+                  const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
+                  const isPast = slot.is_past || slot.slot_state === "PAST" || slot.slot_state === "COMPLETED";
+                  const isHeld = slot.status === "LOCKED";
                   const isNight = slot.start_time >= "18:00:00";
 
                   return (
@@ -443,35 +497,70 @@ export const TurfDetailPage: React.FC = () => {
                       key={slot.id}
                       disabled={!isAvail}
                       onClick={() => toggleSlotSelection(slot)}
-                      className={`p-3 rounded-xl border text-left transition-all duration-150 cursor-pointer ${
+                      title={
+                        isAvail
+                          ? `Select ${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)} (₹${Number(slot.price)})`
+                          : isOngoing
+                            ? `Match currently in session (${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)})`
+                            : isPast
+                              ? `Slot time ended (${slot.start_time.slice(0, 5)})`
+                              : slot.status
+                      }
+                      className={`p-3 rounded-xl border text-left transition-all duration-150 ${
                         isSelected
-                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/20 scale-[1.02]"
+                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/20 scale-[1.02] cursor-pointer"
                           : isAvail
-                            ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900"
-                            : "bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                            ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900 cursor-pointer"
+                            : isOngoing
+                              ? "bg-amber-50/90 border-amber-300 text-amber-950 cursor-not-allowed shadow-2xs"
+                              : isHeld
+                                ? "bg-amber-50/70 border-amber-200 text-amber-900 cursor-not-allowed opacity-90"
+                                : "bg-slate-100/70 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed line-through"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-extrabold">
-                          {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                        <span className="text-xs font-extrabold flex items-center">
+                          {isOngoing && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1 inline-block" />
+                          )}
+                          <span>
+                            {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                          </span>
                         </span>
                         {isNight && isAvail && (
                           <Sun className={`w-3 h-3 ${isSelected ? "text-amber-200" : "text-amber-500"}`} />
                         )}
+                        {isHeld && (
+                          <Lock className="w-3 h-3 text-amber-600" />
+                        )}
                       </div>
 
                       <div className="mt-1 flex items-center justify-between">
-                        <span className={`text-xs font-bold ${isSelected ? "text-white" : "text-slate-900"}`}>
+                        <span className={`text-xs font-bold ${isSelected ? "text-white" : isHeld ? "text-amber-950" : isPast ? "text-slate-400 line-through" : "text-slate-900"}`}>
                           ₹{Number(slot.price).toLocaleString("en-IN")}
                         </span>
-                        <span className={`text-[10px] font-semibold uppercase ${
+                        <span className={`text-[10px] font-bold uppercase tracking-tight ${
                           isSelected
                             ? "text-emerald-100"
                             : isAvail
                               ? "text-[#059669]"
-                              : "text-slate-400"
+                              : isOngoing
+                                ? "text-amber-700"
+                                : isHeld
+                                  ? "text-amber-700"
+                                  : "text-slate-400"
                         }`}>
-                          {isSelected ? "Selected" : isAvail ? "Available" : slot.status.toLowerCase()}
+                          {isSelected
+                            ? "Selected"
+                            : isAvail
+                              ? "Available"
+                              : isOngoing
+                                ? "In Session"
+                                : isHeld
+                                  ? "Held (5m)"
+                                  : isPast
+                                    ? "Ended"
+                                    : slot.status.toLowerCase()}
                         </span>
                       </div>
                     </button>

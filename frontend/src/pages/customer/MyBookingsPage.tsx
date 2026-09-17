@@ -15,15 +15,19 @@ import {
   CalendarCheck,
   ChevronRight,
   Receipt,
+  CreditCard,
 } from "lucide-react";
 import api from "../../services/api";
 import { Booking } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { normalizeList } from "../../utils/helpers";
 import { FriendsTurfMatchPass } from "../../components/booking/FriendsTurfMatchPass";
 import { ReceiptModal } from "../../components/payment/ReceiptModal";
 
 export const MyBookingsPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +65,61 @@ export const MyBookingsPage: React.FC = () => {
     suggestions: "",
   });
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [balancePayingId, setBalancePayingId] = useState<string | null>(null);
+
+  const handlePayRemainingBalance = async (booking: Booking) => {
+    if (balancePayingId) return;
+    setBalancePayingId(booking.booking_id);
+    try {
+      const orderRes = await api.post("/payments/razorpay/pay-balance/", {
+        booking_id: booking.booking_id,
+      });
+      const orderData = orderRes.data;
+
+      const { initiateRazorpayCheckout } = await import("../../services/razorpay");
+      await initiateRazorpayCheckout({
+        orderData: {
+          order_id: orderData.order_id,
+          amount: orderData.amount,
+          currency: orderData.currency || "INR",
+          key_id: orderData.key_id,
+          booking_id: booking.booking_id,
+          description: `Clear Remaining Balance (₹${orderData.amount_to_pay})`,
+        },
+        user: {
+          full_name: user?.full_name || user?.first_name || "Player",
+          email: user?.email || "customer@friendsturf.com",
+          phone: user?.phone || "9999999999",
+        },
+        onSuccess: async (verifyPayload) => {
+          await api.post("/payments/razorpay/verify-balance/", {
+            razorpay_order_id: verifyPayload.razorpay_order_id,
+            razorpay_payment_id: verifyPayload.razorpay_payment_id,
+            razorpay_signature: verifyPayload.razorpay_signature,
+            booking_id: booking.booking_id,
+          });
+
+          toast.success(
+            `Remaining balance of ₹${orderData.amount_to_pay} settled successfully! Your match pass is 100% paid.`
+          );
+          await refreshProfile();
+          fetchBookings();
+        },
+        onError: (errMsg) => {
+          toast.error(errMsg || "Balance payment could not be completed.");
+        },
+        onDismiss: () => {
+          setBalancePayingId(null);
+        },
+      });
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.error || "Failed to initialize balance payment."
+      );
+    } finally {
+      setBalancePayingId(null);
+    }
+  };
 
   const fetchBookings = () => {
     setLoading(true);
@@ -115,21 +174,21 @@ export const MyBookingsPage: React.FC = () => {
     if (!selectedBookingForReschedule || !selectedRescheduleSlotId) return;
     setRescheduleLoading(true);
     try {
-      const res = await api.post(
-        `/bookings/${selectedBookingForReschedule.booking_id}/reschedule/`,
+      await api.post(
+        `/bookings/${selectedBookingForReschedule.id}/reschedule/`,
         {
           new_date: rescheduleDate,
           new_slot_ids: [selectedRescheduleSlotId],
         }
       );
-      setFeedbackSuccess(
+      toast.success(
         `Booking ${selectedBookingForReschedule.booking_id} successfully rescheduled to ${rescheduleDate}!`
       );
       setSelectedBookingForReschedule(null);
       fetchBookings();
       await refreshProfile();
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.error ||
           "Failed to reschedule booking. The selected slot may no longer be available."
       );
@@ -148,7 +207,7 @@ export const MyBookingsPage: React.FC = () => {
           reason: cancelReason || "Customer cancelled before match",
         }
       );
-      setFeedbackSuccess(
+      toast.success(
         `Booking ${selectedBookingForCancel.booking_id} cancelled. ${res.data.refund_message || "Eligible refund credited to your wallet."}`
       );
       setSelectedBookingForCancel(null);
@@ -156,7 +215,7 @@ export const MyBookingsPage: React.FC = () => {
       fetchBookings();
       await refreshProfile();
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.error ||
           "Failed to cancel booking. Cancellations are restricted inside 6 hours."
       );
@@ -179,11 +238,11 @@ export const MyBookingsPage: React.FC = () => {
         review_text: reviewForm.review_text,
         suggestions: reviewForm.suggestions,
       });
-      setFeedbackSuccess("Thank you! Your verified match review has been submitted.");
+      toast.success("Thank you! Your verified match review has been submitted.");
       setSelectedBookingForReview(null);
       fetchBookings();
     } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to submit review.");
+      toast.error(err.response?.data?.error || "Failed to submit review.");
     } finally {
       setReviewLoading(false);
     }
@@ -372,6 +431,22 @@ export const MyBookingsPage: React.FC = () => {
 
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end">
+                    {/* Pay Remaining Balance via Razorpay */}
+                    {isConfirmed && Number(booking.balance_due) > 0 && (
+                      <button
+                        onClick={() => handlePayRemainingBalance(booking)}
+                        disabled={balancePayingId === booking.booking_id}
+                        className="px-3.5 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>
+                          {balancePayingId === booking.booking_id
+                            ? "Processing..."
+                            : `Pay ₹${Number(booking.balance_due).toLocaleString("en-IN")} Balance`}
+                        </span>
+                      </button>
+                    )}
+
                     {/* View QR Pass */}
                     {(isConfirmed || isCheckedIn) && (
                       <button
@@ -547,15 +622,8 @@ export const MyBookingsPage: React.FC = () => {
 
       {/* QR Digital Match Pass Modal */}
       {selectedBookingForQR && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-2xl w-full my-8">
-            <button
-              onClick={() => setSelectedBookingForQR(null)}
-              className="absolute -top-12 right-0 sm:right-2 text-white hover:text-emerald-400 font-bold text-sm flex items-center space-x-1.5 p-2 cursor-pointer z-50 bg-slate-900/60 rounded-full px-3"
-            >
-              <span>✕ Close Pass</span>
-            </button>
-
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+          <div className="relative max-w-2xl w-full my-auto py-6">
             <FriendsTurfMatchPass
               passData={{
                 booking_id: selectedBookingForQR.booking_id,
@@ -577,7 +645,11 @@ export const MyBookingsPage: React.FC = () => {
                 checked_in_at: selectedBookingForQR.checked_in_at,
                 qr_base64: selectedBookingForQR.qr_ticket_data?.qr_base64,
               }}
+              onClose={() => setSelectedBookingForQR(null)}
               showActions={true}
+              onBalancePaid={() => {
+                fetchBookings();
+              }}
             />
           </div>
         </div>

@@ -195,7 +195,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         reconnectTimerRef.current = null;
       }
     };
-  }, [connectSSE]);
+  }, [executeDeltaPoll]);
 
   const subscribe = useCallback(
     (channel: string, eventType: string, callback: (event: RealtimeEvent) => void) => {

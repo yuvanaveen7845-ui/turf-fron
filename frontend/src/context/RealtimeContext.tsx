@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import api from "../services/api";
+import { sendBrowserPushNotification } from "../services/webPush";
 
 export interface RealtimeEvent {
   id: string;
@@ -42,6 +43,23 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLastEvent(event);
     lastTimestampRef.current = Math.max(lastTimestampRef.current, event.timestamp || 0);
 
+    // Trigger browser push notification for key events if document is in background or active
+    if (event.channel === "operations" || event.channel === "gate") {
+      if (event.type === "BOOKING_CONFIRMED" || event.type === "PAYMENT_SUCCESS") {
+        sendBrowserPushNotification({
+          title: "Match Pass Confirmed! ⚽",
+          body: event.payload?.message || "Your pitch slot booking has been confirmed at Friends Turf.",
+          onClickUrl: "/my-bookings",
+        });
+      } else if (event.type === "GATE_CHECKIN_SUCCESS") {
+        sendBrowserPushNotification({
+          title: "Gate Check-In Verified! 🛡️",
+          body: `Pass checked in at ${event.payload?.turf_name || "arena"}. Have a great match!`,
+          onClickUrl: "/my-bookings",
+        });
+      }
+    }
+
     const specificKey = `${event.channel}:${event.type}`;
     const channelWildcard = `${event.channel}:*`;
     const globalWildcard = "*:*";
@@ -60,9 +78,9 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, []);
 
-  // Safe Delta Polling
+  // Safe Delta Polling with visibility awareness
   const executeDeltaPoll = useCallback(async () => {
-    if (isPollingRef.current) return;
+    if (isPollingRef.current || !isMountedRef.current) return;
     isPollingRef.current = true;
     try {
       const res = await api.get(`/realtime/poll/?since=${lastTimestampRef.current}&channels=slots,gate,operations`);
@@ -83,10 +101,12 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [dispatchEvent]);
 
-  const startPolling = useCallback(() => {
-    if (!pollIntervalRef.current) {
-      pollIntervalRef.current = setInterval(executeDeltaPoll, 5000);
+  const startPolling = useCallback((customIntervalMs?: number) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
     }
+    const interval = customIntervalMs ?? (document.hidden ? 45000 : 12000);
+    pollIntervalRef.current = setInterval(executeDeltaPoll, interval);
   }, [executeDeltaPoll]);
 
   const stopPolling = useCallback(() => {
@@ -161,12 +181,12 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         eventSourceRef.current = null;
         startPolling();
 
-        // Exponential backoff for SSE reconnect (10s, 20s, up to 60s)
+        // Exponential backoff for SSE reconnect (15s, 30s, up to 60s)
         reconnectAttemptsRef.current += 1;
-        const delay = Math.min(60000, 10000 * Math.pow(1.5, reconnectAttemptsRef.current - 1));
+        const delay = Math.min(60000, 15000 * Math.pow(1.5, reconnectAttemptsRef.current - 1));
         if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = setTimeout(() => {
-          if (isMountedRef.current) connectSSE();
+          if (isMountedRef.current && !document.hidden) connectSSE();
         }, delay);
       };
     } catch (e) {
@@ -180,8 +200,26 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     isMountedRef.current = true;
     connectSSE();
+
+    // Pause/throttle polling when tab is not visible to prevent worker saturation
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+        startPolling(45000); // 45s sleep mode
+      } else {
+        executeDeltaPoll();
+        connectSSE();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       isMountedRef.current = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -195,7 +233,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         reconnectTimerRef.current = null;
       }
     };
-  }, [executeDeltaPoll]);
+  }, [executeDeltaPoll, connectSSE, startPolling]);
 
   const subscribe = useCallback(
     (channel: string, eventType: string, callback: (event: RealtimeEvent) => void) => {

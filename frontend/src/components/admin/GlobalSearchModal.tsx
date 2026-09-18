@@ -100,7 +100,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     {
       id: "action_customer",
       title: "Add New Customer",
-      desc: "Register player profile for instant booking & loyalty",
+      desc: "Register player profile for instant booking & passes",
       icon: UserPlus,
       badge: "CRM",
       color: "text-teal-600 bg-teal-50 border-teal-200",

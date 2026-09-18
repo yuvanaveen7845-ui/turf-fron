@@ -184,7 +184,7 @@ export const RegisterPage: React.FC = () => {
             </h1>
 
             <p className="text-sm text-slate-300 leading-relaxed max-w-md">
-              Register in 30 seconds to lock weekend pitch slots, earn loyalty cashback on every session, and activate instant QR optical gate check-ins.
+              Register in 30 seconds to lock weekend pitch slots, manage your squad passes, and activate instant QR optical gate check-ins.
             </p>
 
             {/* Privileges Card */}
@@ -204,7 +204,7 @@ export const RegisterPage: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span><strong>Loyalty Turf Cash</strong> rewarded on verified reservations.</span>
+                  <span><strong>Instant 1-Click Wallet</strong> with zero-fee top-ups & refunds.</span>
                 </div>
               </div>
             </div>

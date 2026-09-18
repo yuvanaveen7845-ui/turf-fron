@@ -64,7 +64,6 @@ export const ForgotPasswordPage: React.FC = () => {
   const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
   const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
   const [attemptsLeft, setAttemptsLeft] = useState<number | undefined>(undefined);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   // DRS Animation State
   const [drsStatus, setDrsStatus] = useState<DRSStatus>("idle");
@@ -104,9 +103,6 @@ export const ForgotPasswordPage: React.FC = () => {
       }
       if (res.data?.masked_email) {
         setMaskedEmail(res.data.masked_email);
-      }
-      if (res.data?.dev_otp) {
-        setDevOtp(res.data.dev_otp);
       }
       setResendCooldown(res.data?.cooldown_seconds || 60);
       setStep("OTP_VERIFY");
@@ -560,18 +556,6 @@ export const ForgotPasswordPage: React.FC = () => {
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center space-x-2 text-xs text-rose-800">
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>{error}</span>
-                  </div>
-                )}
-
-                {/* Developer Quick-Fill OTP for Local Testing */}
-                {devOtp && (
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                    <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
-                      Local Testing Development OTP:
-                    </span>
-                    <span className="font-mono text-base font-black text-emerald-800 tracking-widest">
-                      {devOtp}
-                    </span>
                   </div>
                 )}
 

@@ -55,17 +55,12 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <Link to="/offers" className="hover:text-[#059669] transition-colors">
-                  Promo Coupons & Offers
-                </Link>
-              </li>
-              <li>
-                <Link to="/loyalty" className="hover:text-[#059669] transition-colors">
-                  Loyalty Points Converter
+                  Promo Coupons & Squad Passes
                 </Link>
               </li>
               <li>
                 <Link to="/wallet" className="hover:text-[#059669] transition-colors">
-                  Turf Cash Wallet
+                  Turf Cash Wallet & Top-Ups
                 </Link>
               </li>
             </ul>

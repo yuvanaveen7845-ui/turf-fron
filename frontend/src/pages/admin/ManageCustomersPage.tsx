@@ -171,7 +171,7 @@ export const ManageCustomersPage: React.FC = () => {
               {user.full_name || user.email}
             </div>
             <div className="text-[11px] text-slate-400">
-              Ref: <span className="font-mono text-slate-600">{user.referral_code}</span>
+              {user.email}
             </div>
           </div>
         </div>
@@ -197,13 +197,13 @@ export const ManageCustomersPage: React.FC = () => {
     },
     {
       key: "tier",
-      header: "Reward Points",
+      header: "Membership Tier",
       render: (user: User) => {
         const prof = user.customer_profile;
         return (
-          <div className="text-[12px] text-amber-600 font-extrabold flex items-center gap-1">
-            <Award className="w-4 h-4 text-amber-500" />
-            <span>{prof?.loyalty_points || 0} pts</span>
+          <div className="text-[12px] text-emerald-700 font-extrabold flex items-center gap-1">
+            <Award className="w-4 h-4 text-emerald-600" />
+            <span className="uppercase">{prof?.membership_tier || "STANDARD"}</span>
           </div>
         );
       },
@@ -465,7 +465,7 @@ export const ManageCustomersPage: React.FC = () => {
               <div className="font-bold text-slate-900 text-xs flex items-center justify-between">
                 <span>Account & Contact</span>
                 <span className="font-mono text-[11px] text-slate-500">
-                  Ref Code: <strong className="text-slate-800">{crmCustomer.customer.referral_code || "N/A"}</strong>
+                  Player ID: <strong className="text-slate-800">#{crmCustomer.customer.id.slice(0, 8)}</strong>
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">

@@ -33,7 +33,7 @@ export const TermsOfServicePage: React.FC = () => {
     { id: "venue-rules", label: "4. Pitch Conduct & Equipment" },
     { id: "pricing-payments", label: "5. Pricing, Tax & Payments" },
     { id: "cancellations", label: "6. Cancellations & Refunds" },
-    { id: "wallet-loyalty", label: "7. Turf Cash & Loyalty Points" },
+    { id: "wallet-balances", label: "7. Turf Cash Wallet & Balances" },
     { id: "liability", label: "8. Liability & Injury Waiver" },
     { id: "governing-law", label: "9. Jurisdiction & Legal" },
   ];
@@ -391,21 +391,21 @@ export const TermsOfServicePage: React.FC = () => {
 
             <hr className="border-slate-100" />
 
-            {/* Section 7: Wallet & Loyalty */}
-            <section id="wallet-loyalty" className="space-y-3.5 scroll-mt-24">
+            {/* Section 7: Turf Cash Wallet */}
+            <section id="wallet-balances" className="space-y-3.5 scroll-mt-24">
               <div className="flex items-center space-x-2 text-[#059669]">
                 <Sparkles className="w-5 h-5" />
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                  7. Turf Cash Wallet & Loyalty Program
+                  7. Turf Cash Wallet & Balances
                 </h2>
               </div>
               <p>
-                Players earn <strong>5% loyalty cashback points</strong> on every verified booking session:
+                The Turf Cash Wallet provides instant 1-click slot checkout with zero gateway processing fees:
               </p>
               <ul className="space-y-2 list-disc pl-5 text-slate-600">
-                <li>Points can be converted into Turf Cash wallet balance at a 1:1 conversion rate (1 Point = ₹1 INR).</li>
-                <li>Turf Cash Wallet funds never expire and can be used for 1-click instant slot checkouts.</li>
-                <li>Wallet balances are non-transferable between player accounts and cannot be withdrawn to physical cash.</li>
+                <li>Turf Cash Wallet funds never expire and can be used for instant slot reservations.</li>
+                <li>Eligible slot cancellations credit 100% refund immediately back to your Turf Cash balance.</li>
+                <li>Wallet balances are non-transferable between player accounts and cannot be withdrawn to physical bank cash.</li>
               </ul>
             </section>
 

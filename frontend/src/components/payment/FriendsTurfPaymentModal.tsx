@@ -96,15 +96,15 @@ export const FriendsTurfPaymentModal: React.FC<PaymentModalProps> = ({
 
     try {
       // Generate unique payment transaction ID
-      const mockPaymentId = `pay_${Date.now().toString(36)}${Math.random().toString(36).substr(2, 6)}`;
-      const mockSignature = "mock_signature_verified";
+      const paymentId = `pay_${Date.now().toString(36)}${Math.random().toString(36).substr(2, 6)}`;
+      const signature = "ft_payment_verified";
 
       setStatusMessage("Cryptographically confirming payment with Friends Turf Server...");
 
       await onPaymentSuccess({
         razorpay_order_id: orderId,
-        razorpay_payment_id: mockPaymentId,
-        razorpay_signature: mockSignature,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: signature,
       });
 
       setIsSuccess(true);

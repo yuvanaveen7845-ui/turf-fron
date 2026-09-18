@@ -40,9 +40,6 @@ const MyBookingsPage = React.lazy(() =>
 const WalletPage = React.lazy(() =>
   import("./pages/customer/WalletPage").then((m) => ({ default: m.WalletPage }))
 );
-const LoyaltyPage = React.lazy(() =>
-  import("./pages/customer/LoyaltyPage").then((m) => ({ default: m.LoyaltyPage }))
-);
 const OffersPage = React.lazy(() =>
   import("./pages/customer/OffersPage").then((m) => ({ default: m.OffersPage }))
 );
@@ -177,7 +174,7 @@ export const App: React.FC = () => {
                   <Route path="/bookings/confirmation/:bookingId" element={<BookingConfirmationPage />} />
                   <Route path="/my-bookings" element={<MyBookingsPage />} />
                   <Route path="/wallet" element={<WalletPage />} />
-                  <Route path="/loyalty" element={<LoyaltyPage />} />
+                  <Route path="/loyalty" element={<Navigate to="/wallet" replace />} />
                   <Route path="/offers" element={<OffersPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />

@@ -76,7 +76,7 @@ export const QuickCustomerModal: React.FC<QuickCustomerModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Add New Customer / Player"
-      description="Quickly register a new player profile for instant match bookings and loyalty points"
+      description="Quickly register a new player profile for instant match bookings and digital passes"
       maxWidth="sm"
     >
       <div className="space-y-4 text-xs">

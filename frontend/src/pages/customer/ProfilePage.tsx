@@ -83,10 +83,10 @@ export const ProfilePage: React.FC = () => {
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <span className="text-[10px] uppercase font-bold text-slate-400 block">
-            Reward Points
+            Membership Tier
           </span>
-          <p className="text-2xl font-black text-amber-500 mt-1">
-            {user.customer_profile?.loyalty_points || 0}
+          <p className="text-xl font-black text-amber-600 mt-1 uppercase">
+            {user.customer_profile?.membership_tier || "STANDARD"}
           </p>
         </div>
 
@@ -190,31 +190,6 @@ export const ProfilePage: React.FC = () => {
             )}
           </div>
         </form>
-      </div>
-
-      {/* Referral Code Box */}
-      <div className="bg-[#ECFDF5] border border-emerald-200 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <span className="text-[10px] font-bold text-[#059669] uppercase tracking-wider">
-            Your Personal Referral Code
-          </span>
-          <h4 className="text-xl font-mono font-black text-slate-900">
-            {user.referral_code}
-          </h4>
-          <p className="text-xs text-slate-600">
-            Share with friends to give ₹100 and receive ₹100 on their first pitch booking.
-          </p>
-        </div>
-
-        <button
-          onClick={() => {
-            navigator.clipboard.writeText(user.referral_code);
-            toast.success("Referral code copied to clipboard!");
-          }}
-          className="px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0"
-        >
-          Copy Referral Code
-        </button>
       </div>
     </div>
   );

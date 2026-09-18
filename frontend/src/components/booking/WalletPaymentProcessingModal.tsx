@@ -53,7 +53,7 @@ const TRIVIA_TIPS = [
   "👟 Gear Tip: Flat rubber-studded turf boots provide maximum grip and prevent slippage on 50mm grass.",
   "🎟️ Fast Check-in: Your digital match pass QR scans in under 0.5s at the turnstile entrance.",
   "💧 Chilled dugout water stations and warm-up bibs are complimentary for all team bookings.",
-  "🌟 Friends Turf loyalty points are automatically earned with every wallet match booking.",
+  "⚡ Turf Cash payments feature 0% transaction surcharges and instant 1-click slot confirmation.",
 ];
 
 export const WalletPaymentProcessingModal: React.FC<WalletPaymentProcessingModalProps> = ({

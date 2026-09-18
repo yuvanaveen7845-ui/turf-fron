@@ -83,15 +83,12 @@ export const ENDPOINTS = {
     coupons: "/promotions/coupons/",
     couponDetail: (id: string | number) => `/promotions/coupons/${id}/`,
     validateCoupon: "/promotions/coupons/validate/",
-    referrals: "/promotions/referrals/",
   },
 
-  // Wallet & Loyalty
+  // Wallet
   wallet: {
     balance: "/wallet/balance/",
     topUp: "/wallet/top-up/",
-    loyalty: "/wallet/loyalty/",
-    loyaltyRedeem: "/wallet/loyalty/redeem/",
     adminAdjust: "/wallet/admin/adjust/",
   },
 

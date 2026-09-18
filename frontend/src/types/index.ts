@@ -3,7 +3,6 @@ export type UserStatus = "ACTIVE" | "INVITED" | "SUSPENDED" | "DISABLED";
 
 export interface CustomerProfile {
   wallet_balance: number | string;
-  loyalty_points: number;
   membership_tier: string;
   total_bookings: number;
   total_spending: number | string;
@@ -29,7 +28,6 @@ export interface User {
   phone: string;
   role: UserRole;
   status: UserStatus;
-  referral_code: string;
   date_joined: string;
   last_login_at?: string;
   is_superuser?: boolean;
@@ -238,7 +236,6 @@ export interface MembershipPlan {
   description: string;
   discount_percentage: number | string;
   priority_booking_days: number;
-  loyalty_point_multiplier: number | string;
   monthly_price: number | string;
   annual_price: number | string;
   features: string[];
@@ -254,17 +251,6 @@ export interface WalletTransaction {
   reference_id: string;
   description: string;
   balance_after: number | string;
-  created_at: string;
-}
-
-export interface LoyaltyTransaction {
-  id: string;
-  points: number;
-  transaction_type: "EARN" | "REDEEM" | "BONUS" | "EXPIRE";
-  source: string;
-  reference_id: string;
-  description: string;
-  balance_after: number;
   created_at: string;
 }
 

@@ -240,7 +240,7 @@ export const PrivacyPolicyPage: React.FC = () => {
               <ul className="space-y-2 list-disc pl-5 text-slate-600">
                 <li>Issuing cryptographic QR match passes for stadium gate check-in.</li>
                 <li>Dispatching booking confirmation emails, GST invoices, and slot reminder notifications.</li>
-                <li>Managing Turf Cash Wallet balances and crediting 5% loyalty points on verified sessions.</li>
+                <li>Managing Turf Cash Wallet balances and automated cancellation credits.</li>
                 <li>Preventing fraud, duplicate turnstile admissions, and automated slot hoarding.</li>
                 <li>Complying with statutory tax reporting requirements under the Indian Goods and Services Tax (GST) Act.</li>
               </ul>
@@ -332,7 +332,7 @@ export const PrivacyPolicyPage: React.FC = () => {
                 We retain personal information for as long as your account remains active or as required by law:
               </p>
               <ul className="space-y-2 list-disc pl-5 text-slate-600">
-                <li><strong>Account Profile & Loyalty Data:</strong> Maintained until account closure is requested by the user.</li>
+                <li><strong>Account Profile Data:</strong> Maintained until account closure is requested by the user.</li>
                 <li><strong>Financial & Invoice Records:</strong> Retained for 7 years in compliance with Indian Income Tax and GST regulations.</li>
                 <li><strong>Gate Scan Audit Logs:</strong> Kept for 12 months for operational reconciliation before automated archival.</li>
               </ul>

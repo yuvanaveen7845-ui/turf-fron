@@ -246,7 +246,7 @@ export interface MembershipPlan {
 export interface WalletTransaction {
   id: string;
   amount: number | string;
-  transaction_type: "CREDIT" | "DEBIT";
+  transaction_type: "CREDIT" | "DEBIT" | "REFUND";
   source: string;
   reference_id: string;
   description: string;

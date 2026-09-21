@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   Mail,
@@ -16,12 +16,16 @@ import {
   Check,
   X,
   LogIn,
+  Zap,
 } from "lucide-react";
+import api from "../../services/api";
 import { useUserAvailability } from "../../hooks/useUserAvailability";
+import { getBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
 
 export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -120,7 +124,59 @@ export const RegisterPage: React.FC = () => {
         phone: formData.phone,
         password: formData.password,
       });
-      navigate("/");
+
+      // Check if customer had an active booking intent
+      const intent = getBookingIntent();
+      if (intent && intent.turfId && intent.slotIds?.length > 0) {
+        try {
+          const res = await api.post("/bookings/lock/", {
+            turf_id: intent.turfId,
+            date: intent.date,
+            slot_ids: intent.slotIds,
+          });
+
+          const lockPayload = res.data.data || res.data;
+          const lockedUntil =
+            res.data.locked_until ||
+            lockPayload.locked_until ||
+            res.data.expires_at ||
+            new Date(Date.now() + 300000).toISOString();
+          const lockDurationSeconds =
+            res.data.lock_duration_seconds || lockPayload.lock_duration_seconds || 300;
+
+          clearBookingIntent();
+
+          navigate("/checkout", {
+            replace: true,
+            state: {
+              turf: intent.turf,
+              date: intent.date,
+              selectedDate: intent.date,
+              slotIds: intent.slotIds,
+              selectedSlotIds: intent.slotIds,
+              selectedSlots: intent.selectedSlots || [],
+              lockedSlots: res.data.locked_slots || lockPayload.locked_slots || intent.selectedSlots,
+              lockData: {
+                locked_until: lockedUntil,
+                slot_ids: intent.slotIds,
+              },
+              lockDurationSeconds,
+              expiresAt: lockedUntil,
+              totalPrice: intent.totalAmount,
+            },
+          });
+          return;
+        } catch (lockErr) {
+          clearBookingIntent();
+          navigate(`/turfs/${intent.turfId}?date=${intent.date}`, { replace: true });
+          return;
+        }
+      }
+
+      const searchParams = new URLSearchParams(location.search);
+      const redirectParam = searchParams.get("redirect");
+      const from = redirectParam || (location.state as any)?.from?.pathname || "/";
+      navigate(from, { replace: true });
     } catch (err: any) {
       const msg =
         err.response?.data?.email?.[0] ||
@@ -245,6 +301,19 @@ export const RegisterPage: React.FC = () => {
               </p>
             </div>
 
+            {/* Pending Booking Continuation Banner */}
+            {(getBookingIntent() || (location.state as any)?.hasPendingBooking) && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-start space-x-2.5 text-xs text-emerald-900 shadow-sm animate-in fade-in">
+                <Zap className="w-4 h-4 text-[#059669] shrink-0 mt-0.5 fill-[#059669]" />
+                <div>
+                  <p className="font-bold text-[#059669]">Complete Your Match Reservation</p>
+                  <p className="text-emerald-700 text-[11px] mt-0.5">
+                    Register in 30 seconds to instantly lock your selected slots and proceed to checkout.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Existing User Warning Alert */}
             {(emailAvailability.exists || phoneAvailability.exists) && (
               <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-900 flex items-center justify-between animate-in fade-in">
@@ -255,7 +324,8 @@ export const RegisterPage: React.FC = () => {
                   </span>
                 </div>
                 <Link
-                  to="/login"
+                  to={`/login${location.search}`}
+                  state={location.state}
                   className="font-bold text-amber-800 hover:text-amber-950 underline inline-flex items-center space-x-1 shrink-0 ml-2"
                 >
                   <LogIn className="w-3.5 h-3.5" />
@@ -462,7 +532,7 @@ export const RegisterPage: React.FC = () => {
             {/* Sign In Link */}
             <p className="text-center text-xs text-slate-600 pt-1">
               Already have an account?{" "}
-              <Link to="/login" className="text-[#059669] font-bold hover:underline">
+              <Link to={`/login${location.search}`} state={location.state} className="text-[#059669] font-bold hover:underline">
                 Sign In here
               </Link>
             </p>

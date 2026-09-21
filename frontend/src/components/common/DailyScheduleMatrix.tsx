@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { useSlotRealtime } from "../../hooks/useRealtime";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 interface ScheduleSlot {
   id: string;
@@ -53,6 +54,7 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
   compact = false,
 }) => {
   const navigate = useNavigate();
+  const { company } = useBusinessSettings();
   const [selectedDate, setSelectedDate] = useState<string>(
     initialDate || (() => new Date().toISOString().split("T")[0])
   );
@@ -127,7 +129,7 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
             Today & Upcoming Pitch Availability
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Real-time slots across Pitch 1, Pitch 2, and Pitch 3 at Friends Turf Sports Complex.
+            Real-time slots across all arenas at {company.name}.
           </p>
         </div>
 

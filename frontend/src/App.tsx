@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { PermissionProvider } from "./context/PermissionContext";
 import { RealtimeProvider } from "./context/RealtimeContext";
+import { BusinessSettingsProvider } from "./context/BusinessSettingsContext";
 import { ProtectedRoute } from "./components/common/ProtectedRoute";
 
 // Layouts (small — kept eager)
@@ -144,6 +145,7 @@ const AdminSettingsPage = React.lazy(() =>
 );
 
 import { FriendsTurfLoadingScreen } from "./components/common/FriendsTurfLoadingScreen";
+import { ScrollToTop } from "./components/common/ScrollToTop";
 
 /** Premium Athletic Stadium Loading Screen while lazy chunks load */
 const PageSuspenseFallback = () => <FriendsTurfLoadingScreen />;
@@ -151,11 +153,13 @@ const PageSuspenseFallback = () => <FriendsTurfLoadingScreen />;
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <PermissionProvider>
-          <RealtimeProvider>
-            <Suspense fallback={<PageSuspenseFallback />}>
-              <Routes>
+      <ScrollToTop />
+      <BusinessSettingsProvider>
+        <AuthProvider>
+          <PermissionProvider>
+            <RealtimeProvider>
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <Routes>
                 {/* Auth & Access Routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -287,6 +291,7 @@ export const App: React.FC = () => {
           </RealtimeProvider>
         </PermissionProvider>
       </AuthProvider>
+      </BusinessSettingsProvider>
     </BrowserRouter>
   );
 };

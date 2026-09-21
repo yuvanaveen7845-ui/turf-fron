@@ -21,10 +21,12 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { useRealtime } from "../../context/RealtimeContext";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 import { NotificationOverlay } from "./NotificationOverlay";
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { company } = useBusinessSettings();
   const { status: realtimeStatus } = useRealtime();
   const navigate = useNavigate();
   const location = useLocation();
@@ -121,29 +123,34 @@ export const Navbar: React.FC = () => {
             <Link
               to="/"
               className="flex items-center space-x-3 group focus:outline-hidden"
-              aria-label="Friends Turf Home"
+              aria-label={`${company.name} Home`}
             >
               <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80 p-0.5 flex items-center justify-center group-hover:scale-105 transition-transform duration-200 shadow-2xs">
                 <img
-                  src="/logo.png"
-                  alt="Friends Turf"
+                  src={company.logo_url || "/logo.png"}
+                  alt={company.name}
                   className="w-full h-full object-contain drop-shadow-2xs"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== window.location.origin + "/logo.png") {
+                      e.currentTarget.src = "/logo.png";
+                    }
+                  }}
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#10B981] border-2 border-white ring-1 ring-emerald-500/20" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm sm:text-base font-black tracking-tight text-slate-900 leading-none group-hover:text-slate-950">
-                  FRIENDS <span className="text-[#059669]">TURF</span>
+                  {company.name.split(" ")[0]} <span className="text-[#059669]">{company.name.split(" ").slice(1).join(" ") || "TURF"}</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mt-1 hidden xs:block">
-                  Tiruppur Arena
+                  {company.address.split(",")[0] || "Tiruppur Arena"}
                 </span>
               </div>
             </Link>
           </div>
 
           {/* 2. Center Segmented Navigation Capsule (The Inner Island) */}
-          <nav className="hidden md:flex items-center bg-slate-100/80 p-1.5 rounded-full border border-slate-200/60 backdrop-blur-md shadow-inner space-x-1">
+          <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center bg-slate-100/80 p-1.5 rounded-full border border-slate-200/60 backdrop-blur-md shadow-inner space-x-1">
             {(!user || user.role === "CUSTOMER") && (
               <>
                 <Link

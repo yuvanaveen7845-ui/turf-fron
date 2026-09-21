@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   MapPin,
   Users,
@@ -20,17 +20,22 @@ import {
 import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 import { useSlotRealtime } from "../../hooks/useRealtime";
 import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
+import { saveBookingIntent, getBookingIntent } from "../../utils/bookingIntent";
 
 export const TurfDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { booking: bookingRules } = useBusinessSettings();
 
+  const queryDate = searchParams.get("date");
   const [turf, setTurf] = useState<Turf | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
+    return queryDate || new Date().toISOString().split("T")[0];
   });
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0);
@@ -41,6 +46,13 @@ export const TurfDetailPage: React.FC = () => {
   const [lockLoading, setLockLoading] = useState(false);
   const [lockError, setLockError] = useState("");
   const [selectedImage, setSelectedImage] = useState<string>("");
+
+  // Sync state if query param date changes
+  useEffect(() => {
+    if (queryDate && queryDate !== selectedDate) {
+      setSelectedDate(queryDate);
+    }
+  }, [queryDate]);
 
   // Premium Polish: Remember customer's last-used booking duration
   const [preferredDuration, setPreferredDuration] = useState<number>(() => {
@@ -67,9 +79,26 @@ export const TurfDetailPage: React.FC = () => {
     api
       .get(`/turfs/${id}/availability/?date=${selectedDate}`)
       .then((res) => {
-        setSlots(res.data.slots || []);
+        const loadedSlots: TimeSlot[] = res.data.slots || [];
+        setSlots(loadedSlots);
         setAvailableSlotsCount(res.data.available_slots_count || 0);
         setIsFastFill(res.data.is_fast_fill || false);
+
+        // Auto-restore slots from pending intent if matching
+        const intent = getBookingIntent();
+        if (
+          intent &&
+          intent.turfId === String(id) &&
+          intent.date === selectedDate &&
+          intent.slotIds?.length > 0
+        ) {
+          const validIds = intent.slotIds.filter((sId) =>
+            loadedSlots.some((s) => s.id === sId && s.status === "AVAILABLE")
+          );
+          if (validIds.length > 0) {
+            setSelectedSlotIds(validIds);
+          }
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -86,9 +115,26 @@ export const TurfDetailPage: React.FC = () => {
     api
       .get(`/turfs/${id}/availability/?date=${selectedDate}`)
       .then((res) => {
-        setSlots(res.data.slots || []);
+        const loadedSlots: TimeSlot[] = res.data.slots || [];
+        setSlots(loadedSlots);
         setAvailableSlotsCount(res.data.available_slots_count || 0);
         setIsFastFill(res.data.is_fast_fill || false);
+
+        // Auto-restore slots from pending intent if matching
+        const intent = getBookingIntent();
+        if (
+          intent &&
+          intent.turfId === String(id) &&
+          intent.date === selectedDate &&
+          intent.slotIds?.length > 0
+        ) {
+          const validIds = intent.slotIds.filter((sId) =>
+            loadedSlots.some((s) => s.id === sId && s.status === "AVAILABLE")
+          );
+          if (validIds.length > 0) {
+            setSelectedSlotIds(validIds);
+          }
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -102,8 +148,9 @@ export const TurfDetailPage: React.FC = () => {
     fetchSlots();
   });
 
-  // Generate date options for the next 10 days
-  const dateOptions = Array.from({ length: 10 }, (_, i) => {
+  // Dynamic date options based on business settings advanceBookingDays (default 14 days)
+  const advanceDays = bookingRules?.advanceBookingDays || 14;
+  const dateOptions = Array.from({ length: advanceDays }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().split("T")[0];
@@ -159,12 +206,32 @@ export const TurfDetailPage: React.FC = () => {
 
   const handleProceedToLock = async () => {
     if (!turf) return;
-    if (!user) {
-      navigate(`/login?redirect=/turfs/${id}`);
-      return;
-    }
     if (selectedSlotIds.length === 0) {
       setLockError("Please select at least 1 open time slot.");
+      return;
+    }
+
+    if (!user) {
+      // Save intent before navigating to login
+      saveBookingIntent({
+        turfId: String(turf.id),
+        turfName: turf.name,
+        date: selectedDate,
+        slotIds: selectedSlotIds,
+        turf,
+        selectedSlots: selectedSlotsData,
+        totalAmount,
+        returnUrl: `/turfs/${id}?date=${selectedDate}`,
+      });
+      navigate(`/login?redirect=/checkout`, {
+        state: {
+          from: { pathname: `/turfs/${id}`, search: `?date=${selectedDate}` },
+          hasPendingBooking: true,
+          turfName: turf.name,
+          slotCount: selectedSlotIds.length,
+          totalAmount,
+        },
+      });
       return;
     }
 
@@ -603,7 +670,12 @@ export const TurfDetailPage: React.FC = () => {
                 className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-emerald-glow transition-all active:scale-[0.99] cursor-pointer"
               >
                 {lockLoading ? (
-                  <span>Reserving 5-Min Slot Lock...</span>
+                  <span>Reserving Slot Lock...</span>
+                ) : !user ? (
+                  <>
+                    <span>Sign In to Reserve & Book ({selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""})</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
                 ) : (
                   <>
                     <span>Proceed to 5-Min Lock Reservation</span>

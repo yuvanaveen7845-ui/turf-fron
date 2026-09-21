@@ -7,12 +7,16 @@ import {
   ArrowRight,
   Sparkles,
   Percent,
+  Compass,
+  ShieldCheck,
 } from "lucide-react";
 import api from "../../services/api";
 import { Coupon } from "../../types";
 import { Link } from "react-router-dom";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const OffersPage: React.FC = () => {
+  const { company } = useBusinessSettings();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,15 +48,15 @@ export const OffersPage: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
       {/* 1. Header */}
-      <div>
+      <div className="space-y-1.5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-          Match Deals & Discounts
+          {company.name} • Match Deals & Discounts
         </span>
         <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-tight">
           Active Offers & Promo Codes
         </h1>
-        <p className="text-sm text-slate-600 mt-0.5">
-          Apply these verified promotional codes at checkout for instant booking savings.
+        <p className="text-sm text-slate-600">
+          Apply these verified promotional codes at checkout for instant booking savings at {company.name}.
         </p>
       </div>
 
@@ -63,23 +67,23 @@ export const OffersPage: React.FC = () => {
             <div key={n} className="h-56 bg-white rounded-3xl border border-slate-200" />
           ))}
         </div>
-      ) : (
+      ) : coupons.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {coupons.map((coupon) => (
             <div
               key={coupon.id}
-              className="bg-white border border-slate-200 rounded-3xl p-6 shadow-pitch-card flex flex-col justify-between space-y-5 relative overflow-hidden"
+              className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-pitch-card flex flex-col justify-between space-y-5 relative overflow-hidden transition-all hover:border-emerald-300 hover:shadow-lg"
             >
               {/* Header */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-200">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-200 shadow-2xs">
                     {coupon.discount_type === "PERCENTAGE"
                       ? `${Number(coupon.discount_value)}% OFF`
                       : `FLAT ₹${Number(coupon.discount_value)} OFF`}
                   </span>
-                  <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                    <Tag className="w-4 h-4 text-[#059669]" />
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#059669]">
+                    <Tag className="w-4 h-4" />
                   </div>
                 </div>
 
@@ -116,6 +120,28 @@ export const OffersPage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="p-10 sm:p-14 text-center bg-white rounded-3xl border border-slate-200/80 shadow-pitch-card space-y-5 max-w-2xl mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-[#059669] shadow-2xs">
+            <Gift className="w-7 h-7" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-xl font-bold text-slate-900">No Public Promo Codes Available Right Now</h3>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              We offer direct transparent pricing with 0% brokerage and instant Turf Cash cashback on every completed match.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              to="/turfs"
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+            >
+              <Compass className="w-4 h-4" />
+              <span>Explore Available Pitches</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       )}
     </div>

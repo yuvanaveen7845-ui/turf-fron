@@ -6,8 +6,10 @@ import { Turf } from "../../types";
 import { PitchCard } from "../../components/common/PitchCard";
 import { SearchFilterBar } from "../../components/common/SearchFilterBar";
 import { DailyScheduleMatrix } from "../../components/common/DailyScheduleMatrix";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const TurfListingPage: React.FC = () => {
+  const { company, booking } = useBusinessSettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,13 +68,13 @@ export const TurfListingPage: React.FC = () => {
       {/* 1. Header */}
       <div className="space-y-1.5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-          FRIENDS TURF • TIRUPPUR
+          {company.name} • TIRUPPUR
         </span>
         <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-tight">
           Our Pitches & Arenas
         </h1>
         <p className="text-sm text-slate-600">
-          Tournament-grade football pitches, box cricket arenas, and multi-sport grounds in Tiruppur. Direct booking with guaranteed 5-minute slot lock.
+          Tournament-grade football pitches, box cricket arenas, and multi-sport grounds in {company.address.split(",")[0] || "Tiruppur"}. Direct booking with guaranteed {booking.slotHoldMinutes}-minute slot lock.
         </p>
       </div>
 
@@ -175,7 +177,7 @@ export const TurfListingPage: React.FC = () => {
           </div>
           <h3 className="text-lg font-bold text-slate-900">No pitches match your selected sport</h3>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Choose "All Pitches & Arenas" to view all grounds at Friends Turf Sports Complex.
+            Choose "All Pitches & Arenas" to view all grounds at {company.name}.
           </p>
           <button
             onClick={() => setSelectedSport("ALL")}

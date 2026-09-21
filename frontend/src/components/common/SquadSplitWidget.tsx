@@ -12,6 +12,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Turf } from "../../types";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 interface SquadSplitWidgetProps {
   turfs?: Turf[];
@@ -38,6 +39,7 @@ export const SquadSplitWidget: React.FC<SquadSplitWidgetProps> = ({
   turfs = [],
   basePrice = 1200,
 }) => {
+  const { booking, payments } = useBusinessSettings();
   // If turfs are provided, default to first turf
   const [selectedTurfId, setSelectedTurfId] = useState<string>("");
   const [squadSize, setSquadSize] = useState<number>(10);
@@ -137,20 +139,10 @@ export const SquadSplitWidget: React.FC<SquadSplitWidgetProps> = ({
                   );
                 })
               ) : (
-                // Fallback if turfs haven't loaded yet
+                // Skeleton loaders while turfs load from backend
                 <>
-                  <button
-                    type="button"
-                    className="p-3 rounded-xl text-left bg-[#059669] border border-emerald-400 text-white font-bold text-xs"
-                  >
-                    ⚽ FIFA 7v7 Main Arena (₹1,200/hr)
-                  </button>
-                  <button
-                    type="button"
-                    className="p-3 rounded-xl text-left bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs"
-                  >
-                    🏏 Box Cricket Pitch A (₹1,000/hr)
-                  </button>
+                  <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 animate-pulse h-14" />
+                  <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 animate-pulse h-14" />
                 </>
               )}
             </div>
@@ -295,11 +287,11 @@ export const SquadSplitWidget: React.FC<SquadSplitWidgetProps> = ({
             <div className="space-y-2 py-3 border-y border-slate-700/60 text-left text-xs text-slate-300">
               <div className="flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>5-Minute Slot Hold Lock with 0% drop risk</span>
+                <span>{booking.slotHoldMinutes}-Minute Slot Hold Lock with 0% drop risk</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Pay 50% deposit now (₹{Math.round(totalAmount / 2)}), rest at counter</span>
+                <span>Pay {payments.advanceDepositPercent}% deposit now (₹{Math.round(totalAmount * (payments.advanceDepositPercent / 100))}), rest at counter</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { useUserAvailability } from "../../hooks/useUserAvailability";
+import { getBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
 
 declare global {
   interface Window {
@@ -54,16 +55,73 @@ export const LoginPage: React.FC = () => {
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Helper for smart role-based redirection
-  const handlePostLoginRedirect = (user: User) => {
+  // Helper for smart role-based redirection & booking continuation
+  const handlePostLoginRedirect = async (user: User) => {
     if (user.role === "ADMIN") {
       navigate("/admin", { replace: true });
-    } else if (user.role === "STAFF") {
-      navigate("/staff", { replace: true });
-    } else {
-      const from = (location.state as any)?.from?.pathname || "/";
-      navigate(from, { replace: true });
+      return;
     }
+    if (user.role === "STAFF") {
+      navigate("/staff", { replace: true });
+      return;
+    }
+
+    // Check if customer had an active booking intent
+    const intent = getBookingIntent();
+    if (intent && intent.turfId && intent.slotIds?.length > 0) {
+      setStatusMessage("Reserving your selected pitch slots...");
+      try {
+        const res = await api.post("/bookings/lock/", {
+          turf_id: intent.turfId,
+          date: intent.date,
+          slot_ids: intent.slotIds,
+        });
+
+        const lockPayload = res.data.data || res.data;
+        const lockedUntil =
+          res.data.locked_until ||
+          lockPayload.locked_until ||
+          res.data.expires_at ||
+          new Date(Date.now() + 300000).toISOString();
+        const lockDurationSeconds =
+          res.data.lock_duration_seconds || lockPayload.lock_duration_seconds || 300;
+
+        clearBookingIntent();
+
+        // Navigate directly to checkout with full state payload
+        navigate("/checkout", {
+          replace: true,
+          state: {
+            turf: intent.turf,
+            date: intent.date,
+            selectedDate: intent.date,
+            slotIds: intent.slotIds,
+            selectedSlotIds: intent.slotIds,
+            selectedSlots: intent.selectedSlots || [],
+            lockedSlots: res.data.locked_slots || lockPayload.locked_slots || intent.selectedSlots,
+            lockData: {
+              locked_until: lockedUntil,
+              slot_ids: intent.slotIds,
+            },
+            lockDurationSeconds,
+            expiresAt: lockedUntil,
+            totalPrice: intent.totalAmount,
+          },
+        });
+        return;
+      } catch (lockErr: any) {
+        console.warn("Auto-lock after login encountered conflict:", lockErr);
+        clearBookingIntent();
+        // If conflict or lock failed, direct back to turf page with their date
+        navigate(`/turfs/${intent.turfId}?date=${intent.date}`, { replace: true });
+        return;
+      }
+    }
+
+    const searchParams = new URLSearchParams(location.search);
+    const redirectParam = searchParams.get("redirect");
+    const from = redirectParam || (location.state as any)?.from?.pathname || "/";
+    navigate(from, { replace: true });
   };
 
   // Load Google Identity Services script
@@ -369,6 +427,19 @@ export const LoginPage: React.FC = () => {
               </p>
             </div>
 
+            {/* Pending Booking Continuation Banner */}
+            {(getBookingIntent() || (location.state as any)?.hasPendingBooking) && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-start space-x-2.5 text-xs text-emerald-900 shadow-sm animate-in fade-in">
+                <Zap className="w-4 h-4 text-[#059669] shrink-0 mt-0.5 fill-[#059669]" />
+                <div>
+                  <p className="font-bold text-[#059669]">Complete Your Match Reservation</p>
+                  <p className="text-emerald-700 text-[11px] mt-0.5">
+                    Sign in to instantly reserve your selected slots and proceed directly to checkout.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Error Message */}
             {error && (
               <div className="flex items-start space-x-2.5 p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 animate-in fade-in">
@@ -495,7 +566,7 @@ export const LoginPage: React.FC = () => {
             {/* Sign Up Link */}
             <p className="text-center text-xs text-slate-600 pt-2">
               New to Friends Turf?{" "}
-              <Link to="/register" className="text-[#059669] font-bold hover:underline">
+              <Link to={`/register${location.search}`} state={location.state} className="text-[#059669] font-bold hover:underline">
                 Create Player Account
               </Link>
             </p>

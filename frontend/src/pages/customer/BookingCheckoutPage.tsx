@@ -20,15 +20,18 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 import { Turf, TimeSlot } from "../../types";
 import { initiateRazorpayCheckout } from "../../services/razorpay";
 import { WalletPaymentProcessingModal } from "../../components/booking/WalletPaymentProcessingModal";
 import { FriendsTurfMatchPass } from "../../components/booking/FriendsTurfMatchPass";
+import { getBookingIntent, saveBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
 
 export const BookingCheckoutPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
+  const { booking: bookingRules, company: companySettings } = useBusinessSettings();
 
   const [paymentSuccessData, setPaymentSuccessData] = useState<{
     booking: any;
@@ -50,8 +53,9 @@ export const BookingCheckoutPage: React.FC = () => {
   const actualSlotIds = state?.slotIds || state?.selectedSlotIds || [];
   const actualDate = state?.date || state?.selectedDate || "";
 
-  // Countdown timer for 5-min slot lock
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState<number>(300);
+  // Countdown timer for slot lock
+  const defaultLockSecs = (bookingRules?.slotHoldMinutes || 5) * 60;
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState<number>(defaultLockSecs);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
@@ -75,22 +79,50 @@ export const BookingCheckoutPage: React.FC = () => {
 
 
   useEffect(() => {
+    // If not authenticated, redirect to login with intent preserved
+    if (!user) {
+      if (state?.turf && actualSlotIds.length > 0) {
+        saveBookingIntent({
+          turfId: String(state.turf.id),
+          turfName: state.turf.name,
+          date: actualDate,
+          slotIds: actualSlotIds,
+          turf: state.turf,
+          selectedSlots: state.selectedSlots,
+          returnUrl: "/checkout",
+        });
+      }
+      navigate("/login?redirect=/checkout", {
+        replace: true,
+        state: { from: location, hasPendingBooking: true },
+      });
+      return;
+    }
+
     if (!state?.turf || !actualSlotIds || actualSlotIds.length === 0) {
+      // Check if recoverable intent exists
+      const intent = getBookingIntent();
+      if (intent && intent.turfId && intent.slotIds?.length > 0) {
+        navigate(`/turfs/${intent.turfId}?date=${intent.date}`, { replace: true });
+        return;
+      }
       navigate("/turfs");
       return;
     }
 
-    // Initialize 5-minute countdown from locked_until / expiresAt
+    // Initialize countdown from locked_until / expiresAt
     const expiryTimeStr = state.lockData?.locked_until || state.expiresAt;
     if (expiryTimeStr) {
       const lockExpiry = new Date(expiryTimeStr).getTime();
       const now = new Date().getTime();
       const diff = Math.max(0, Math.floor((lockExpiry - now) / 1000));
-      setTimeLeftSeconds(diff > 0 ? diff : 300);
+      setTimeLeftSeconds(diff > 0 ? diff : defaultLockSecs);
+    } else {
+      setTimeLeftSeconds(defaultLockSecs);
     }
 
     fetchPricePreview("");
-  }, [state]);
+  }, [state, defaultLockSecs, user]);
 
   // Countdown interval for slot reservation hold
   useEffect(() => {
@@ -242,9 +274,9 @@ export const BookingCheckoutPage: React.FC = () => {
           description: `Pitch Booking (${orderData.booking_id})`,
         },
         user: {
-          full_name: user?.full_name || user?.first_name || "Friends Turf Player",
-          email: user?.email || "customer@friendsturf.com",
-          phone: user?.phone || "9999999999",
+          full_name: user?.full_name || user?.first_name || "Player",
+          email: user?.email || "",
+          phone: user?.phone || "",
         },
         onStatusChange: (statusText) => setStatusMessage(statusText),
         onSuccess: async (response) => {

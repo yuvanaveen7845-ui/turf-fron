@@ -17,11 +17,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import api from "../../services/api";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const PrintMatchPassPage: React.FC = () => {
   const { bookingId } = useParams<{ bookingId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { company } = useBusinessSettings();
   const [passData, setPassData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -272,10 +274,10 @@ export const PrintMatchPassPage: React.FC = () => {
           <div className="flex items-center justify-between pt-0.5 text-[10px]">
             <div className="space-y-0.5">
               <p className="font-bold text-slate-800">
-                Friends Turf Sports Complex Arena LLP
+                {company.name} Sports Complex Arena LLP
               </p>
               <p className="text-slate-400">
-                Emergency Hotline: +91 93619 89494 | support@friendsturf.com | www.friendsturf.com
+                Emergency Hotline: {company.phone} | {company.support_email || company.email} | {company.website}
               </p>
             </div>
 

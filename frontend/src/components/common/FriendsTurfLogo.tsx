@@ -1,4 +1,5 @@
 import React from "react";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 interface FriendsTurfLogoProps {
   variant?: "full" | "compact" | "white" | "print" | "monochrome";
@@ -13,6 +14,7 @@ export const FriendsTurfLogo: React.FC<FriendsTurfLogoProps> = ({
   className = "",
   showSubtitle = true,
 }) => {
+  const { company } = useBusinessSettings();
   // Dimensions
   const emblemSizes = {
     sm: "w-7 h-7",
@@ -31,6 +33,9 @@ export const FriendsTurfLogo: React.FC<FriendsTurfLogoProps> = ({
   const isWhite = variant === "white";
   const isPrint = variant === "print";
   const isMono = variant === "monochrome";
+
+  const firstName = company.name.split(" ")[0] || "FRIENDS";
+  const restName = company.name.split(" ").slice(1).join(" ") || "TURF";
 
   return (
     <div className={`inline-flex items-center space-x-2.5 select-none ${className}`}>
@@ -82,7 +87,7 @@ export const FriendsTurfLogo: React.FC<FriendsTurfLogoProps> = ({
                 isWhite ? "text-white" : isPrint || isMono ? "text-slate-950" : "text-slate-900"
               }`}
             >
-              FRIENDS <span className={isWhite ? "text-emerald-200" : "text-[#059669]"}>TURF</span>
+              {firstName} <span className={isWhite ? "text-emerald-200" : "text-[#059669]"}>{restName}</span>
             </span>
           </div>
 
@@ -96,7 +101,7 @@ export const FriendsTurfLogo: React.FC<FriendsTurfLogoProps> = ({
                   : "text-slate-400"
               }`}
             >
-              Sports Complex • Tiruppur
+              Sports Complex • {company.address.split(",")[0] || "Tiruppur"}
             </span>
           )}
         </div>

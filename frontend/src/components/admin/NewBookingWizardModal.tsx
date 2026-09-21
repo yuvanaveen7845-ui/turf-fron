@@ -173,41 +173,46 @@ export const NewBookingWizardModal: React.FC<NewBookingWizardModalProps> = ({
         ? selectedCustomer.email
         : newCustomerEmail;
 
-      const isWalkIn =
-        paymentOption === "PAID_CASH" ||
-        paymentOption === "PAID_UPI" ||
-        paymentOption === "PAY_ON_ARRIVAL";
+      let paymentType: "FULL" | "PARTIAL" | "PENDING" = "FULL";
+      let paymentMethod: "CASH" | "UPI" = "CASH";
+
+      if (paymentOption === "PAID_CASH") {
+        paymentType = "FULL";
+        paymentMethod = "CASH";
+      } else if (paymentOption === "PAID_UPI") {
+        paymentType = "FULL";
+        paymentMethod = "UPI";
+      } else if (paymentOption === "PAY_ON_ARRIVAL") {
+        paymentType = "PENDING";
+        paymentMethod = "CASH";
+      } else if (paymentOption === "PARTIAL") {
+        paymentType = "PARTIAL";
+        paymentMethod = "CASH";
+      }
 
       let res;
-      if (isWalkIn) {
+      if (!selectedCustomer) {
+        // Walk-in counter guest flow
         res = await api.post("/bookings/walk-in/", {
           turf_id: selectedTurf.id,
+          date: date,
           slot_ids: selectedSlotIds,
           customer_name: custName,
           customer_phone: custPhone,
+          payment_type: paymentType,
+          payment_method: paymentMethod,
           notes: notes,
         });
-
-        // If paid cash/upi immediately, record payment
-        if (
-          (paymentOption === "PAID_CASH" || paymentOption === "PAID_UPI") &&
-          res.data.id
-        ) {
-          await api.post("/payments/manual-collect/", {
-            booking_id: res.data.id,
-            amount: parseFloat(res.data.final_amount || res.data.total_amount || 0),
-            payment_method: paymentOption === "PAID_CASH" ? "CASH" : "UPI",
-            reference: "Instant Walk-in Desk Collection",
-          });
-        }
       } else {
+        // Registered customer counter reservation
         res = await api.post("/bookings/", {
           turf_id: selectedTurf.id,
           date: date,
           slot_ids: selectedSlotIds,
+          customer_id: selectedCustomer.id,
           booking_type: "REGULAR",
-          payment_type: paymentOption === "PARTIAL" ? "PARTIAL" : "FULL",
-          payment_method: "CASH",
+          payment_type: paymentType,
+          payment_method: paymentMethod,
           notes: notes,
         });
       }
@@ -616,6 +621,33 @@ export const NewBookingWizardModal: React.FC<NewBookingWizardModalProps> = ({
                       ₹{Number(priceData?.final_amount || 0).toLocaleString("en-IN")}
                     </span>
                   </div>
+
+                  {paymentOption === "PARTIAL" && (
+                    <div className="pt-2 border-t border-slate-200 grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-800">
+                        <span className="text-[10px] uppercase font-bold block text-emerald-600">Deposit Due Now (30%)</span>
+                        <strong className="font-mono text-sm">₹{Math.round(Number(priceData?.final_amount || 0) * 0.3).toLocaleString("en-IN")}</strong>
+                      </div>
+                      <div className="p-2 bg-amber-50 rounded-lg border border-amber-200 text-amber-800">
+                        <span className="text-[10px] uppercase font-bold block text-amber-600">Balance at Gate (70%)</span>
+                        <strong className="font-mono text-sm">₹{(Number(priceData?.final_amount || 0) - Math.round(Number(priceData?.final_amount || 0) * 0.3)).toLocaleString("en-IN")}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentOption === "PAY_ON_ARRIVAL" && (
+                    <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex justify-between items-center">
+                      <span><strong>Pay at Check-In:</strong> ₹0.00 collected now</span>
+                      <span className="font-bold font-mono">₹{Number(priceData?.final_amount || 0).toLocaleString("en-IN")} Due at Gate</span>
+                    </div>
+                  )}
+
+                  {(paymentOption === "PAID_CASH" || paymentOption === "PAID_UPI") && (
+                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex justify-between items-center">
+                      <span><strong>100% Fully Settled:</strong> Immediate Spot Collection</span>
+                      <span className="font-bold font-mono text-emerald-700">₹{Number(priceData?.final_amount || 0).toLocaleString("en-IN")} (Zero Balance)</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between pt-3 border-t border-slate-100">

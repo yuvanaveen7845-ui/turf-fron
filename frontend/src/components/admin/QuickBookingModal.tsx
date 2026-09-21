@@ -149,9 +149,12 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       if (bookingType === "WALK_IN") {
         res = await api.post("/bookings/walk-in/", {
           turf_id: selectedTurfId,
+          date: date,
           slot_ids: selectedSlotIds,
           customer_name: customerName,
           customer_phone: customerPhone,
+          payment_type: paymentType,
+          payment_method: paymentMethod,
           notes: notes,
         });
       } else {

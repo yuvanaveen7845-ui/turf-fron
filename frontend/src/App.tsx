@@ -19,46 +19,20 @@ import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
 import { AccessDeniedPage } from "./pages/auth/AccessDeniedPage";
 import { UnauthorizedPage } from "./pages/auth/UnauthorizedPage";
 
-// ─── Lazy-loaded Customer Pages ────────────────────────────────────────────
-const HomePage = React.lazy(() =>
-  import("./pages/customer/HomePage").then((m) => ({ default: m.HomePage }))
-);
-const TurfListingPage = React.lazy(() =>
-  import("./pages/customer/TurfListingPage").then((m) => ({ default: m.TurfListingPage }))
-);
-const TurfDetailPage = React.lazy(() =>
-  import("./pages/customer/TurfDetailPage").then((m) => ({ default: m.TurfDetailPage }))
-);
-const BookingCheckoutPage = React.lazy(() =>
-  import("./pages/customer/BookingCheckoutPage").then((m) => ({ default: m.BookingCheckoutPage }))
-);
-const BookingConfirmationPage = React.lazy(() =>
-  import("./pages/customer/BookingConfirmationPage").then((m) => ({ default: m.BookingConfirmationPage }))
-);
-const MyBookingsPage = React.lazy(() =>
-  import("./pages/customer/MyBookingsPage").then((m) => ({ default: m.MyBookingsPage }))
-);
-const WalletPage = React.lazy(() =>
-  import("./pages/customer/WalletPage").then((m) => ({ default: m.WalletPage }))
-);
-const OffersPage = React.lazy(() =>
-  import("./pages/customer/OffersPage").then((m) => ({ default: m.OffersPage }))
-);
-const ProfilePage = React.lazy(() =>
-  import("./pages/customer/ProfilePage").then((m) => ({ default: m.ProfilePage }))
-);
-const NotificationsPage = React.lazy(() =>
-  import("./pages/customer/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
-);
-const PaymentCallbackPage = React.lazy(() =>
-  import("./pages/customer/PaymentCallbackPage").then((m) => ({ default: m.PaymentCallbackPage }))
-);
-const TermsOfServicePage = React.lazy(() =>
-  import("./pages/customer/TermsOfServicePage").then((m) => ({ default: m.TermsOfServicePage }))
-);
-const PrivacyPolicyPage = React.lazy(() =>
-  import("./pages/customer/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage }))
-);
+// ─── Customer Facing Pages (Eagerly bundled for instant 0ms mobile tab switches) ───
+import { HomePage } from "./pages/customer/HomePage";
+import { TurfListingPage } from "./pages/customer/TurfListingPage";
+import { TurfDetailPage } from "./pages/customer/TurfDetailPage";
+import { BookingCheckoutPage } from "./pages/customer/BookingCheckoutPage";
+import { BookingConfirmationPage } from "./pages/customer/BookingConfirmationPage";
+import { MyBookingsPage } from "./pages/customer/MyBookingsPage";
+import { WalletPage } from "./pages/customer/WalletPage";
+import { OffersPage } from "./pages/customer/OffersPage";
+import { ProfilePage } from "./pages/customer/ProfilePage";
+import { NotificationsPage } from "./pages/customer/NotificationsPage";
+import { PaymentCallbackPage } from "./pages/customer/PaymentCallbackPage";
+import { TermsOfServicePage } from "./pages/customer/TermsOfServicePage";
+import { PrivacyPolicyPage } from "./pages/customer/PrivacyPolicyPage";
 
 // ─── Lazy-loaded Print Document Templates ──────────────────────────────────
 const PrintMatchPassPage = React.lazy(() =>
@@ -146,6 +120,7 @@ const AdminSettingsPage = React.lazy(() =>
 
 import { FriendsTurfLoadingScreen } from "./components/common/FriendsTurfLoadingScreen";
 import { ScrollToTop } from "./components/common/ScrollToTop";
+import { QuickActionAnywhere } from "./components/common/QuickActionAnywhere";
 
 /** Premium Athletic Stadium Loading Screen while lazy chunks load */
 const PageSuspenseFallback = () => <FriendsTurfLoadingScreen />;
@@ -158,8 +133,7 @@ export const App: React.FC = () => {
         <AuthProvider>
           <PermissionProvider>
             <RealtimeProvider>
-              <Suspense fallback={<PageSuspenseFallback />}>
-                <Routes>
+              <Routes>
                 {/* Auth & Access Routes */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
@@ -190,9 +164,30 @@ export const App: React.FC = () => {
                 </Route>
 
                 {/* Standalone Print-Optimized Document Routes (No Navbars/Sidebars) */}
-                <Route path="/print/pass/:bookingId" element={<PrintMatchPassPage />} />
-                <Route path="/print/receipt/:identifier" element={<PrintReceiptPage />} />
-                <Route path="/print/report" element={<PrintReportPage />} />
+                <Route
+                  path="/print/pass/:bookingId"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <PrintMatchPassPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/print/receipt/:identifier"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <PrintReceiptPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/print/report"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <PrintReportPage />
+                    </Suspense>
+                  }
+                />
 
                 {/* Staff Portal Protected Routes */}
                 <Route
@@ -245,8 +240,41 @@ export const App: React.FC = () => {
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="coupons" element={<ManageCouponsPage />} />
-                  <Route path="customers" element={<ManageCustomersPage />} />
+                  <Route
+                    path="maintenance"
+                    element={
+                      <ProtectedRoute requiredPermission="FACILITY_EDIT">
+                        <ManageMaintenancePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="coupons"
+                    element={
+                      <ProtectedRoute
+                        requiredPermission="COUPONS_MANAGE"
+                        requiredFeature="COUPONS"
+                      >
+                        <ManageCouponsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="reviews"
+                    element={
+                      <ProtectedRoute requiredFeature="REVIEWS">
+                        <ManageReviewsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="customers"
+                    element={
+                      <ProtectedRoute requiredPermission="CUSTOMER_VIEW">
+                        <ManageCustomersPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="staff"
                     element={
@@ -255,8 +283,6 @@ export const App: React.FC = () => {
                       </ProtectedRoute>
                     }
                   />
-                  <Route path="maintenance" element={<ManageMaintenancePage />} />
-                  <Route path="reviews" element={<ManageReviewsPage />} />
                   <Route
                     path="reports"
                     element={
@@ -287,7 +313,8 @@ export const App: React.FC = () => {
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
-            </Suspense>
+            {/* Global Quick Action & Scanner FAB (Active for Staff & Admin throughout website) */}
+            <QuickActionAnywhere />
           </RealtimeProvider>
         </PermissionProvider>
       </AuthProvider>

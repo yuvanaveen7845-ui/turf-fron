@@ -65,46 +65,39 @@ export const StaffWalkInPage: React.FC = () => {
     setLoading(true);
     try {
       if (paymentMode === "RAZORPAY") {
-        // Create server booking and Razorpay order
+        // Create server walk-in booking and unified Razorpay order in single request
         const res = await api.post("/bookings/staff/walk-in/", {
           turf_id: selectedTurfId,
           slot_ids: selectedSlotIds,
           customer_name: customerName,
           customer_phone: customerPhone,
+          payment_method: "RAZORPAY",
           notes: `${notes ? notes + " • " : ""}Desk Razorpay Digital Payment`,
         });
-        const bookingData = res.data;
-
-        const orderRes = await api.post("/payments/razorpay/create-order/", {
-          turf_id: selectedTurfId,
-          date: todayStr,
-          slot_ids: selectedSlotIds,
-          payment_type: "FULL",
-          notes: `Walk-in booking for ${customerName}`,
-        });
-        const orderData = orderRes.data;
+        const orderData = res.data;
+        const bookingData = orderData.booking || orderData;
 
         await initiateRazorpayCheckout({
           orderData: {
             order_id: orderData.order_id,
             amount: orderData.amount,
-            currency: "INR",
+            currency: orderData.currency || "INR",
             key_id: orderData.key_id,
-            booking_id: bookingData.booking_id,
-            description: `Walk-in Match Pass (${bookingData.booking_id})`,
+            booking_id: orderData.booking_id || bookingData.booking_id,
+            description: `Walk-in Match Pass (${orderData.booking_id || bookingData.booking_id})`,
           },
           user: {
-            full_name: customerName,
+            full_name: customerName || "Walk-in Guest",
             phone: customerPhone,
           },
           onSuccess: async (verifyPayload) => {
-            await api.post("/payments/razorpay/verify/", {
+            const verifyRes = await api.post("/payments/razorpay/verify/", {
               razorpay_order_id: verifyPayload.razorpay_order_id,
               razorpay_payment_id: verifyPayload.razorpay_payment_id,
               razorpay_signature: verifyPayload.razorpay_signature,
-              booking_id: bookingData.booking_id,
+              booking_id: orderData.booking_id || bookingData.booking_id,
             });
-            setSuccessBooking(bookingData);
+            setSuccessBooking(verifyRes.data?.booking || bookingData);
             toast.success("Walk-in payment verified & match pass activated!");
             setSelectedSlotIds([]);
             setCustomerName("");
@@ -124,6 +117,7 @@ export const StaffWalkInPage: React.FC = () => {
           slot_ids: selectedSlotIds,
           customer_name: customerName,
           customer_phone: customerPhone,
+          payment_method: paymentMode,
           notes: `${notes ? notes + " • " : ""}Paid via ${paymentMode} at reception counter`,
         });
         setSuccessBooking(res.data);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -40,7 +40,6 @@ import { QuickPriceChangeModal } from "../admin/QuickPriceChangeModal";
 import { QuickBlockSlotModal } from "../admin/QuickBlockSlotModal";
 import { QuickCustomerModal } from "../admin/QuickCustomerModal";
 import { Button } from "../ui/Button";
-import { QuickActionAnywhere } from "../common/QuickActionAnywhere";
 import { useAuth } from "../../context/AuthContext";
 import { usePermission } from "../../context/PermissionContext";
 import { useGlobalShortcuts } from "../../hooks/useGlobalShortcuts";
@@ -171,16 +170,30 @@ export const AdminLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-[#F8FAFC] text-slate-900 font-sans selection:bg-[#059669] selection:text-white">
-      {/* 1. Full-Height Modern Collapsible Dock */}
+      {/* Mobile Backdrop Overlay */}
+      {!isCollapsed && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          onClick={() => setIsCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 1. Full-Height Modern Collapsible Dock (Drawer on Mobile) */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-40 bg-white border-r border-slate-200 flex flex-col transition-all duration-250 ease-in-out ${
-          isCollapsed ? "w-[72px]" : "w-64"
+        className={`fixed top-0 left-0 bottom-0 z-50 bg-white border-r border-slate-200 flex flex-col transition-all duration-250 ease-in-out ${
+          isCollapsed
+            ? "-translate-x-full md:translate-x-0 md:w-[72px]"
+            : "translate-x-0 w-64 shadow-2xl md:shadow-none"
         }`}
       >
         {/* Brand & Genuine Logo */}
         <div className="h-16 border-b border-slate-100 flex items-center justify-between px-4 shrink-0 bg-white">
           <Link
             to="/admin"
+            onClick={() => {
+              if (window.innerWidth < 768) setIsCollapsed(true);
+            }}
             className={`flex items-center gap-3 overflow-hidden ${
               isCollapsed ? "justify-center w-full" : ""
             }`}
@@ -206,7 +219,7 @@ export const AdminLayout: React.FC = () => {
           {!isCollapsed && (
             <button
               onClick={toggleSidebar}
-              title="Collapse Dock (⌘B)"
+              title="Close Dock"
               className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
             >
               <PanelLeftClose className="w-4 h-4" />
@@ -237,6 +250,9 @@ export const AdminLayout: React.FC = () => {
                     <Link
                       key={item.path}
                       to={item.path}
+                      onClick={() => {
+                        if (window.innerWidth < 768) setIsCollapsed(true);
+                      }}
                       title={isCollapsed ? item.label : undefined}
                       className={`group relative flex items-center rounded-xl transition-all ${
                         isCollapsed
@@ -334,7 +350,7 @@ export const AdminLayout: React.FC = () => {
       {/* 2. Main Canvas */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-250 ${
-          isCollapsed ? "pl-[72px]" : "pl-64"
+          isCollapsed ? "pl-0 md:pl-[72px]" : "pl-0 md:pl-64"
         }`}
       >
         {/* Safe Access Preview Banner */}
@@ -356,9 +372,9 @@ export const AdminLayout: React.FC = () => {
         )}
 
         {/* Floating Dynamic Island Command Bar */}
-        <header className="sticky top-2.5 sm:top-4 z-30 px-3 sm:px-6 lg:px-8 pointer-events-none mb-1">
+        <header className="sticky top-0 z-30 pt-3 sm:pt-4 pb-2 px-3 sm:px-6 lg:px-8 pointer-events-none bg-[#F8FAFC]/90 backdrop-blur-md transition-all">
           <div className="pointer-events-auto max-w-7xl mx-auto">
-            <div className="relative bg-white/90 backdrop-blur-2xl border border-white/80 shadow-[0_12px_40px_rgba(15,23,42,0.08),0_2px_10px_rgba(15,23,42,0.04)] rounded-full px-3 sm:px-4 py-2 flex items-center justify-between gap-3 ring-1 ring-slate-900/[0.06] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(15,23,42,0.12)]">
+            <div className="relative bg-white/95 backdrop-blur-2xl border border-slate-200/80 shadow-[0_8px_30px_rgba(15,23,42,0.06),0_2px_8px_rgba(15,23,42,0.04)] rounded-full px-3 sm:px-4 py-2 flex items-center justify-between gap-3 ring-1 ring-slate-900/[0.04]">
               
               {/* Subtle Island Top Accent Highlight */}
               <div className="absolute top-0 inset-x-8 h-[1.5px] bg-gradient-to-r from-transparent via-[#10B981]/50 to-transparent rounded-full pointer-events-none" />
@@ -557,8 +573,22 @@ export const AdminLayout: React.FC = () => {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 pb-12 max-w-7xl w-full mx-auto">
-          <Outlet />
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-12 max-w-7xl w-full mx-auto">
+          <Suspense
+            fallback={
+              <div className="space-y-4 animate-pulse">
+                <div className="h-12 rounded-2xl bg-slate-200/60 max-w-md" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="h-32 rounded-2xl bg-slate-200/50" />
+                  <div className="h-32 rounded-2xl bg-slate-200/50" />
+                  <div className="h-32 rounded-2xl bg-slate-200/50" />
+                </div>
+                <div className="h-64 rounded-2xl bg-slate-200/40" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
@@ -598,9 +628,6 @@ export const AdminLayout: React.FC = () => {
         isOpen={isAddCustomerOpen}
         onClose={() => setIsAddCustomerOpen(false)}
       />
-
-      {/* Quick Action Anywhere (⌘J launcher + FAB) */}
-      <QuickActionAnywhere />
     </div>
   );
 };

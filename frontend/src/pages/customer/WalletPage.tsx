@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Wallet,
   PlusCircle,
@@ -223,6 +223,38 @@ export const WalletPage: React.FC = () => {
       )
       .reduce((sum, t) => sum + Number(t.amount || 0), 0);
   }, [transactions]);
+
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-6 animate-in fade-in">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center mx-auto shadow-sm">
+          <Wallet className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            Turf Cash Wallet
+          </h2>
+          <p className="text-sm text-slate-600">
+            Sign in to check your wallet balance, manage auto-refunds, top-up funds, and enjoy 1-click slot checkout.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <Link
+            to="/login"
+            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-sm font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+          >
+            <span>Sign In / Register</span>
+          </Link>
+          <Link
+            to="/turfs"
+            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all"
+          >
+            <span>Explore Grounds</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-in fade-in duration-300">

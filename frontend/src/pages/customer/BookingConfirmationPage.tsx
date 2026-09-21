@@ -76,32 +76,70 @@ export const BookingConfirmationPage: React.FC = () => {
 
   const bookingRef = passData.booking_id || bookingId || state?.booking?.booking_id;
   const paidAmount = Number(passData.amount_paid || state?.booking?.amount_paid || state?.payment?.amount || 0);
+  const balanceDue = Number(passData.balance_due || state?.booking?.balance_due || 0);
+
+  const heroTitle =
+    balanceDue <= 0
+      ? "Payment Successful"
+      : paidAmount > 0
+      ? "Advance Deposit Confirmed"
+      : "Match Reservation Locked";
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-in fade-in duration-200">
       {/* Success Hero Header (Requirement #16) */}
       <div className="text-center space-y-3 print:hidden">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-200 shadow-sm animate-bounce">
+        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full border shadow-sm animate-bounce ${
+          balanceDue <= 0
+            ? "bg-[#ECFDF5] text-[#059669] border-emerald-200"
+            : "bg-amber-50 text-amber-700 border-amber-200"
+        }`}>
           <CheckCircle className="w-8 h-8" />
         </div>
         <div>
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Payment Successful
+            {heroTitle}
           </h1>
-          <p className="text-2xl font-black text-[#059669] mt-1 font-mono">
-            ₹{paidAmount.toLocaleString("en-IN")}
-          </p>
+          <div className="mt-1 flex items-center justify-center gap-2">
+            <span className="text-2xl font-black text-[#059669] font-mono">
+              ₹{paidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Paid
+            </span>
+            {balanceDue > 0 && (
+              <span className="text-sm font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                ₹{balanceDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Due at Desk
+              </span>
+            )}
+          </div>
           <div className="inline-flex items-center space-x-2 mt-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-mono font-bold text-slate-700">
-            <span>Booking confirmed:</span>
+            <span>Booking Reference:</span>
             <span className="text-[#059669] font-black">{bookingRef}</span>
           </div>
         </div>
         <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-          Your pitch reservation is locked and cryptographically verified. Present this digital match pass at the gate optical scanner for admission.
+          {balanceDue <= 0
+            ? "Your pitch reservation is locked and 100% settled. Present your digital optical pass at the gate turnstile scanner for instant admission."
+            : "Your pitch reservation is locked. Please settle the remaining balance online or at the reception desk to unlock turnstile scanner access."}
         </p>
 
-        {/* Action Buttons: [ Print Match Pass ] [ Print Receipt ] [ My Bookings ] */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        {/* Action Buttons: [ Invite Squad ] [ Print Match Pass ] [ Print Receipt ] [ My Bookings ] */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              const formattedDate = new Date(passData.date).toLocaleDateString("en-IN", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              });
+              const message = `⚽ *Match Booked at Friends Turf!* \n\n📍 *Arena:* ${passData.turf_name}\n📅 *Date:* ${formattedDate}\n⏰ *Time:* ${passData.start_time?.slice(0, 5)} - ${passData.end_time?.slice(0, 5)}\n📌 *Location:* ${passData.turf_location}\n🎟️ *Pass Code:* ${bookingRef}\n\n_Be on the turf 15 mins prior to kickoff!_`;
+              const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+              window.open(whatsappUrl, "_blank");
+            }}
+            className="inline-flex items-center justify-center font-black text-xs px-4 py-2 rounded-xl gap-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all cursor-pointer"
+          >
+            <span>Invite Squad on WhatsApp</span>
+          </button>
+
           <Button
             variant="primary"
             size="sm"

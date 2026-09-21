@@ -16,6 +16,8 @@ import {
   Sun,
   Flame,
   CheckCircle2,
+  Moon,
+  Sunrise,
 } from "lucide-react";
 import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
@@ -24,6 +26,7 @@ import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 import { useSlotRealtime } from "../../hooks/useRealtime";
 import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 import { saveBookingIntent, getBookingIntent } from "../../utils/bookingIntent";
+import { triggerHaptic } from "../../utils/haptics";
 
 export const TurfDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +44,7 @@ export const TurfDetailPage: React.FC = () => {
   const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0);
   const [isFastFill, setIsFastFill] = useState<boolean>(false);
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<"ALL" | "MORNING" | "AFTERNOON" | "NIGHT">("ALL");
   const [loadingTurf, setLoadingTurf] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [lockLoading, setLockLoading] = useState(false);
@@ -144,7 +148,7 @@ export const TurfDetailPage: React.FC = () => {
   }, [id, selectedDate]);
 
   // Real-time live synchronization for slot status changes
-  useSlotRealtime(id, selectedDate, (event) => {
+  useSlotRealtime(id, selectedDate, () => {
     fetchSlots();
   });
 
@@ -167,8 +171,33 @@ export const TurfDetailPage: React.FC = () => {
     return { dateStr, dayName, formattedDate };
   });
 
+  // Filter slots by selected time period
+  const filteredSlots = React.useMemo(() => {
+    if (selectedTimePeriod === "MORNING") {
+      return slots.filter((s) => s.start_time >= "06:00:00" && s.start_time < "12:00:00");
+    }
+    if (selectedTimePeriod === "AFTERNOON") {
+      return slots.filter((s) => s.start_time >= "12:00:00" && s.start_time < "17:00:00");
+    }
+    if (selectedTimePeriod === "NIGHT") {
+      return slots.filter((s) => s.start_time >= "17:00:00");
+    }
+    return slots;
+  }, [slots, selectedTimePeriod]);
+
+  // Counts per period
+  const periodCounts = React.useMemo(() => {
+    return {
+      all: slots.filter((s) => s.is_available).length,
+      morning: slots.filter((s) => s.is_available && s.start_time >= "06:00:00" && s.start_time < "12:00:00").length,
+      afternoon: slots.filter((s) => s.is_available && s.start_time >= "12:00:00" && s.start_time < "17:00:00").length,
+      night: slots.filter((s) => s.is_available && s.start_time >= "17:00:00").length,
+    };
+  }, [slots]);
+
   const toggleSlotSelection = (slot: TimeSlot) => {
     if (!slot.is_available || slot.status !== "AVAILABLE") return;
+    triggerHaptic("light");
     setLockError("");
 
     if (selectedSlotIds.includes(slot.id)) {
@@ -210,6 +239,8 @@ export const TurfDetailPage: React.FC = () => {
       setLockError("Please select at least 1 open time slot.");
       return;
     }
+
+    triggerHaptic("success");
 
     if (!user) {
       // Save intent before navigating to login
@@ -284,6 +315,7 @@ export const TurfDetailPage: React.FC = () => {
         err.response?.data?.non_field_errors?.[0] ||
         "Could not lock the selected slots. Someone may have just reserved them.";
       setLockError(errorMsg);
+      triggerHaptic("error");
       // Refresh slots
       api.get(`/turfs/${id}/availability/?date=${selectedDate}`).then((res) => {
         setSlots(res.data.slots || []);
@@ -319,7 +351,7 @@ export const TurfDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12 space-y-8 pb-28 md:pb-12">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center space-x-2 text-xs font-semibold text-slate-500">
         <Link to="/" className="hover:text-slate-900">
@@ -330,7 +362,7 @@ export const TurfDetailPage: React.FC = () => {
           Our Pitches
         </Link>
         <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-slate-900 font-bold">{turf.name}</span>
+        <span className="text-slate-900 font-bold truncate max-w-[180px]">{turf.name}</span>
       </nav>
 
       {/* 2. Top Banner & Gallery */}
@@ -338,7 +370,7 @@ export const TurfDetailPage: React.FC = () => {
         {/* Left Col: Photo Showcase & Pitch Specs */}
         <div className="lg:col-span-7 space-y-6">
           {/* Main Photo with Overlay */}
-          <div className="relative h-72 sm:h-96 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-pitch-card">
+          <div className="relative h-64 sm:h-96 rounded-3xl overflow-hidden bg-slate-100 border border-slate-200 shadow-pitch-card">
             <img
               src={resolveImageUrl(selectedImage || (turf.images && turf.images[0]), turf.sport_type)}
               alt={turf.name}
@@ -347,10 +379,10 @@ export const TurfDetailPage: React.FC = () => {
               crossOrigin="anonymous"
               onError={(e) => handleImageError(e, turf.sport_type)}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent" />
 
             {/* Badges on Hero */}
-            <div className="absolute top-4 left-4 flex items-center space-x-2">
+            <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 flex items-center space-x-2">
               <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white/95 backdrop-blur-md shadow-sm text-xs font-bold text-slate-900">
                 <ShieldCheck className="w-4 h-4 text-[#059669]" />
                 <span>{turf.is_fifa_certified !== false ? "FIFA Certified Pro" : "Pro Arena"}</span>
@@ -363,8 +395,8 @@ export const TurfDetailPage: React.FC = () => {
             </div>
 
             {/* Bottom Title on Image for Mobile */}
-            <div className="absolute bottom-4 left-4 right-4 text-white">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <div className="absolute bottom-3.5 left-3.5 right-3.5 sm:bottom-4 sm:left-4 sm:right-4 text-white">
+              <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight">
                 {turf.name}
               </h1>
               <p className="text-xs sm:text-sm text-slate-200 flex items-center space-x-1 mt-1">
@@ -376,12 +408,12 @@ export const TurfDetailPage: React.FC = () => {
 
           {/* Thumbnails if multiple images */}
           {turf.images && turf.images.length > 1 && (
-            <div className="flex items-center space-x-3 overflow-x-auto pb-2">
+            <div className="flex items-center space-x-3 overflow-x-auto pb-2 scrollbar-none">
               {turf.images.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedImage(img)}
-                  className={`w-20 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                  className={`w-20 h-14 rounded-2xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
                     selectedImage === img
                       ? "border-[#059669] scale-105 shadow-sm"
                       : "border-slate-200 opacity-70 hover:opacity-100"
@@ -401,13 +433,13 @@ export const TurfDetailPage: React.FC = () => {
           )}
 
           {/* Detailed Pitch Specifications (DESIGN.md Spec) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-4">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-pitch-card p-5 sm:p-6 space-y-4">
             <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider text-xs">
               Pitch & Field Specifications
             </h3>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-              <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-slate-100 space-y-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-1">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-100 space-y-1">
                 <div className="flex items-center space-x-1.5 text-slate-500 text-xs font-semibold">
                   <ShieldCheck className="w-4 h-4 text-[#059669]" />
                   <span>Turf Quality</span>
@@ -417,7 +449,7 @@ export const TurfDetailPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-slate-100 space-y-1">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-100 space-y-1">
                 <div className="flex items-center space-x-1.5 text-slate-500 text-xs font-semibold">
                   <Sun className="w-4 h-4 text-[#F59E0B]" />
                   <span>Lighting</span>
@@ -427,7 +459,7 @@ export const TurfDetailPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-slate-100 space-y-1">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-100 space-y-1">
                 <div className="flex items-center space-x-1.5 text-slate-500 text-xs font-semibold">
                   <Users className="w-4 h-4 text-[#059669]" />
                   <span>Capacity</span>
@@ -437,7 +469,7 @@ export const TurfDetailPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-slate-100 space-y-1">
+              <div className="p-3 sm:p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-100 space-y-1">
                 <div className="flex items-center space-x-1.5 text-slate-500 text-xs font-semibold">
                   <Clock className="w-4 h-4 text-[#059669]" />
                   <span>Dimensions</span>
@@ -454,9 +486,9 @@ export const TurfDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Col: 10-Day Date Strip & Interactive Slot Matrix */}
+        {/* Right Col: Interactive Booking Hub with Mobile Optimization */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-pitch-card p-5 sm:p-6 space-y-5">
             <div>
               <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
                 Step 1: Choose Date
@@ -466,21 +498,24 @@ export const TurfDetailPage: React.FC = () => {
               </h3>
             </div>
 
-            {/* 10-Day Horizontal Scroll Strip */}
-            <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
+            {/* Horizontal Swipeable Date Strip */}
+            <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none select-none">
               {dateOptions.map((opt) => {
                 const isSelected = selectedDate === opt.dateStr;
                 return (
                   <button
                     key={opt.dateStr}
-                    onClick={() => setSelectedDate(opt.dateStr)}
-                    className={`px-4 py-2.5 rounded-2xl text-center shrink-0 border transition-all cursor-pointer ${
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setSelectedDate(opt.dateStr);
+                    }}
+                    className={`px-4 py-2.5 rounded-2xl text-center shrink-0 border transition-all cursor-pointer active:scale-95 ${
                       isSelected
                         ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/20 scale-105"
                         : "bg-[#F8FAFC] border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
                     }`}
                   >
-                    <p className={`text-[11px] font-extrabold uppercase ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>
+                    <p className={`text-[10px] font-black uppercase ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>
                       {opt.dayName}
                     </p>
                     <p className="text-sm font-black mt-0.5 whitespace-nowrap">
@@ -491,27 +526,99 @@ export const TurfDetailPage: React.FC = () => {
               })}
             </div>
 
-            {/* Slot Matrix Header & Fast-Fill Banner */}
+            {/* Step 2: Slot Selection Header & Time-of-Day Segmented Filter Tabs */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
-                    Step 2: Choose 1-Hr Slots
+                    Step 2: Choose Slots
                   </span>
                   <h4 className="text-base font-bold text-slate-900">
                     Live Pitch Availability
                   </h4>
                 </div>
-                <span className="text-xs font-bold text-slate-500">
-                  {availableSlotsCount} Open Slots
+                <span className="text-xs font-bold text-[#059669] bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">
+                  {availableSlotsCount} Open
                 </span>
+              </div>
+
+              {/* Time of Day Segmented Control Tabs */}
+              <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200/70 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedTimePeriod("ALL");
+                  }}
+                  className={`py-1.5 px-2 rounded-xl text-center transition-all cursor-pointer ${
+                    selectedTimePeriod === "ALL"
+                      ? "bg-white text-slate-900 shadow-2xs font-extrabold scale-[1.02]"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="text-[11px]">All ({periodCounts.all})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedTimePeriod("MORNING");
+                  }}
+                  className={`py-1.5 px-1 rounded-xl text-center transition-all cursor-pointer ${
+                    selectedTimePeriod === "MORNING"
+                      ? "bg-white text-[#059669] shadow-2xs font-extrabold scale-[1.02]"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="06:00 AM - 12:00 PM"
+                >
+                  <span className="text-[11px] flex items-center justify-center gap-0.5">
+                    <span>🌅</span>
+                    <span>Morn</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedTimePeriod("AFTERNOON");
+                  }}
+                  className={`py-1.5 px-1 rounded-xl text-center transition-all cursor-pointer ${
+                    selectedTimePeriod === "AFTERNOON"
+                      ? "bg-white text-amber-700 shadow-2xs font-extrabold scale-[1.02]"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="12:00 PM - 05:00 PM"
+                >
+                  <span className="text-[11px] flex items-center justify-center gap-0.5">
+                    <span>☀️</span>
+                    <span>Noon</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedTimePeriod("NIGHT");
+                  }}
+                  className={`py-1.5 px-1 rounded-xl text-center transition-all cursor-pointer ${
+                    selectedTimePeriod === "NIGHT"
+                      ? "bg-white text-indigo-700 shadow-2xs font-extrabold scale-[1.02]"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="05:00 PM - 11:59 PM (Floodlit Prime)"
+                >
+                  <span className="text-[11px] flex items-center justify-center gap-0.5">
+                    <span>🌙</span>
+                    <span>Night</span>
+                  </span>
+                </button>
               </div>
 
               {/* Duration Preference Pill */}
               <div className="flex items-center justify-between p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-xs">
                 <div className="flex items-center space-x-1.5 text-[#059669] font-bold">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Preferred Match Duration: {preferredDuration}m</span>
+                  <span>Match Duration: {preferredDuration}m</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   {[60, 90, 120].map((mins) => (
@@ -519,6 +626,7 @@ export const TurfDetailPage: React.FC = () => {
                       key={mins}
                       type="button"
                       onClick={() => {
+                        triggerHaptic("light");
                         setPreferredDuration(mins);
                         localStorage.setItem("ft_preferred_duration_minutes", String(mins));
                       }}
@@ -535,9 +643,9 @@ export const TurfDetailPage: React.FC = () => {
               </div>
 
               {isFastFill && (
-                <div className="flex items-center space-x-2 p-3 rounded-xl bg-[#F0FDF4] border border-emerald-200 text-xs font-bold text-emerald-900 animate-pulse">
+                <div className="flex items-center space-x-2 p-3 rounded-2xl bg-[#F0FDF4] border border-emerald-200 text-xs font-bold text-emerald-900 animate-pulse">
                   <Flame className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]" />
-                  <span>High Demand Date: Prime evening slots filling fast!</span>
+                  <span>High Demand Date: Prime floodlit slots filling fast!</span>
                 </div>
               )}
             </div>
@@ -546,12 +654,12 @@ export const TurfDetailPage: React.FC = () => {
             {loadingSlots ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                  <div key={n} className="h-16 rounded-2xl bg-slate-100 animate-pulse" />
                 ))}
               </div>
-            ) : slots.length > 0 ? (
+            ) : filteredSlots.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
-                {slots.map((slot) => {
+                {filteredSlots.map((slot) => {
                   const isSelected = selectedSlotIds.includes(slot.id);
                   const isAvail = slot.is_available;
                   const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
@@ -573,9 +681,9 @@ export const TurfDetailPage: React.FC = () => {
                               ? `Slot time ended (${slot.start_time.slice(0, 5)})`
                               : slot.status
                       }
-                      className={`p-3 rounded-xl border text-left transition-all duration-150 ${
+                      className={`p-3 rounded-2xl border text-left transition-all duration-150 active:scale-95 select-none ${
                         isSelected
-                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/20 scale-[1.02] cursor-pointer"
+                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/20 scale-[1.02] cursor-pointer ring-2 ring-emerald-500/30"
                           : isAvail
                             ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900 cursor-pointer"
                             : isOngoing
@@ -586,7 +694,7 @@ export const TurfDetailPage: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-extrabold flex items-center">
+                        <span className="text-xs font-black flex items-center">
                           {isOngoing && (
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1 inline-block" />
                           )}
@@ -603,10 +711,10 @@ export const TurfDetailPage: React.FC = () => {
                       </div>
 
                       <div className="mt-1 flex items-center justify-between">
-                        <span className={`text-xs font-bold ${isSelected ? "text-white" : isHeld ? "text-amber-950" : isPast ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                        <span className={`text-xs font-black ${isSelected ? "text-white" : isHeld ? "text-amber-950" : isPast ? "text-slate-400 line-through" : "text-slate-900"}`}>
                           ₹{Number(slot.price).toLocaleString("en-IN")}
                         </span>
-                        <span className={`text-[10px] font-bold uppercase tracking-tight ${
+                        <span className={`text-[10px] font-black uppercase tracking-tight ${
                           isSelected
                             ? "text-emerald-100"
                             : isAvail
@@ -620,9 +728,9 @@ export const TurfDetailPage: React.FC = () => {
                           {isSelected
                             ? "Selected"
                             : isAvail
-                              ? "Available"
+                              ? "Open"
                               : isOngoing
-                                ? "In Session"
+                                ? "Live"
                                 : isHeld
                                   ? "Held (5m)"
                                   : isPast
@@ -636,49 +744,49 @@ export const TurfDetailPage: React.FC = () => {
               </div>
             ) : (
               <p className="text-sm text-slate-500 text-center py-6">
-                No slots configured for this date.
+                No slots available for the selected time period.
               </p>
             )}
 
             {/* Error Message */}
             {lockError && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center space-x-2">
+              <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{lockError}</span>
               </div>
             )}
 
-            {/* Selected Slots Summary & 5-Min Lock CTA */}
-            <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200 space-y-3">
+            {/* Desktop Selected Slots Summary & 5-Min Lock CTA */}
+            <div className="p-4 rounded-3xl bg-[#F8FAFC] border border-slate-200 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-semibold text-slate-600">
                   {selectedSlotIds.length} Slot(s) Selected
                 </span>
-                <span className="text-lg font-extrabold text-slate-900">
+                <span className="text-lg font-black text-slate-900 font-mono">
                   ₹{totalAmount.toLocaleString("en-IN")}
                 </span>
               </div>
 
               <div className="flex items-center space-x-2 text-xs text-slate-500">
                 <Lock className="w-3.5 h-3.5 text-[#059669]" />
-                <span>Clicking below holds selected slots for 5 minutes during checkout</span>
+                <span>Holds your slots for 5 minutes during checkout</span>
               </div>
 
               <button
                 disabled={selectedSlotIds.length === 0 || lockLoading}
                 onClick={handleProceedToLock}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-emerald-glow transition-all active:scale-[0.99] cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#059669] hover:bg-[#047857] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-sm flex items-center justify-center space-x-2 shadow-emerald-glow transition-all active:scale-[0.98] cursor-pointer"
               >
                 {lockLoading ? (
                   <span>Reserving Slot Lock...</span>
                 ) : !user ? (
                   <>
-                    <span>Sign In to Reserve & Book ({selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""})</span>
+                    <span>Sign In to Book ({selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""})</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 ) : (
                   <>
-                    <span>Proceed to 5-Min Lock Reservation</span>
+                    <span>Proceed to Reserve & Book</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -687,6 +795,42 @@ export const TurfDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Sticky Mobile Booking Bottom Dock (Visible only on mobile when slot is picked) */}
+      {selectedSlotIds.length > 0 && (
+        <div className="fixed bottom-16 inset-x-0 z-40 md:hidden px-4 pb-2 animate-in slide-in-from-bottom-5 duration-200">
+          <div className="bg-slate-950/95 text-white backdrop-blur-2xl rounded-2xl p-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] border border-slate-800 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-base font-black font-mono text-emerald-400">
+                  ₹{totalAmount.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[11px] text-slate-400 font-bold">
+                  • {selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                {selectedSlotsData[0]?.start_time.slice(0, 5)} - {selectedSlotsData[selectedSlotsData.length - 1]?.end_time.slice(0, 5)}
+              </p>
+            </div>
+
+            <button
+              disabled={lockLoading}
+              onClick={handleProceedToLock}
+              className="px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-black text-xs shrink-0 flex items-center space-x-1.5 shadow-md shadow-emerald-600/40 active:scale-95 transition-all cursor-pointer"
+            >
+              {lockLoading ? (
+                <span>Locking...</span>
+              ) : (
+                <>
+                  <span>Reserve & Pay</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

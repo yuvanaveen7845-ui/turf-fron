@@ -95,6 +95,8 @@ export const WalkInPOSEmbed: React.FC<WalkInPOSEmbedProps> = ({ onSuccess }) => 
         slot_ids: selectedSlotIds,
         customer_name: customerName,
         customer_phone: customerPhone,
+        payment_type: "FULL",
+        payment_method: paymentMode === "UPI" ? "UPI" : "CASH",
         notes: `${notes ? notes + " • " : ""}Paid via ${paymentMode} at reception counter`,
       });
 

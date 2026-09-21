@@ -81,6 +81,9 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
   const [paySuccess, setPaySuccess] = useState(false);
   const [justActivated, setJustActivated] = useState(false);
 
+  const [isFullscreenQROpen, setIsFullscreenQROpen] = useState(false);
+  const [isOfflineCached, setIsOfflineCached] = useState(false);
+
   // Email Match Pass Dialog States
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailInput, setEmailInput] = useState(user?.email || "");
@@ -116,10 +119,14 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
     }
   };
 
-
-  // Sync state if prop changes
+  // Sync state if prop changes & cache to local storage for offline pitch access
   React.useEffect(() => {
     setPassData(initialPassData);
+    if (initialPassData?.booking_id && initialPassData?.qr_base64) {
+      try {
+        localStorage.setItem(`ft_cached_pass_${initialPassData.booking_id}`, JSON.stringify(initialPassData));
+      } catch {}
+    }
   }, [initialPassData]);
 
   // Initial and reactive fetch of authoritative pass payload
@@ -138,9 +145,22 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
             ...res.data,
           };
         });
+        setIsOfflineCached(false);
+        try {
+          localStorage.setItem(`ft_cached_pass_${initialPassData.booking_id}`, JSON.stringify(res.data));
+        } catch {}
       }
     } catch (e) {
-      console.error("Failed to load pass payload:", e);
+      console.warn("Network fetch failed, attempting offline cached pass fallback:", e);
+      // Offline fallback from localStorage
+      try {
+        const cachedStr = localStorage.getItem(`ft_cached_pass_${initialPassData.booking_id}`);
+        if (cachedStr) {
+          const cached = JSON.parse(cachedStr);
+          setPassData(cached);
+          setIsOfflineCached(true);
+        }
+      } catch {}
     } finally {
       if (showLoader) setLoadingPass(false);
     }
@@ -456,7 +476,7 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
                 <span className="text-[10px] font-bold uppercase text-slate-400 block">Payment Status</span>
                 {balanceDue > 0 ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-50 text-amber-900 border border-amber-200 mt-0.5">
-                    ₹{balanceDue.toFixed(0)} Due at Desk
+                    ₹{balanceDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Due at Desk
                   </span>
                 ) : (
                   <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 text-[#059669] border border-emerald-200 mt-0.5">
@@ -470,6 +490,12 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
 
           {/* Right Column: High-Res Turnstile QR Code */}
           <div className="md:col-span-5 flex flex-col items-center justify-center p-4 bg-[#F8FAFC] border border-slate-200 rounded-2xl text-center space-y-2.5">
+            {isOfflineCached && (
+              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300 animate-pulse">
+                <span>⚡ Offline Cached Pass</span>
+              </span>
+            )}
+
             {isQRLocked ? (
               <div className="w-full flex flex-col items-center p-3 bg-amber-50 border border-dashed border-amber-300 rounded-xl space-y-2">
                 <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
@@ -477,7 +503,9 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-xs font-black text-amber-950 uppercase block">QR Pass Locked</span>
-                  <p className="text-[10px] text-amber-800">Settle ₹{balanceDue} to activate turnstile scanner</p>
+                  <p className="text-[10px] text-amber-800">
+                    Settle ₹{balanceDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to activate turnstile scanner
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -490,19 +518,30 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
                   ) : (
                     <>
                       <CreditCard className="w-3.5 h-3.5" />
-                      <span>Pay ₹{balanceDue} Online</span>
+                      <span>Pay ₹{balanceDue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Online</span>
                     </>
                   )}
                 </button>
               </div>
             ) : (
-              <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-sm inline-block">
+              <div
+                onClick={() => passData.qr_base64 && setIsFullscreenQROpen(true)}
+                className="group relative p-2.5 bg-white rounded-2xl border border-slate-200 hover:border-emerald-400 shadow-sm inline-block cursor-pointer transition-all active:scale-95"
+                title="Tap to enlarge QR for gate scanner"
+              >
                 {passData.qr_base64 ? (
-                  <img
-                    src={passData.qr_base64}
-                    alt={`Turnstile QR ${passData.booking_id}`}
-                    className="w-36 h-36 sm:w-40 sm:h-40 object-contain"
-                  />
+                  <>
+                    <img
+                      src={passData.qr_base64}
+                      alt={`Turnstile QR ${passData.booking_id}`}
+                      className="w-36 h-36 sm:w-40 sm:h-40 object-contain"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-2 py-1 bg-slate-900/90 text-white text-[10px] font-black rounded-lg shadow-md">
+                        Tap to Enlarge
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <div className="w-36 h-36 bg-slate-50 rounded-lg flex items-center justify-center">
                     <LoadingSpinner size="sm" label="Generating QR..." />
@@ -551,13 +590,22 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
       {/* 5. Interactive Action Buttons Toolbar (Hidden when printing/saving PDF) */}
       {showActions && (
         <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2 print:hidden">
+          <button
+            type="button"
+            onClick={handleWhatsAppSquadInvite}
+            className="inline-flex items-center justify-center font-black text-xs px-4 py-2 rounded-xl gap-1.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white shadow-sm shadow-emerald-600/30 active:scale-95 transition-all cursor-pointer"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Invite Squad on WhatsApp</span>
+          </button>
+
           <Button
             variant="primary"
             size="sm"
             onClick={handlePrint}
             leftIcon={<Printer className="w-4 h-4" />}
           >
-            Print / Save as PDF
+            Print / PDF
           </Button>
 
           <Button
@@ -579,16 +627,7 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
             onClick={() => navigate(`/print/receipt/${passData.booking_id}?autoprint=true`)}
             leftIcon={<Receipt className="w-4 h-4 text-[#059669]" />}
           >
-            GST Tax Invoice
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleWhatsAppSquadInvite}
-            leftIcon={<Share2 className="w-4 h-4 text-[#059669]" />}
-          >
-            Invite Squad
+            Invoice
           </Button>
 
           <a
@@ -602,6 +641,49 @@ export const FriendsTurfMatchPass: React.FC<MatchPassProps> = ({
             <Navigation className="w-3.5 h-3.5 text-[#059669]" />
             <span>Directions</span>
           </a>
+        </div>
+      )}
+
+      {/* Fullscreen High-Brightness QR Modal for Gate Scanner */}
+      {isFullscreenQROpen && passData.qr_base64 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center space-y-4 shadow-2xl border border-slate-200 relative animate-in zoom-in-95">
+            <button
+              onClick={() => setIsFullscreenQROpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#059669]">
+                Turnstile Gate Scanner View
+              </span>
+              <h3 className="text-lg font-black text-slate-900">{passData.turf_name}</h3>
+              <p className="text-xs font-mono font-bold text-slate-500">#{passData.booking_id}</p>
+            </div>
+
+            <div className="p-4 bg-white border-2 border-slate-900 rounded-2xl shadow-inner inline-block mx-auto">
+              <img
+                src={passData.qr_base64}
+                alt="Fullscreen QR"
+                className="w-56 h-56 sm:w-64 sm:h-64 object-contain"
+              />
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-[#059669] font-bold">
+              <span>💡 Turn up screen brightness and hold 4-6 inches from gate scanner</span>
+            </div>
+
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full"
+              onClick={() => setIsFullscreenQROpen(false)}
+            >
+              Done / Close
+            </Button>
+          </div>
         </div>
       )}
 

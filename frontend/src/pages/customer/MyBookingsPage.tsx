@@ -248,6 +248,38 @@ export const MyBookingsPage: React.FC = () => {
     }
   };
 
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-6 animate-in fade-in">
+        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center mx-auto shadow-sm">
+          <CalendarCheck className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            My Match Passes
+          </h2>
+          <p className="text-sm text-slate-600">
+            Sign in to view your scheduled turf bookings, match QR passes, gate check-in status, and digital receipts.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <Link
+            to="/login"
+            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-sm font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+          >
+            <span>Sign In / Register</span>
+          </Link>
+          <Link
+            to="/turfs"
+            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all"
+          >
+            <span>Book a Pitch</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       {/* 1. Page Header & Filter Tabs */}

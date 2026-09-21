@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, Suspense } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Navbar } from "../common/Navbar";
 import {
@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Camera,
 } from "lucide-react";
-import { QuickActionAnywhere } from "../common/QuickActionAnywhere";
 import { useGlobalShortcuts } from "../../hooks/useGlobalShortcuts";
 
 export const StaffLayout: React.FC = () => {
@@ -75,11 +74,17 @@ export const StaffLayout: React.FC = () => {
       </div>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="max-w-4xl mx-auto py-12 px-4 space-y-4 animate-pulse">
+              <div className="h-28 rounded-2xl bg-slate-200/60" />
+              <div className="h-64 rounded-2xl bg-slate-200/50" />
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
-
-      {/* Persistent Quick Action Anywhere (FAB + ⌘J) */}
-      <QuickActionAnywhere />
     </div>
   );
 };

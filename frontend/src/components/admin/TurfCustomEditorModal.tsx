@@ -26,6 +26,7 @@ interface TurfCustomEditorModalProps {
   onClose: () => void;
   turf: Turf | null;
   onSaved: () => void;
+  onDelete?: (turf: Turf) => void;
   facilities: Facility[];
   onRefreshFacilities?: () => void;
 }
@@ -35,6 +36,7 @@ export const TurfCustomEditorModal: React.FC<TurfCustomEditorModalProps> = ({
   onClose,
   turf,
   onSaved,
+  onDelete,
   facilities,
   onRefreshFacilities,
 }) => {
@@ -637,8 +639,20 @@ export const TurfCustomEditorModal: React.FC<TurfCustomEditorModalProps> = ({
 
           {/* Modal Actions Footer */}
           <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-[11px] text-slate-400">
-              Changes update real-time booking slots and customer views instantly upon saving.
+            <div className="flex items-center space-x-2">
+              {turf && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(turf)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Arena</span>
+                </button>
+              )}
+              <span className="text-[11px] text-slate-400">
+                Changes update real-time booking slots and customer views instantly upon saving.
+              </span>
             </div>
 
             <div className="flex items-center space-x-3 w-full sm:w-auto">

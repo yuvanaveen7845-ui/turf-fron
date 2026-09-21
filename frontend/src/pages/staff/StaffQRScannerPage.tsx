@@ -75,6 +75,7 @@ export const StaffQRScannerPage: React.FC = () => {
   const [scannerActive, setScannerActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [cameraLoading, setCameraLoading] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     return localStorage.getItem("ft_scanner_sound") !== "false";
   });
@@ -605,10 +606,44 @@ export const StaffQRScannerPage: React.FC = () => {
               {cameraLoading && <p className="animate-pulse">Initializing camera stream...</p>}
             </div>
 
-            <div className="flex items-center justify-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
               <span className="text-[11px] text-slate-400">
                 Hold phone or printed ticket steady in front of lens
               </span>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const videoEl = document.querySelector("#friends-turf-qr-reader video") as HTMLVideoElement | null;
+                    const stream = videoEl?.srcObject as MediaStream | null;
+                    if (stream) {
+                      const track = stream.getVideoTracks()[0];
+                      const capabilities = (track.getCapabilities?.() || {}) as any;
+                      if (capabilities.torch) {
+                        const next = !torchOn;
+                        await (track as any).applyConstraints({
+                          advanced: [{ torch: next }],
+                        });
+                        setTorchOn(next);
+                      } else {
+                        alert("Flashlight is not available on this camera / device.");
+                      }
+                    }
+                  } catch (e) {
+                    console.warn("Torch not supported:", e);
+                  }
+                }}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer flex items-center space-x-1 ${
+                  torchOn
+                    ? "bg-amber-400 text-slate-950 font-black shadow-md animate-pulse"
+                    : "bg-slate-800 hover:bg-slate-700 text-slate-200"
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>{torchOn ? "Flashlight ON" : "Flashlight"}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={stopCamera}

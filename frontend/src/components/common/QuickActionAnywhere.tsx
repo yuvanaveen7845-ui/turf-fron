@@ -11,6 +11,7 @@ import {
   Sparkles,
   Command,
   X,
+  ScanLine,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { usePermission } from "../../context/PermissionContext";
@@ -32,6 +33,18 @@ export const QuickActionAnywhere: React.FC = () => {
   const [isOfflinePaymentOpen, setIsOfflinePaymentOpen] = useState(false);
   const [isBlockSlotOpen, setIsBlockSlotOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+
+  // Check if currently on scanner page
+  const isScannerPage =
+    location.pathname === "/admin/scanner" ||
+    location.pathname === "/staff/scanner" ||
+    location.pathname === "/admin/check-in" ||
+    location.pathname === "/staff/check-in";
+
+  const targetScannerPath =
+    location.pathname.startsWith("/admin") || user?.role === "ADMIN"
+      ? "/admin/scanner"
+      : "/staff/scanner";
 
   // Global hotkey: ⌘J or Ctrl+J to open Quick Action launcher
   useEffect(() => {
@@ -121,8 +134,7 @@ export const QuickActionAnywhere: React.FC = () => {
       feature: "QR_CHECKIN",
       onClick: () => {
         setIsOpen(false);
-        const targetPath = location.pathname.startsWith("/admin") || user?.role === "ADMIN" ? "/admin/scanner" : "/staff/scanner";
-        navigate(targetPath);
+        navigate(targetScannerPath);
       },
     },
     {
@@ -147,15 +159,48 @@ export const QuickActionAnywhere: React.FC = () => {
 
   return (
     <>
-      {/* Persistent Floating Action Button (FAB) */}
-      <div className="fixed bottom-6 right-6 z-40">
+      {/* Persistent Floating Action Cluster (Right Edge - Mobile Friendly) */}
+      <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
+        {/* 1-Tap Quick Launch Scanner Button */}
+        {canAccess("CHECKIN_SCAN", "QR_CHECKIN") && !isScannerPage && (
+          <button
+            type="button"
+            onClick={() => navigate(targetScannerPath)}
+            aria-label="Launch QR Scanner (⌘Q)"
+            className="pointer-events-auto group relative flex items-center justify-center px-3.5 sm:px-4 h-12 sm:h-13 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-xl shadow-slate-950/30 border-2 border-emerald-500/80 hover:border-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden"
+            title="Launch QR Scanner (⌘Q)"
+          >
+            {/* Pulsing Radar Glow Effect */}
+            <span className="absolute -inset-0.5 rounded-full bg-emerald-500/20 animate-pulse pointer-events-none" />
+
+            <div className="relative flex items-center space-x-2">
+              <div className="relative flex items-center justify-center">
+                <ScanLine className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform duration-200" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
+              </div>
+
+              {/* Text label */}
+              <span className="text-xs font-black tracking-wide uppercase text-white group-hover:text-emerald-300 transition-colors whitespace-nowrap">
+                Scan QR
+              </span>
+
+              {/* Keyboard Shortcut badge on desktop */}
+              <span className="hidden md:inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-md bg-white/10 text-[9px] font-mono text-emerald-300 font-bold border border-white/10">
+                <span>⌘Q</span>
+              </span>
+            </div>
+          </button>
+        )}
+
+        {/* General Operations Quick Action FAB (⌘J) */}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="group flex items-center justify-center w-14 h-14 bg-[#059669] hover:bg-[#047857] text-white rounded-full shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border-2 border-emerald-400/40"
-          title="Quick Action Anywhere (⌘J)"
+          aria-label="Quick Operations Launcher (⌘J)"
+          className="pointer-events-auto group flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[#059669] hover:bg-[#047857] text-white rounded-full shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border-2 border-emerald-400/40"
+          title="Quick Operations Launcher (⌘J)"
         >
-          <Plus className="w-7 h-7 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
+          <Plus className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
         </button>
       </div>
 

@@ -34,7 +34,8 @@ export const ManageTurfsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [editingTurf, setEditingTurf] = useState<Turf | null>(null);
-  const [deactivatingTurfId, setDeactivatingTurfId] = useState<string | null>(null);
+  const [turfToDelete, setTurfToDelete] = useState<Turf | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
 
   // Quick Action modal states
@@ -71,14 +72,18 @@ export const ManageTurfsPage: React.FC = () => {
     setShowEditorModal(true);
   };
 
-  const confirmDeactivate = async () => {
-    if (!deactivatingTurfId) return;
+  const handleDeleteTurf = async () => {
+    if (!turfToDelete) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/turfs/${deactivatingTurfId}/`);
-      setDeactivatingTurfId(null);
+      await api.delete(`/turfs/${turfToDelete.id}/`);
+      setTurfToDelete(null);
       fetchData();
-    } catch (err) {
-      console.error("Deactivate failed:", err);
+    } catch (err: any) {
+      console.error("Delete failed:", err);
+      alert(err.response?.data?.message || err.response?.data?.error || "Failed to delete turf ground.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -187,15 +192,25 @@ export const ManageTurfsPage: React.FC = () => {
                       <h3 className="text-base font-extrabold text-slate-900 line-clamp-1">
                         {turf.name}
                       </h3>
-                      <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${
-                          turf.is_active
-                            ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                            : "text-amber-700 bg-amber-50 border-amber-200"
-                        }`}
-                      >
-                        {turf.is_active ? "● Open" : "○ Closed"}
-                      </span>
+                      <div className="flex items-center space-x-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                            turf.is_active
+                              ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                              : "text-amber-700 bg-amber-50 border-amber-200"
+                          }`}
+                        >
+                          {turf.is_active ? "● Open" : "○ Closed"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setTurfToDelete(turf)}
+                          title="Delete Turf"
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <p className="text-xs text-slate-500 line-clamp-2 mt-1">
@@ -285,6 +300,10 @@ export const ManageTurfsPage: React.FC = () => {
         onClose={() => setShowEditorModal(false)}
         turf={editingTurf}
         onSaved={fetchData}
+        onDelete={(t) => {
+          setShowEditorModal(false);
+          setTurfToDelete(t);
+        }}
         facilities={facilities}
         onRefreshFacilities={fetchData}
       />
@@ -308,6 +327,19 @@ export const ManageTurfsPage: React.FC = () => {
         }}
         defaultTurfId={quickPriceTurfId}
         onPriceUpdated={fetchData}
+      />
+
+      {/* Delete Turf Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!turfToDelete}
+        onClose={() => setTurfToDelete(null)}
+        onConfirm={handleDeleteTurf}
+        title={`Delete "${turfToDelete?.name}"?`}
+        message={`Are you sure you want to permanently delete this turf arena (${turfToDelete?.name})? All associated slots and settings for this pitch will be removed.`}
+        confirmText="Delete Turf Arena"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeleting}
       />
     </div>
   );

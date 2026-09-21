@@ -400,22 +400,6 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* Floating Mobile Instant Slot Booking Pill */}
-      <div className="fixed bottom-20 right-4 z-40 sm:hidden">
-        <button
-          type="button"
-          onClick={() => {
-            const firstTurfId = turfs[0]?.id || "1";
-            navigate(`/turfs/${firstTurfId}?date=${selectedDate}`);
-          }}
-          className="py-2.5 px-4 rounded-full bg-[#059669] hover:bg-[#047857] text-white font-extrabold text-xs shadow-2xl flex items-center space-x-2 border-2 border-emerald-400 active:scale-95 cursor-pointer"
-        >
-          <Zap className="w-3.5 h-3.5 fill-current" />
-          <span>⚡ Instant Slot Booking</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
     </div>
   </div>
 );

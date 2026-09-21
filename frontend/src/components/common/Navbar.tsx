@@ -331,11 +331,11 @@ export const Navbar: React.FC = () => {
 
             {user ? (
               <>
-                {/* Customer Turf Cash Balance Chip */}
+                {/* Customer Turf Cash Balance Chip (Shown on tablet/desktop to keep mobile header clean) */}
                 {user.role === "CUSTOMER" && user.customer_profile && (
                   <Link
                     to="/wallet"
-                    className="flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/90 text-[#059669] transition-all group shadow-2xs"
+                    className="hidden sm:flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200/90 text-[#059669] transition-all group shadow-2xs"
                     title="Turf Cash Wallet"
                   >
                     <Wallet className="w-4 h-4 text-[#059669] group-hover:scale-110 transition-transform" />
@@ -345,26 +345,11 @@ export const Navbar: React.FC = () => {
                   </Link>
                 )}
 
-                {/* Staff / Admin Quick Scan Pass Button */}
-                {(user.role === "STAFF" || user.role === "ADMIN" || user.is_superuser) && (
-                  <Link
-                    to={user.role === "ADMIN" || user.is_superuser ? "/admin/scanner" : "/staff/scanner"}
-                    className="flex items-center space-x-2 px-3.5 sm:px-4 py-2 rounded-full bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#065F46] text-white text-xs sm:text-sm font-bold shadow-sm shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer"
-                    title="Open Gate Scanner (Shortcut: ⌘Q or Q)"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    <span className="hidden sm:inline">Scan Pass</span>
-                    <kbd className="hidden sm:inline-block px-1.5 py-0.2 text-[9px] font-mono font-black text-emerald-950 bg-emerald-100 rounded">
-                      ⌘Q
-                    </kbd>
-                  </Link>
-                )}
-
                 {/* Notification Bell (Opens Overlay Popover) */}
                 <button
                   type="button"
                   onClick={() => setShowNotificationOverlay(!showNotificationOverlay)}
-                  className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all duration-200 shadow-2xs cursor-pointer ${
+                  className={`relative w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all duration-200 shadow-2xs cursor-pointer ${
                     showNotificationOverlay
                       ? "bg-emerald-50 text-[#059669] border-emerald-300 ring-2 ring-emerald-500/20"
                       : "bg-slate-100/80 hover:bg-slate-200/80 border-slate-200/60 text-slate-700 hover:text-slate-950"
@@ -372,16 +357,16 @@ export const Navbar: React.FC = () => {
                   title="Notifications & Alerts"
                   aria-label="Toggle notifications overlay"
                 >
-                  <Bell className="w-4.5 h-4.5" />
+                  <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white animate-pulse">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 sm:min-w-4.5 sm:h-4.5 px-1 rounded-full bg-amber-500 text-white text-[9px] sm:text-[10px] font-black flex items-center justify-center ring-2 ring-white animate-pulse">
                       {unreadCount}
                     </span>
                   )}
                 </button>
 
-                {/* Ultra-Premium User Profile Pill */}
-                <div className="relative" ref={userMenuRef}>
+                {/* Ultra-Premium User Profile Pill (Desktop / Tablet) */}
+                <div className="relative hidden md:block" ref={userMenuRef}>
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="group flex items-center space-x-2.5 pl-1.5 pr-3 sm:pr-3.5 py-1.5 rounded-full bg-gradient-to-r from-slate-50 via-white to-slate-50 hover:from-white hover:to-white border border-slate-200/90 hover:border-emerald-300 shadow-2xs hover:shadow-[0_4px_16px_rgba(5,150,105,0.12)] transition-all duration-200 cursor-pointer focus:outline-hidden"
@@ -518,138 +503,242 @@ export const Navbar: React.FC = () => {
                 </div>
               </>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <Link
                   to="/login"
-                  className="px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100 transition-colors"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100 transition-colors"
                 >
                   Log In
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4.5 py-2 rounded-full text-xs font-bold bg-[#059669] hover:bg-[#047857] text-white shadow-sm shadow-emerald-600/30 transition-all active:scale-95"
+                  className="px-3.5 sm:px-4.5 py-1.5 sm:py-2 rounded-full text-xs font-bold bg-[#059669] hover:bg-[#047857] text-white shadow-sm shadow-emerald-600/30 transition-all active:scale-95"
                 >
                   Join Squad
                 </Link>
               </div>
             )}
 
-            {/* Mobile Island Menu Toggle */}
+            {/* Mobile Island Menu / Profile Toggle Button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="md:hidden w-9 h-9 rounded-full bg-slate-100/80 hover:bg-slate-200/80 border border-slate-200/60 flex items-center justify-center text-slate-700 hover:text-slate-950 transition-colors cursor-pointer"
+              className="md:hidden relative flex items-center justify-center w-8.5 h-8.5 rounded-full bg-slate-100/90 hover:bg-slate-200/90 border border-slate-200/80 text-slate-700 hover:text-slate-950 transition-all cursor-pointer shadow-2xs active:scale-95"
               aria-label="Toggle navigation menu"
             >
-              {showMobileMenu ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
+              {showMobileMenu ? (
+                <X className="w-4.5 h-4.5 text-slate-800" />
+              ) : user ? (
+                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#059669] via-emerald-600 to-teal-400 flex items-center justify-center font-black text-xs text-white shadow-2xs">
+                  {getUserInitials()}
+                </div>
+              ) : (
+                <Menu className="w-4.5 h-4.5 text-slate-800" />
+              )}
             </button>
           </div>
         </div>
 
         {/* 4. Mobile Dynamic Island Expansion Drawer */}
         {showMobileMenu && (
-          <div className="md:hidden mt-2 bg-white/95 backdrop-blur-2xl border border-white/80 shadow-[0_20px_50px_rgba(15,23,42,0.15)] rounded-3xl p-4 space-y-3 ring-1 ring-slate-900/[0.06] animate-in fade-in slide-in-from-top-3 duration-200">
-            <div className="space-y-1">
-              <Link
-                to="/"
-                className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
-                  isActive("/") && location.pathname === "/"
-                    ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <Compass className="w-4 h-4 text-[#059669]" />
-                <span>Explore Pitches</span>
-              </Link>
-              <Link
-                to="/turfs"
-                className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
-                  isActive("/turfs")
-                    ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <Layers className="w-4 h-4 text-[#059669]" />
-                <span>All Arenas & Rates</span>
-              </Link>
-              {user && (
-                <>
-                  <Link
-                    to="/my-bookings"
-                    className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
-                      isActive("/my-bookings")
-                        ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Calendar className="w-4 h-4 text-[#059669]" />
-                    <span>My Bookings</span>
-                  </Link>
-                  <Link
-                    to="/wallet"
-                    className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
-                      isActive("/wallet")
-                        ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Wallet className="w-4 h-4 text-[#059669]" />
-                    <span>Turf Cash Wallet</span>
-                  </Link>
-                  <Link
-                    to="/offers"
-                    className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
-                      isActive("/offers")
-                        ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Ticket className="w-4 h-4 text-[#059669]" />
-                    <span>Passes & Offers</span>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMobileMenu(false);
-                      setShowNotificationOverlay(true);
-                    }}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer text-left"
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <Bell className="w-4 h-4 text-[#059669]" />
-                      <span>Notifications</span>
-                    </div>
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
-                        {unreadCount} New
-                      </span>
-                    )}
-                  </button>
-                </>
-              )}
+          <>
+            {/* Backdrop to close menu when tapping outside */}
+            <div
+              className="fixed inset-0 bg-slate-950/30 backdrop-blur-xs z-40 md:hidden transition-opacity"
+              onClick={() => setShowMobileMenu(false)}
+              aria-hidden="true"
+            />
 
-              {(user?.role === "STAFF" || user?.role === "ADMIN" || user?.is_superuser) && (
-                <div className="pt-3 border-t border-slate-100 space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 block">
-                    Operations Hub
-                  </span>
-                  <Link
-                    to={user.role === "ADMIN" || user.is_superuser ? "/admin" : "/staff"}
-                    className="flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-slate-800 hover:bg-slate-50"
-                  >
-                    <LayoutDashboard className="w-4 h-4 text-[#059669]" />
-                    <span>{user.role === "ADMIN" ? "Admin Command" : "Staff Console"}</span>
-                  </Link>
-                  <Link
-                    to={user.role === "ADMIN" || user.is_superuser ? "/admin/scanner" : "/staff/scanner"}
-                    className="flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-[#059669] bg-emerald-50/80 border border-emerald-200/60"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    <span>Gate Scanner (⌘Q)</span>
-                  </Link>
+            <div className="relative z-50 md:hidden mt-2 bg-white/95 backdrop-blur-2xl border border-white/90 shadow-[0_24px_60px_rgba(15,23,42,0.18)] rounded-3xl p-4 space-y-3 ring-1 ring-slate-900/[0.06] animate-in fade-in slide-in-from-top-3 duration-200">
+              {/* User Profile Capsule in Mobile Drawer */}
+              {user && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-50 via-emerald-50/40 to-slate-100/80 border border-slate-200/80 mb-2 shadow-inner">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#059669] via-emerald-600 to-teal-400 text-white font-black text-sm flex items-center justify-center shadow-xs ring-2 ring-emerald-500/20">
+                        {getUserInitials()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate">
+                          {user.full_name || user.first_name || user.email}
+                        </p>
+                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-100 text-[#059669] text-[9px] font-extrabold border border-emerald-300/60 mt-0.5">
+                          <Sparkles className="w-2 h-2" />
+                          <span>{getTierLabel()}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {user.role === "CUSTOMER" && user.customer_profile && (
+                      <Link
+                        to="/wallet"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="flex flex-col items-end px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-right shadow-2xs"
+                      >
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Balance</span>
+                        <span className="text-xs font-black font-mono text-[#059669]">
+                          ₹{Number(user.customer_profile.wallet_balance || 0).toLocaleString("en-IN")}
+                        </span>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               )}
+
+              <div className="space-y-1">
+                <Link
+                  to="/"
+                  onClick={() => setShowMobileMenu(false)}
+                  className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
+                    isActive("/") && location.pathname === "/"
+                      ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <Compass className="w-4 h-4 text-[#059669]" />
+                  <span>Explore Pitches</span>
+                </Link>
+                <Link
+                  to="/turfs"
+                  onClick={() => setShowMobileMenu(false)}
+                  className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
+                    isActive("/turfs")
+                      ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <Layers className="w-4 h-4 text-[#059669]" />
+                  <span>All Arenas & Rates</span>
+                </Link>
+                {user ? (
+                  <>
+                    <Link
+                      to="/my-bookings"
+                      onClick={() => setShowMobileMenu(false)}
+                      className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
+                        isActive("/my-bookings")
+                          ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4 text-[#059669]" />
+                      <span>My Bookings</span>
+                    </Link>
+                    <Link
+                      to="/wallet"
+                      onClick={() => setShowMobileMenu(false)}
+                      className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
+                        isActive("/wallet")
+                          ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Wallet className="w-4 h-4 text-[#059669]" />
+                      <span>Turf Cash Wallet</span>
+                    </Link>
+                    <Link
+                      to="/offers"
+                      onClick={() => setShowMobileMenu(false)}
+                      className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
+                        isActive("/offers")
+                          ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Ticket className="w-4 h-4 text-[#059669]" />
+                      <span>Passes & Offers</span>
+                    </Link>
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowMobileMenu(false)}
+                      className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold ${
+                        isActive("/profile")
+                          ? "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <UserIcon className="w-4 h-4 text-[#059669]" />
+                      <span>Player Profile & Settings</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        setShowNotificationOverlay(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer text-left"
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <Bell className="w-4 h-4 text-[#059669]" />
+                        <span>Notifications</span>
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
+                          {unreadCount} New
+                        </span>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <div className="pt-2 border-t border-slate-100 flex gap-2">
+                    <Link
+                      to="/login"
+                      onClick={() => setShowMobileMenu(false)}
+                      className="flex-1 py-2 text-center rounded-xl bg-slate-100 text-xs font-bold text-slate-800"
+                    >
+                      Log In
+                    </Link>
+                    <Link
+                      to="/register"
+                      onClick={() => setShowMobileMenu(false)}
+                      className="flex-1 py-2 text-center rounded-xl bg-[#059669] text-xs font-bold text-white shadow-sm"
+                    >
+                      Join Squad
+                    </Link>
+                  </div>
+                )}
+
+                {(user?.role === "STAFF" || user?.role === "ADMIN" || user?.is_superuser) && (
+                  <div className="pt-3 border-t border-slate-100 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 block">
+                      Operations Hub
+                    </span>
+                    <Link
+                      to={user.role === "ADMIN" || user.is_superuser ? "/admin" : "/staff"}
+                      onClick={() => setShowMobileMenu(false)}
+                      className="flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-slate-800 hover:bg-slate-50"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-[#059669]" />
+                      <span>{user.role === "ADMIN" ? "Admin Command" : "Staff Console"}</span>
+                    </Link>
+                    <Link
+                      to={user.role === "ADMIN" || user.is_superuser ? "/admin/scanner" : "/staff/scanner"}
+                      onClick={() => setShowMobileMenu(false)}
+                      className="flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-[#059669] bg-emerald-50/80 border border-emerald-200/60"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      <span>Gate Scanner (⌘Q)</span>
+                    </Link>
+                  </div>
+                )}
+
+                {user && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        logout();
+                        navigate("/login");
+                      }}
+                      className="w-full flex items-center space-x-2 px-3.5 py-2 rounded-2xl text-xs font-black text-red-600 hover:bg-red-50 cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Global Floating Notification Overlay Popover & Mobile Sheet */}

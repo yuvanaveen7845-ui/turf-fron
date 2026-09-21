@@ -1,6 +1,7 @@
 import React from "react";
 import { Calendar, Clock, Sparkles, Zap, ShieldCheck, Check } from "lucide-react";
 import { Turf } from "../../types";
+import { triggerHaptic } from "../../utils/haptics";
 
 interface SearchFilterBarProps {
   turfs?: Turf[];
@@ -83,7 +84,16 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
       }))
     : defaultPitches;
 
-  const currentActiveId = String(selectedTurfId || displayPitches[0]?.id || "1");
+  const matchedPitchBySport = selectedSport
+    ? displayPitches.find((p) => p.sport_type.toUpperCase() === selectedSport.toUpperCase())
+    : null;
+
+  const currentActiveId = selectedTurfId
+    ? String(selectedTurfId)
+    : matchedPitchBySport
+    ? String(matchedPitchBySport.id)
+    : String(displayPitches[0]?.id || "");
+
   const activePitch = displayPitches.find((p) => p.id === currentActiveId) || displayPitches[0];
 
   const isToday = selectedDate === todayStr;
@@ -123,10 +133,11 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
                 key={pitch.id}
                 type="button"
                 onClick={() => {
+                  triggerHaptic("light");
                   if (onSelectTurfId) onSelectTurfId(pitch.id);
                   onSelectSport(pitch.sport_type);
                 }}
-                className={`p-4 sm:p-5 rounded-2xl text-left border-2 transition-all duration-200 cursor-pointer relative overflow-hidden flex flex-col justify-between space-y-3 group ${
+                className={`p-4 sm:p-5 rounded-2xl text-left border-2 transition-all duration-200 cursor-pointer relative overflow-hidden flex flex-col justify-between space-y-3 group active:scale-[0.98] ${
                   isSelected
                     ? "bg-gradient-to-br from-[#059669] via-[#047857] to-[#065F46] border-emerald-400 text-white shadow-xl shadow-emerald-950/20 ring-4 ring-emerald-500/20 scale-[1.02]"
                     : "bg-white hover:bg-slate-50 border-slate-200/90 hover:border-emerald-400/80 text-slate-800 shadow-sm hover:shadow-md hover:-translate-y-0.5"
@@ -218,8 +229,11 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
           <div className="sm:col-span-7 flex items-center space-x-2">
             <button
               type="button"
-              onClick={() => onDateChange(todayStr)}
-              className={`px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              onClick={() => {
+                triggerHaptic("light");
+                onDateChange(todayStr);
+              }}
+              className={`px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                 isToday
                   ? "bg-[#059669] text-white shadow-sm"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -229,8 +243,11 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onDateChange(tomorrowStr)}
-              className={`px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              onClick={() => {
+                triggerHaptic("light");
+                onDateChange(tomorrowStr);
+              }}
+              className={`px-4 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                 isTomorrow
                   ? "bg-[#059669] text-white shadow-sm"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"

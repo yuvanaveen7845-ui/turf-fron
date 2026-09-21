@@ -44,9 +44,7 @@ api.interceptors.response.use(
           localStorage.removeItem("ft_access_token");
           localStorage.removeItem("ft_refresh_token");
           localStorage.removeItem("ft_user");
-          if (window.location.pathname !== "/login") {
-            window.location.href = "/login";
-          }
+          window.dispatchEvent(new CustomEvent("ft_auth_unauthorized"));
         }
       }
     }

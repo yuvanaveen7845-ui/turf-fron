@@ -23,6 +23,7 @@ import {
 import api from "../../services/api";
 import { useUserAvailability } from "../../hooks/useUserAvailability";
 import { getBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
+import { useBusinessSettings } from "../../context/BusinessSettingsContext";
 
 declare global {
   interface Window {
@@ -32,8 +33,11 @@ declare global {
 
 export const LoginPage: React.FC = () => {
   const { login, googleLogin } = useAuth();
+  const { auth } = useBusinessSettings();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const dynamicClientId = (auth?.google_client_id || import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -124,23 +128,58 @@ export const LoginPage: React.FC = () => {
     navigate(from, { replace: true });
   };
 
-  // Load Google Identity Services script
+  // Dynamically load & initialize Google Identity Services using dynamicClientId
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      initializeGoogleSignIn();
-    };
-    document.body.appendChild(script);
+    if (!dynamicClientId) return;
 
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+    let isMounted = true;
+
+    const renderGoogleBtn = () => {
+      if (!isMounted || !window.google || !googleBtnRef.current) return;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: dynamicClientId,
+          callback: handleGoogleCallback,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "outline",
+          size: "large",
+          shape: "pill",
+          text: "continue_with",
+          width: 320,
+        });
+      } catch (e) {
+        console.warn("Google GIS initialization notice:", e);
       }
     };
-  }, []);
+
+    if (window.google) {
+      renderGoogleBtn();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        if (isMounted) renderGoogleBtn();
+      };
+      document.body.appendChild(script);
+
+      return () => {
+        isMounted = false;
+        if (document.body.contains(script)) {
+          document.body.removeChild(script);
+        }
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dynamicClientId]);
 
   // Fetch real reviews dynamically from database
   useEffect(() => {
@@ -156,33 +195,6 @@ export const LoginPage: React.FC = () => {
     };
     fetchVerifiedReviews();
   }, []);
-
-  const initializeGoogleSignIn = () => {
-    if (!window.google || !googleBtnRef.current) return;
-
-    try {
-      const clientId =
-        import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-        "987654321000-friendsturfgoogleclientid.apps.googleusercontent.com";
-
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: handleGoogleCallback,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: "outline",
-        size: "large",
-        shape: "pill",
-        text: "continue_with",
-        width: 320,
-      });
-    } catch (e) {
-      console.warn("Google GIS initialization notice:", e);
-    }
-  };
 
   const handleGoogleCallback = async (response: any) => {
     setError("");
@@ -457,19 +469,21 @@ export const LoginPage: React.FC = () => {
             )}
 
             {/* Google OAuth Section */}
-            <div className="space-y-3">
-              <div className="flex justify-center">
-                <div ref={googleBtnRef} id="googleBtnContainer" className="w-full flex justify-center" />
-              </div>
+            {dynamicClientId ? (
+              <div className="space-y-3">
+                <div className="flex justify-center">
+                  <div ref={googleBtnRef} id="googleBtnContainer" className="w-full flex justify-center" />
+                </div>
 
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-4 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                  or continue with email
-                </span>
-                <div className="flex-grow border-t border-slate-200"></div>
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-slate-200"></div>
+                  <span className="flex-shrink mx-4 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                    or continue with email
+                  </span>
+                  <div className="flex-grow border-t border-slate-200"></div>
+                </div>
               </div>
-            </div>
+            ) : null}
 
             {/* Email + Password Form */}
             <form onSubmit={handleEmailPasswordSubmit} className="space-y-4">

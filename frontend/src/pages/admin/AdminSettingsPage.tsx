@@ -20,7 +20,7 @@ import { useToast } from "../../context/ToastContext";
 export const AdminSettingsPage: React.FC = () => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<
-    "features" | "company" | "booking" | "hours" | "payments" | "notifications"
+    "features" | "company" | "booking" | "hours" | "payments" | "notifications" | "auth"
   >("features");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,6 +41,10 @@ export const AdminSettingsPage: React.FC = () => {
   });
 
   // Settings State
+  const [authSettings, setAuthSettings] = useState({
+    google_client_id: "",
+  });
+
   const [companySettings, setCompanySettings] = useState({
     name: "Friends Turf",
     tagline: "PLAY HARD. BOOK DIRECT. OWN THE PITCH.",
@@ -107,6 +111,9 @@ export const AdminSettingsPage: React.FC = () => {
         if (settingsRes.data.hours) setOperatingHours(settingsRes.data.hours);
         if (settingsRes.data.payments) setPaymentSettings(settingsRes.data.payments);
         if (settingsRes.data.notifications) setNotificationSettings(settingsRes.data.notifications);
+        if (settingsRes.data.auth?.google_client_id) {
+          setAuthSettings({ google_client_id: settingsRes.data.auth.google_client_id });
+        }
         if (featuresRes.data) setFeatureFlags((prev) => ({ ...prev, ...featuresRes.data }));
       })
       .catch(console.error)
@@ -124,6 +131,7 @@ export const AdminSettingsPage: React.FC = () => {
           hours: operatingHours,
           payments: paymentSettings,
           notifications: notificationSettings,
+          auth: authSettings,
         }),
         api.put("/auth/features/", featureFlags),
       ]);
@@ -171,6 +179,7 @@ export const AdminSettingsPage: React.FC = () => {
           { id: "hours", label: "Operating Hours", icon: Clock },
           { id: "payments", label: "Payments & Tax", icon: CreditCard },
           { id: "notifications", label: "Notifications & Reminders", icon: Bell },
+          { id: "auth", label: "Authentication & OAuth", icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -685,6 +694,60 @@ export const AdminSettingsPage: React.FC = () => {
                   </div>
                 </div>
               </label>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 6: Authentication & OAuth */}
+        {activeTab === "auth" && (
+          <div className="space-y-6">
+            <div className="border-b border-slate-100 pb-2">
+              <h3 className="text-base font-bold text-slate-900">
+                Authentication &amp; OAuth Integrations
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configure dynamic single sign-on providers and client IDs for customer and staff authentication.
+              </p>
+            </div>
+
+            <div className="max-w-2xl space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Google OAuth 2.0 Client ID
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={authSettings.google_client_id}
+                    onChange={(e) =>
+                      setAuthSettings({ ...authSettings, google_client_id: e.target.value.trim() })
+                    }
+                    placeholder="e.g. 724983441526-...apps.googleusercontent.com"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:border-[#059669] focus:bg-white transition"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  When updated and saved here, this Client ID is delivered dynamically to customer login forms without requiring a rebuild or code commit.
+                </p>
+              </div>
+
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
+                <div className="flex items-center space-x-2 text-xs font-bold text-[#059669]">
+                  <Shield className="w-4 h-4" />
+                  <span>Google Cloud Console Origin Whitelist Reminder</span>
+                </div>
+                <p className="text-[11px] text-emerald-900 leading-relaxed">
+                  Make sure you have added your production domains under <strong>Authorized JavaScript origins</strong> in your Google Cloud Console project:
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1 font-mono text-[10px]">
+                  <span className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-emerald-800">
+                    https://friendsturf.in
+                  </span>
+                  <span className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-emerald-800">
+                    https://www.friendsturf.in
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}

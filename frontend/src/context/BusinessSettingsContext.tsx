@@ -63,6 +63,10 @@ export interface NotificationSettings {
   postMatchFeedbackHours: number;
 }
 
+export interface AuthSettings {
+  google_client_id: string;
+}
+
 export interface BusinessSettingsState {
   company: CompanySettings;
   booking: BookingRules;
@@ -70,6 +74,7 @@ export interface BusinessSettingsState {
   payments: PaymentSettings;
   checkin: CheckInSettings;
   notifications: NotificationSettings;
+  auth: AuthSettings;
   features: Record<string, boolean>;
   loading: boolean;
   refreshSettings: () => Promise<void>;
@@ -132,6 +137,9 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettingsState, "loading" | "refreshS
     reminder2h: true,
     postMatchFeedbackHours: 2,
   },
+  auth: {
+    google_client_id: (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim(),
+  },
   features: {
     RECURRING_BOOKINGS: true,
     PARTIAL_PAYMENTS: true,
@@ -167,6 +175,13 @@ export const BusinessSettingsProvider: React.FC<{ children: ReactNode }> = ({ ch
           payments: { ...DEFAULT_SETTINGS.payments, ...(res.data.payments || {}) },
           checkin: { ...DEFAULT_SETTINGS.checkin, ...(res.data.checkin || {}) },
           notifications: { ...DEFAULT_SETTINGS.notifications, ...(res.data.notifications || {}) },
+          auth: {
+            google_client_id: (
+              res.data.auth?.google_client_id ||
+              import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+              ""
+            ).trim(),
+          },
           features: { ...DEFAULT_SETTINGS.features, ...(res.data.features || {}) },
         });
       }

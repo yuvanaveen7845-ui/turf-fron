@@ -24,9 +24,11 @@ import { useToast } from "../../context/ToastContext";
 import { normalizeList } from "../../utils/helpers";
 import { FriendsTurfMatchPass } from "../../components/booking/FriendsTurfMatchPass";
 import { ReceiptModal } from "../../components/payment/ReceiptModal";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const MyBookingsPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
+  const { booking: bookingRules } = useBusinessSettings();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -701,6 +703,24 @@ export const MyBookingsPage: React.FC = () => {
               </strong>
               ? As per our policy, eligible refunds are instantly credited to your Turf Wallet.
             </p>
+
+            <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-1.5 text-[11px] text-amber-900">
+              <span className="font-bold flex items-center space-x-1.5 text-amber-950">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Automated Cancellation &amp; Refund Policy</span>
+              </span>
+              <ul className="list-disc pl-4 space-y-1 text-amber-800">
+                <li>
+                  <strong>100% Refund:</strong> Cancellations &gt; {bookingRules?.cancellationFullRefundHours ?? 24} hours before kickoff
+                </li>
+                <li>
+                  <strong>{bookingRules?.partialRefundPercent ?? 50}% Refund:</strong> Between {bookingRules?.cancellationPartialRefundHours ?? 6} and {bookingRules?.cancellationFullRefundHours ?? 24} hours before kickoff
+                </li>
+                <li>
+                  <strong>Non-Refundable:</strong> Cancellations within {bookingRules?.cancellationPartialRefundHours ?? 6} hours of kickoff
+                </li>
+              </ul>
+            </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">

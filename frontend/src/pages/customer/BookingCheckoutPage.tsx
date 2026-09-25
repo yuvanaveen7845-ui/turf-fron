@@ -31,7 +31,12 @@ export const BookingCheckoutPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
-  const { booking: bookingRules, company: companySettings } = useBusinessSettings();
+  const {
+    booking: bookingRules,
+    company: companySettings,
+    payments: paymentSettings,
+    features: featureFlags,
+  } = useBusinessSettings();
 
   const [paymentSuccessData, setPaymentSuccessData] = useState<{
     booking: any;
@@ -257,7 +262,7 @@ export const BookingCheckoutPage: React.FC = () => {
         date: actualDate,
         slot_ids: actualSlotIds,
         coupon_code: appliedCoupon ? appliedCoupon.code : "",
-        payment_type: paymentType,
+        payment_type: effectivePaymentType,
         notes,
       });
 
@@ -338,11 +343,12 @@ export const BookingCheckoutPage: React.FC = () => {
         const lockExpiry = new Date(lockedUntil).getTime();
         const now = new Date().getTime();
         const diff = Math.max(0, Math.floor((lockExpiry - now) / 1000));
-        setTimeLeftSeconds(diff > 0 ? diff : 300);
+        const holdSecs = (bookingRules?.slotHoldMinutes || 5) * 60;
+        setTimeLeftSeconds(diff > 0 ? diff : holdSecs);
       } else {
-        setTimeLeftSeconds(300);
+        setTimeLeftSeconds((bookingRules?.slotHoldMinutes || 5) * 60);
       }
-      setStatusMessage("5-Minute slot hold successfully renewed!");
+      setStatusMessage(`${bookingRules?.slotHoldMinutes || 5}-Minute slot hold successfully renewed!`);
       setTimeout(() => setStatusMessage(""), 3500);
     } catch (err: any) {
       setErrorMessage(
@@ -429,8 +435,21 @@ export const BookingCheckoutPage: React.FC = () => {
 
   const walletBal = Number(user?.customer_profile?.wallet_balance || 0);
   const finalPayable = priceBreakdown ? Number(priceBreakdown.final_amount) : 0;
-  const advancePayable = Math.round(finalPayable * 0.5); // 50% partial deposit
-  const amountToCharge = paymentType === "FULL" ? finalPayable : advancePayable;
+  const advanceDepositPercent = paymentSettings?.advanceDepositPercent ?? 50;
+  const advancePayable = Math.round(finalPayable * (advanceDepositPercent / 100));
+  const canPartialPay =
+    paymentSettings?.enableSplitDeposit !== false &&
+    featureFlags?.PARTIAL_PAYMENTS !== false;
+  const effectivePaymentType = !canPartialPay && paymentType === "PARTIAL" ? "FULL" : paymentType;
+  const amountToCharge = effectivePaymentType === "FULL" ? finalPayable : advancePayable;
+  const onlinePaymentsEnabled = featureFlags?.ONLINE_PAYMENTS !== false;
+  const couponsEnabled = featureFlags?.COUPONS !== false;
+
+  useEffect(() => {
+    if (!onlinePaymentsEnabled && paymentMethod === "RAZORPAY") {
+      setPaymentMethod("WALLET");
+    }
+  }, [onlinePaymentsEnabled, paymentMethod]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
@@ -624,17 +643,17 @@ export const BookingCheckoutPage: React.FC = () => {
                 type="button"
                 onClick={() => setPaymentType("FULL")}
                 className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  paymentType === "FULL"
+                  effectivePaymentType === "FULL"
                     ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
                     : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#059669]">
-                    100% Online
+                    100% Full Payment
                   </span>
                   <CheckCircle2
-                    className={`w-4 h-4 ${paymentType === "FULL" ? "text-[#059669]" : "text-slate-400"}`}
+                    className={`w-4 h-4 ${effectivePaymentType === "FULL" ? "text-[#059669]" : "text-slate-400"}`}
                   />
                 </div>
                 <p className="text-base font-black text-slate-900">Pay Full Amount</p>
@@ -643,30 +662,32 @@ export const BookingCheckoutPage: React.FC = () => {
                 </p>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setPaymentType("PARTIAL")}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  paymentType === "PARTIAL"
-                    ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
-                    : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#F59E0B]">
-                    50% Partial Advance
-                  </span>
-                  <CheckCircle2
-                    className={`w-4 h-4 ${paymentType === "PARTIAL" ? "text-[#059669]" : "text-slate-400"}`}
-                  />
-                </div>
-                <p className="text-base font-black text-slate-900">
-                  Pay ₹{advancePayable} Deposit
-                </p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Pay remaining ₹{finalPayable - advancePayable} balance at venue reception.
-                </p>
-              </button>
+              {canPartialPay && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("PARTIAL")}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                    effectivePaymentType === "PARTIAL"
+                      ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
+                      : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#F59E0B]">
+                      {advanceDepositPercent}% Partial Advance
+                    </span>
+                    <CheckCircle2
+                      className={`w-4 h-4 ${effectivePaymentType === "PARTIAL" ? "text-[#059669]" : "text-slate-400"}`}
+                    />
+                  </div>
+                  <p className="text-base font-black text-slate-900">
+                    Pay ₹{advancePayable} Deposit
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Pay remaining ₹{finalPayable - advancePayable} balance at venue reception.
+                  </p>
+                </button>
+              )}
             </div>
           </div>
 
@@ -684,26 +705,39 @@ export const BookingCheckoutPage: React.FC = () => {
               {/* Option 1: Razorpay */}
               <button
                 type="button"
-                onClick={() => setPaymentMethod("RAZORPAY")}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  paymentMethod === "RAZORPAY"
-                    ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
-                    : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
+                onClick={() => {
+                  if (onlinePaymentsEnabled) setPaymentMethod("RAZORPAY");
+                }}
+                disabled={!onlinePaymentsEnabled}
+                className={`p-4 rounded-2xl border text-left transition-all ${
+                  !onlinePaymentsEnabled
+                    ? "bg-slate-100/60 border-slate-200 opacity-60 cursor-not-allowed"
+                    : paymentMethod === "RAZORPAY"
+                    ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30 cursor-pointer"
+                    : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100 cursor-pointer"
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-blue-600 text-xs shadow-xs">
                     ₹
                   </div>
-                  <CheckCircle2
-                    className={`w-4 h-4 ${
-                      paymentMethod === "RAZORPAY" ? "text-[#059669]" : "text-slate-400"
-                    }`}
-                  />
+                  {onlinePaymentsEnabled ? (
+                    <CheckCircle2
+                      className={`w-4 h-4 ${
+                        paymentMethod === "RAZORPAY" ? "text-[#059669]" : "text-slate-400"
+                      }`}
+                    />
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                      Disabled
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm font-black text-slate-900">Razorpay Gateway</p>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  UPI (GPay/PhonePe), Cards, NetBanking, & Wallets
+                  {onlinePaymentsEnabled
+                    ? "UPI (GPay/PhonePe), Cards, NetBanking, & Wallets"
+                    : "Online payments temporarily paused by administrator."}
                 </p>
               </button>
 
@@ -744,55 +778,57 @@ export const BookingCheckoutPage: React.FC = () => {
         {/* Right Column: Pricing Breakdown & Checkout Action */}
         <div className="lg:col-span-5 space-y-6">
           {/* Coupon Box */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-              <Tag className="w-4 h-4 text-[#059669]" />
-              <span>Promo Coupon Code</span>
-            </h3>
+          {couponsEnabled && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-3">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                <Tag className="w-4 h-4 text-[#059669]" />
+                <span>Promo Coupon Code</span>
+              </h3>
 
-            {appliedCoupon ? (
-              <div className="p-3 bg-[#ECFDF5] border border-emerald-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-[#059669]">
-                    Applied: {appliedCoupon.code}
-                  </p>
-                  <p className="text-[11px] text-emerald-800">
-                    {appliedCoupon.message}
-                  </p>
+              {appliedCoupon ? (
+                <div className="p-3 bg-[#ECFDF5] border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-[#059669]">
+                      Applied: {appliedCoupon.code}
+                    </p>
+                    <p className="text-[11px] text-emerald-800">
+                      {appliedCoupon.message}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <button
-                  onClick={handleRemoveCoupon}
-                  className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="WELCOME100 / TURF20"
-                  className="flex-1 px-3.5 py-2.5 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono uppercase font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={validatingCoupon || !couponCode.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  {validatingCoupon ? "Checking..." : "Apply"}
-                </button>
-              </form>
-            )}
+              ) : (
+                <form onSubmit={handleApplyCoupon} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="WELCOME100 / TURF20"
+                    className="flex-1 px-3.5 py-2.5 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono uppercase font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={validatingCoupon || !couponCode.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    {validatingCoupon ? "Checking..." : "Apply"}
+                  </button>
+                </form>
+              )}
 
-            {couponError && (
-              <p className="text-xs text-red-600 font-semibold flex items-center space-x-1">
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>{couponError}</span>
-              </p>
-            )}
-          </div>
+              {couponError && (
+                <p className="text-xs text-red-600 font-semibold flex items-center space-x-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>{couponError}</span>
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Pricing Breakdown Card */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-4">

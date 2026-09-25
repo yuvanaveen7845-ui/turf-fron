@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Filter, ShieldCheck, MapPin, Sparkles, LayoutGrid, ListFilter, Calendar } from "lucide-react";
 import api from "../../services/api";
 import { Turf } from "../../types";
@@ -10,6 +10,7 @@ import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const TurfListingPage: React.FC = () => {
   const { company, booking } = useBusinessSettings();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,7 @@ export const TurfListingPage: React.FC = () => {
   const [selectedSport, setSelectedSport] = useState<string>(initialSport);
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [selectedSession, setSelectedSession] = useState<string>(initialSession);
+  const [selectedTurfId, setSelectedTurfId] = useState<string | number>("");
   const [viewMode, setViewMode] = useState<"cards" | "matrix">("cards");
   const [sortBy, setSortBy] = useState<"rating" | "price_asc" | "price_desc">("rating");
 
@@ -35,6 +37,9 @@ export const TurfListingPage: React.FC = () => {
             ? raw.results
             : [];
         setTurfs(list);
+        if (list.length > 0 && !selectedTurfId) {
+          setSelectedTurfId(list[0].id);
+        }
       })
       .catch((err) => {
         console.error("Failed to load turfs:", err);
@@ -44,11 +49,16 @@ export const TurfListingPage: React.FC = () => {
   }, []);
 
   const handleSearchSubmit = () => {
-    setSearchParams({
-      sport: selectedSport,
-      date: selectedDate,
-      session: selectedSession,
-    });
+    const targetId = selectedTurfId || turfs[0]?.id;
+    if (targetId) {
+      navigate(`/turfs/${targetId}?date=${selectedDate}&session=${selectedSession}#slots-section`);
+    } else {
+      setSearchParams({
+        sport: selectedSport,
+        date: selectedDate,
+        session: selectedSession,
+      });
+    }
   };
 
   const filteredTurfs = turfs
@@ -80,6 +90,9 @@ export const TurfListingPage: React.FC = () => {
 
       {/* 2. Pitch & Slot Finder */}
       <SearchFilterBar
+        turfs={turfs}
+        selectedTurfId={selectedTurfId}
+        onSelectTurfId={setSelectedTurfId}
         selectedSport={selectedSport}
         onSelectSport={setSelectedSport}
         selectedDate={selectedDate}

@@ -282,8 +282,8 @@ export const NotificationsPage: React.FC = () => {
         {[
           { key: "ALL", label: "All Activity" },
           { key: "UNREAD", label: `Unread (${unreadCount})` },
-          { key: "BOOKING", label: "Match Passes ⚽" },
-          { key: "WALLET", label: "Turf Cash 💳" },
+          { key: "BOOKING", label: "Match Passes" },
+          { key: "WALLET", label: "Turf Cash" },
         ].map((tab) => (
           <button
             key={tab.key}

@@ -59,6 +59,7 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
 
   const [refundModal, setRefundModal] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
+  const [refundTo, setRefundTo] = useState<"WALLET" | "ORIGINAL" | "CASH">("WALLET");
   const [refundReason, setRefundReason] = useState("Customer cancellation refund");
   const [refunding, setRefunding] = useState(false);
 
@@ -92,6 +93,9 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
 
   const balanceDue = Number(booking.balance_due || 0);
   const isPaid = balanceDue <= 0 && booking.status !== "PENDING";
+  const totalPaid = Number(booking.amount_paid || 0);
+  const alreadyRefunded = Number(booking.already_refunded || 0);
+  const maxRefundable = Math.max(0, totalPaid - alreadyRefunded);
 
   // Manual Check-In
   const handleCheckIn = async () => {
@@ -157,18 +161,27 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
   const handleIssueRefund = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(refundAmount);
-    if (!amountNum || amountNum <= 0) return;
+    if (!amountNum || amountNum <= 0) {
+      toast.error("Please enter a valid refund amount.");
+      return;
+    }
+    if (amountNum > maxRefundable) {
+      toast.error(`Refund amount cannot exceed remaining refundable balance of ₹${maxRefundable}.`);
+      return;
+    }
 
     setRefunding(true);
     try {
-      await api.post(`/payments/refunds/`, {
-        booking_id: booking.id,
+      const res = await api.post(`/payments/refunds/`, {
+        booking_id: booking.booking_id || booking.id,
         amount: amountNum,
+        refund_to: refundTo,
         reason: refundReason,
       });
       setRefundModal(false);
-      setActionFeedback(`Refund of ₹${amountNum} initiated successfully!`);
-      toast.success(`Refund of ₹${amountNum} initiated!`);
+      const msg = res.data?.message || `Refund of ₹${amountNum} successfully processed via ${refundTo}!`;
+      setActionFeedback(msg);
+      toast.success(msg);
       if (onBookingUpdated) onBookingUpdated();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Refund initiation failed.");
@@ -294,13 +307,15 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
               <Button
                 variant="outline"
                 size="sm"
+                disabled={maxRefundable <= 0}
                 onClick={() => {
-                  setRefundAmount(String(booking.final_amount || 0));
+                  setRefundAmount(String(maxRefundable));
+                  setRefundTo("WALLET");
                   setRefundModal(true);
                 }}
                 leftIcon={<RotateCcw className="w-3.5 h-3.5 text-purple-600" />}
               >
-                Issue Refund
+                {maxRefundable <= 0 ? "No Refund Due" : "Issue Refund"}
               </Button>
             </div>
           </div>
@@ -540,53 +555,148 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
           isOpen={refundModal}
           onClose={() => setRefundModal(false)}
           title="Issue Booking Refund"
-          description={`Booking #${booking.booking_id || booking.id} • Customer: ${booking.customer_details?.full_name}`}
-          maxWidth="sm"
+          description={`Booking #${booking.booking_id || booking.id} • Customer: ${booking.customer_details?.full_name || "Customer"}`}
+          maxWidth="md"
         >
           <form onSubmit={handleIssueRefund} className="space-y-4 text-xs">
+            {/* Financial Status Summary */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Paid</span>
+                <span className="text-sm font-black text-slate-800">₹{totalPaid}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Already Refunded</span>
+                <span className="text-sm font-black text-rose-600">₹{alreadyRefunded}</span>
+              </div>
+              <div className="bg-[#ECFDF5] rounded-xl p-1 border border-emerald-200">
+                <span className="text-[10px] uppercase font-bold text-[#059669] block">Max Refundable</span>
+                <span className="text-sm font-black text-[#059669]">₹{maxRefundable}</span>
+              </div>
+            </div>
+
             <Input
               label="Refund Amount (₹)"
               isRequired
               type="number"
               value={refundAmount}
+              max={maxRefundable}
               onChange={(e) => setRefundAmount(e.target.value)}
             />
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setRefundAmount(String(booking.final_amount || 0))}
-                className="px-2.5 py-1 bg-slate-100 rounded-lg font-bold text-slate-700 text-[11px]"
+                onClick={() => setRefundAmount(String(maxRefundable))}
+                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-700 text-[11px] cursor-pointer"
               >
-                100% Full (₹{booking.final_amount})
+                100% Full (₹{maxRefundable})
               </button>
               <button
                 type="button"
-                onClick={() => setRefundAmount(String(Math.round(Number(booking.final_amount || 0) / 2)))}
-                className="px-2.5 py-1 bg-slate-100 rounded-lg font-bold text-slate-700 text-[11px]"
+                onClick={() => setRefundAmount(String(Math.round(maxRefundable / 2)))}
+                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-700 text-[11px] cursor-pointer"
               >
-                50% (₹{Math.round(Number(booking.final_amount || 0) / 2)})
+                50% (₹{Math.round(maxRefundable / 2)})
               </button>
             </div>
-            <Input
-              label="Refund Reason / Notes"
-              isRequired
-              value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
-            />
+
+            {/* Destination Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Refund Credit Destination
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRefundTo("WALLET")}
+                  className={`p-2.5 rounded-xl border text-left cursor-pointer transition ${
+                    refundTo === "WALLET"
+                      ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
+                      : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold text-slate-900 text-xs">
+                    <span>Turf Wallet</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-[#059669] font-black">
+                      INSTANT
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Zero gateway fee, immediate customer credit</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRefundTo("ORIGINAL")}
+                  className={`p-2.5 rounded-xl border text-left cursor-pointer transition ${
+                    refundTo === "ORIGINAL"
+                      ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
+                      : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="font-bold text-slate-900 text-xs">Original Source</div>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Razorpay / UPI reversal (3-5 banking days)</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRefundTo("CASH")}
+                  className={`p-2.5 rounded-xl border text-left cursor-pointer transition ${
+                    refundTo === "CASH"
+                      ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
+                      : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="font-bold text-slate-900 text-xs">Cash Handover</div>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Recorded in daily physical register drawer</p>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Input
+                label="Refund Reason / Notes"
+                isRequired
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Customer cancellation refund",
+                  "Weather Rain Blackout",
+                  "Facility Maintenance Blackout",
+                  "Double Booking Resolution",
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setRefundReason(preset)}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs space-y-1">
               <div className="font-bold flex items-center gap-1 text-amber-800">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>Irrevocable Financial Transaction:</span>
               </div>
               <p className="text-[11px] text-amber-700 leading-relaxed">
-                Issuing this refund will credit the customer and log an immediate outgoing debit entry in the daily cash reconciliation register.
+                Issuing this refund will credit the customer via {refundTo} and log an outgoing debit entry in the financial audit register.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => setRefundModal(false)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" isLoading={refunding}>
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={refunding}
+                disabled={Number(refundAmount) <= 0 || Number(refundAmount) > maxRefundable}
+              >
                 Process Refund
               </Button>
             </div>

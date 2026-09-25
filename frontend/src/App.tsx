@@ -19,20 +19,47 @@ import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
 import { AccessDeniedPage } from "./pages/auth/AccessDeniedPage";
 import { UnauthorizedPage } from "./pages/auth/UnauthorizedPage";
 
-// ─── Customer Facing Pages (Eagerly bundled for instant 0ms mobile tab switches) ───
+// ─── Customer Facing Pages ───
+// Eagerly bundled for instant 0ms initial landing
 import { HomePage } from "./pages/customer/HomePage";
-import { TurfListingPage } from "./pages/customer/TurfListingPage";
-import { TurfDetailPage } from "./pages/customer/TurfDetailPage";
-import { BookingCheckoutPage } from "./pages/customer/BookingCheckoutPage";
-import { BookingConfirmationPage } from "./pages/customer/BookingConfirmationPage";
-import { MyBookingsPage } from "./pages/customer/MyBookingsPage";
-import { WalletPage } from "./pages/customer/WalletPage";
-import { OffersPage } from "./pages/customer/OffersPage";
-import { ProfilePage } from "./pages/customer/ProfilePage";
-import { NotificationsPage } from "./pages/customer/NotificationsPage";
-import { PaymentCallbackPage } from "./pages/customer/PaymentCallbackPage";
-import { TermsOfServicePage } from "./pages/customer/TermsOfServicePage";
-import { PrivacyPolicyPage } from "./pages/customer/PrivacyPolicyPage";
+
+// Route-level code-split for minimal initial JS payload & lightning fast FCP
+const TurfListingPage = React.lazy(() =>
+  import("./pages/customer/TurfListingPage").then((m) => ({ default: m.TurfListingPage }))
+);
+const TurfDetailPage = React.lazy(() =>
+  import("./pages/customer/TurfDetailPage").then((m) => ({ default: m.TurfDetailPage }))
+);
+const BookingCheckoutPage = React.lazy(() =>
+  import("./pages/customer/BookingCheckoutPage").then((m) => ({ default: m.BookingCheckoutPage }))
+);
+const BookingConfirmationPage = React.lazy(() =>
+  import("./pages/customer/BookingConfirmationPage").then((m) => ({ default: m.BookingConfirmationPage }))
+);
+const MyBookingsPage = React.lazy(() =>
+  import("./pages/customer/MyBookingsPage").then((m) => ({ default: m.MyBookingsPage }))
+);
+const WalletPage = React.lazy(() =>
+  import("./pages/customer/WalletPage").then((m) => ({ default: m.WalletPage }))
+);
+const OffersPage = React.lazy(() =>
+  import("./pages/customer/OffersPage").then((m) => ({ default: m.OffersPage }))
+);
+const ProfilePage = React.lazy(() =>
+  import("./pages/customer/ProfilePage").then((m) => ({ default: m.ProfilePage }))
+);
+const NotificationsPage = React.lazy(() =>
+  import("./pages/customer/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
+);
+const PaymentCallbackPage = React.lazy(() =>
+  import("./pages/customer/PaymentCallbackPage").then((m) => ({ default: m.PaymentCallbackPage }))
+);
+const TermsOfServicePage = React.lazy(() =>
+  import("./pages/customer/TermsOfServicePage").then((m) => ({ default: m.TermsOfServicePage }))
+);
+const PrivacyPolicyPage = React.lazy(() =>
+  import("./pages/customer/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage }))
+);
 
 // ─── Lazy-loaded Print Document Templates ──────────────────────────────────
 const PrintMatchPassPage = React.lazy(() =>
@@ -199,9 +226,30 @@ export const App: React.FC = () => {
                   }
                 >
                   <Route index element={<StaffDashboardPage />} />
-                  <Route path="scanner" element={<StaffQRScannerPage />} />
-                  <Route path="check-in" element={<StaffQRScannerPage />} />
-                  <Route path="walk-in" element={<StaffWalkInPage />} />
+                  <Route
+                    path="scanner"
+                    element={
+                      <ProtectedRoute requiredFeature="QR_CHECKIN">
+                        <StaffQRScannerPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="check-in"
+                    element={
+                      <ProtectedRoute requiredFeature="QR_CHECKIN">
+                        <StaffQRScannerPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="walk-in"
+                    element={
+                      <ProtectedRoute requiredFeature="WALK_IN_BOOKINGS">
+                        <StaffWalkInPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="search" element={<StaffBookingSearchPage />} />
                   <Route path="logs" element={<StaffCheckinLogsPage />} />
                 </Route>
@@ -218,9 +266,30 @@ export const App: React.FC = () => {
                   <Route index element={<AdminDashboardPage />} />
                   <Route path="schedule" element={<AdminSchedulePage />} />
                   <Route path="operations" element={<DailyOperationsPage />} />
-                  <Route path="scanner" element={<StaffQRScannerPage />} />
-                  <Route path="check-in" element={<StaffQRScannerPage />} />
-                  <Route path="qr-management" element={<ManageQRPage />} />
+                  <Route
+                    path="scanner"
+                    element={
+                      <ProtectedRoute requiredFeature="QR_CHECKIN">
+                        <StaffQRScannerPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="check-in"
+                    element={
+                      <ProtectedRoute requiredFeature="QR_CHECKIN">
+                        <StaffQRScannerPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="qr-management"
+                    element={
+                      <ProtectedRoute requiredFeature="QR_CHECKIN">
+                        <ManageQRPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="bookings" element={<ManageBookingsPage />} />
                   <Route path="payments" element={<ManagePaymentsPage />} />
                   <Route
@@ -235,7 +304,7 @@ export const App: React.FC = () => {
                   <Route
                     path="pricing"
                     element={
-                      <ProtectedRoute requiredPermission="PRICING_VIEW">
+                      <ProtectedRoute requiredPermission="PRICING_VIEW" requiredFeature="DYNAMIC_PRICING">
                         <ManagePricingPage />
                       </ProtectedRoute>
                     }
@@ -286,7 +355,7 @@ export const App: React.FC = () => {
                   <Route
                     path="reports"
                     element={
-                      <ProtectedRoute requiredPermission="REPORT_VIEW">
+                      <ProtectedRoute requiredPermission="REPORT_VIEW" requiredFeature="ADVANCED_REPORTING">
                         <AdminReportsPage />
                       </ProtectedRoute>
                     }

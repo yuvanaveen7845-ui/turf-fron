@@ -25,6 +25,8 @@ import {
   Info,
   Flame,
   Check,
+  Target,
+  RotateCcw,
 } from "lucide-react";
 import api from "../../services/api";
 import { PricingRule, Turf, TimeSlot } from "../../types";
@@ -316,7 +318,7 @@ export const ManagePricingPage: React.FC = () => {
   const openSlotAdjuster = (slot: any) => {
     setSelectedSlot(slot);
     const baseP = slotData?.base_price || 1400;
-    const currentP = slot.price || baseP;
+    const currentP = slot.price ? Math.round(Number(slot.price)) : baseP;
 
     if (currentP > baseP) {
       setSlotAdjustMode("HIKE");
@@ -327,8 +329,8 @@ export const ManagePricingPage: React.FC = () => {
       setSlotAdjustAmount(String(Math.round(baseP - currentP)));
       setSlotAdjustUnit("FLAT");
     } else {
-      setSlotAdjustMode("HIKE");
-      setSlotAdjustAmount("200");
+      setSlotAdjustMode("FIXED");
+      setSlotAdjustAmount(String(currentP));
       setSlotAdjustUnit("FLAT");
     }
     setSlotScope("DATE_ONLY");
@@ -389,12 +391,55 @@ export const ManagePricingPage: React.FC = () => {
         payload.applicable_days = [0, 1, 2, 3, 4, 5, 6];
       }
 
-      await api.post("/pricing/rules/", payload);
+      // Check for existing slot-specific rule to update rather than creating duplicates
+      const existingSlotRule = rules.find((r) => {
+        const matchesTurf = !r.turf || String(r.turf) === String(selectedTurfId);
+        const matchesTime = r.start_time?.slice(0, 5) === selectedSlot.start_time?.slice(0, 5);
+        const matchesDate = slotScope === "DATE_ONLY" ? r.start_date === selectedDate : true;
+        return matchesTurf && matchesTime && matchesDate && r.priority >= 20;
+      });
+
+      if (existingSlotRule) {
+        await api.patch(`/pricing/rules/${existingSlotRule.id}/`, payload);
+      } else {
+        await api.post("/pricing/rules/", payload);
+      }
+
       setSlotAdjustModalOpen(false);
-      toast.success("Slot pricing adjusted successfully.");
+      toast.success("Slot pricing updated successfully.");
       fetchRules();
+      fetchSlotAvailability();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to adjust slot price.");
+    } finally {
+      setSlotAdjustSubmitting(false);
+    }
+  };
+
+  const handleResetSlotToBase = async () => {
+    if (!selectedSlot || !selectedTurfId) return;
+    setSlotAdjustSubmitting(true);
+
+    try {
+      const matchingRules = rules.filter((r) => {
+        const matchesTurf = !r.turf || String(r.turf) === String(selectedTurfId);
+        const matchesTime = r.start_time?.slice(0, 5) === selectedSlot.start_time?.slice(0, 5);
+        const matchesDate = !r.start_date || r.start_date === selectedDate;
+        return matchesTurf && matchesTime && matchesDate && r.priority >= 20;
+      });
+
+      if (matchingRules.length > 0) {
+        for (const r of matchingRules) {
+          await api.delete(`/pricing/rules/${r.id}/`);
+        }
+      }
+
+      setSlotAdjustModalOpen(false);
+      toast.success("Slot rate reverted to base price.");
+      fetchRules();
+      fetchSlotAvailability();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to revert slot price.");
     } finally {
       setSlotAdjustSubmitting(false);
     }
@@ -429,6 +474,38 @@ export const ManagePricingPage: React.FC = () => {
     cur.setDate(cur.getDate() + days);
     setSelectedDate(cur.toISOString().split("T")[0]);
   };
+
+  const handleCloseSlotAdjustModal = () => {
+    setSlotAdjustModalOpen(false);
+  };
+
+  const baseRate = slotData?.base_price ? Math.round(slotData.base_price) : 1000;
+  const currentRate = selectedSlot?.price ? Math.round(Number(selectedSlot.price)) : baseRate;
+  const numVal = parseFloat(slotAdjustAmount) || 0;
+
+  let projectedRate = currentRate;
+  let deltaFromBase = 0;
+
+  if (slotAdjustMode === "HIKE") {
+    const hikeVal = slotAdjustUnit === "PERCENT" ? Math.round((baseRate * numVal) / 100) : numVal;
+    projectedRate = baseRate + hikeVal;
+    deltaFromBase = hikeVal;
+  } else if (slotAdjustMode === "DISCOUNT") {
+    const discountVal = slotAdjustUnit === "PERCENT" ? Math.round((baseRate * numVal) / 100) : numVal;
+    projectedRate = Math.max(1, baseRate - discountVal);
+    deltaFromBase = -discountVal;
+  } else {
+    // FIXED / Target Rate
+    projectedRate = Math.max(1, Math.round(numVal));
+    deltaFromBase = projectedRate - baseRate;
+  }
+
+  const percentChange = baseRate > 0 ? Math.round((deltaFromBase / baseRate) * 100) : 0;
+  const hasCustomRate = currentRate !== baseRate;
+
+  const hikePresets = slotAdjustUnit === "PERCENT" ? [10, 15, 20, 25] : [100, 200, 300, 500];
+  const discountPresets = slotAdjustUnit === "PERCENT" ? [10, 15, 20, 25] : [50, 100, 150, 200];
+  const targetPresets = Array.from(new Set([baseRate, 499, 699, 799, 899, 999, 1199, 1499].filter((p) => p > 0))).sort((a, b) => a - b);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
@@ -1182,136 +1259,416 @@ export const ManagePricingPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* MODAL 2: Quick Slot Price Hike & Discount Modal */}
+      {/* MODAL 2: Quick Slot Price Surge, Discount & Target Rate Modal */}
       <Modal
         isOpen={slotAdjustModalOpen}
-        onClose={() => setSlotAdjustModalOpen(false)}
-        title={`Adjust Rate for Slot: ${selectedSlot?.start_time?.slice(0, 5)} - ${selectedSlot?.end_time?.slice(0, 5)}`}
-        description={`Pitch: ${currentTurfObj?.name || "Turf"} • Date: ${selectedDate}`}
-        maxWidth="sm"
+        onClose={handleCloseSlotAdjustModal}
+        maxWidth="md"
       >
-        <form onSubmit={handleApplySlotAdjustment} className="space-y-4 text-xs">
-          {/* Action Mode */}
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-[#0F172A]">Adjustment Type</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => {
-                  setSlotAdjustMode("HIKE");
-                  if (slotAdjustUnit === "FLAT" && !slotAdjustAmount) setSlotAdjustAmount("200");
-                }}
-                className={`py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                  slotAdjustMode === "HIKE"
-                    ? "bg-amber-500 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                + Hike
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSlotAdjustMode("DISCOUNT");
-                  if (slotAdjustUnit === "FLAT" && !slotAdjustAmount) setSlotAdjustAmount("150");
-                }}
-                className={`py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                  slotAdjustMode === "DISCOUNT"
-                    ? "bg-[#059669] text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                - Discount
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSlotAdjustMode("FIXED");
-                  setSlotAdjustAmount("1600");
-                }}
-                className={`py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                  slotAdjustMode === "FIXED"
-                    ? "bg-[#0F172A] text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                🎯 Target Rate
-              </button>
-            </div>
-          </div>
+            <div className="space-y-5">
+              {/* Header with Slot Details */}
+              <div className="pb-3 border-b border-slate-100 flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 text-[#059669] border border-emerald-200/60 font-mono font-black text-xs">
+                      <Clock className="w-3.5 h-3.5 mr-1" />
+                      {selectedSlot?.start_time?.slice(0, 5)} – {selectedSlot?.end_time?.slice(0, 5)}
+                    </span>
+                    <span className="text-xs font-bold text-slate-500">•</span>
+                    <span className="text-xs font-bold text-slate-700">
+                      {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                    Adjust Slot Rate
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {currentTurfObj?.name || "Turf Pitch"} • Standard Base Rate: <strong className="text-slate-800">₹{baseRate}/hr</strong>
+                  </p>
+                </div>
+              </div>
 
-          {/* Amount input */}
-          {slotAdjustMode !== "FIXED" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#0F172A]">Unit</label>
-                <select
-                  value={slotAdjustUnit}
-                  onChange={(e) => setSlotAdjustUnit(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#0F172A] focus:bg-white focus:ring-1 focus:ring-[#059669] cursor-pointer"
+              <form onSubmit={handleApplySlotAdjustment} className="space-y-4 text-xs">
+                {/* 1. Mode Selector (Hike vs Discount vs Target Rate) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                    Adjustment Strategy
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSlotAdjustMode("HIKE");
+                        if (!slotAdjustAmount || slotAdjustMode === "FIXED") setSlotAdjustAmount("200");
+                      }}
+                      className={`py-2 px-2 rounded-lg font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                        slotAdjustMode === "HIKE"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span>+ Hike</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSlotAdjustMode("DISCOUNT");
+                        if (!slotAdjustAmount || slotAdjustMode === "FIXED") setSlotAdjustAmount("150");
+                      }}
+                      className={`py-2 px-2 rounded-lg font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                        slotAdjustMode === "DISCOUNT"
+                          ? "bg-[#059669] text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <TrendingDown className="w-3.5 h-3.5" />
+                      <span>- Discount</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSlotAdjustMode("FIXED");
+                        setSlotAdjustUnit("FLAT");
+                        setSlotAdjustAmount(String(currentRate));
+                      }}
+                      className={`py-2 px-2 rounded-lg font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                        slotAdjustMode === "FIXED"
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Target className="w-3.5 h-3.5" />
+                      <span>Target Rate</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Live Simulation & Comparison Hero Card */}
+                <div
+                  className={`p-4 rounded-2xl border transition-all duration-300 ${
+                    deltaFromBase > 0
+                      ? "bg-gradient-to-br from-amber-50/70 to-orange-50/40 border-amber-200/80 shadow-[0_4px_16px_rgba(245,158,11,0.08)]"
+                      : deltaFromBase < 0
+                      ? "bg-gradient-to-br from-emerald-50/70 to-teal-50/40 border-emerald-200/80 shadow-[0_4px_16px_rgba(5,150,105,0.08)]"
+                      : "bg-gradient-to-br from-slate-50 to-slate-100/60 border-slate-200/80"
+                  }`}
                 >
-                  <option value="FLAT">Flat ₹ Amount</option>
-                  <option value="PERCENT">Percentage (%)</option>
-                </select>
-              </div>
+                  <div className="flex items-center justify-between text-xs pb-3 border-b border-slate-200/60">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                        Current Slot Rate
+                      </span>
+                      <div className="flex items-baseline space-x-1 mt-0.5">
+                        <span className="text-base font-bold text-slate-700 font-mono">
+                          ₹{currentRate.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-normal">/hr</span>
+                      </div>
+                    </div>
 
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-[#0F172A]">
-                  {slotAdjustMode === "HIKE" ? "Hike Value" : "Discount Value"}
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="any"
-                  value={slotAdjustAmount}
-                  onChange={(e) => setSlotAdjustAmount(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#0F172A] focus:bg-white focus:ring-1 focus:ring-[#059669]"
-                />
-              </div>
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-xs border border-slate-200/80 text-slate-400">
+                      <ArrowRight className="w-4 h-4 text-slate-600" />
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#059669] block">
+                        New Calculated Rate
+                      </span>
+                      <div className="flex items-baseline space-x-1 mt-0.5 justify-end">
+                        <span
+                          className={`text-2xl font-black font-mono tracking-tight ${
+                            deltaFromBase > 0
+                              ? "text-amber-600"
+                              : deltaFromBase < 0
+                              ? "text-[#059669]"
+                              : "text-slate-900"
+                          }`}
+                        >
+                          ₹{projectedRate.toLocaleString("en-IN")}
+                        </span>
+                        <span className="text-xs text-slate-400 font-normal">/hr</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Impact Summary Line */}
+                  <div className="flex items-center justify-between pt-2.5 text-xs">
+                    <span className="text-slate-500 font-medium">
+                      Turf Base: <strong className="text-slate-700">₹{baseRate}/hr</strong>
+                    </span>
+
+                    <div className="flex items-center space-x-1.5">
+                      {deltaFromBase > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200/80">
+                          <TrendingUp className="w-3 h-3 mr-1 text-amber-600" />
+                          +₹{deltaFromBase} (+{Math.abs(percentChange)}% surge)
+                        </span>
+                      )}
+                      {deltaFromBase < 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200/80">
+                          <TrendingDown className="w-3 h-3 mr-1 text-[#059669]" />
+                          -₹{Math.abs(deltaFromBase)} (-{Math.abs(percentChange)}% discount)
+                        </span>
+                      )}
+                      {deltaFromBase === 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200/80 text-slate-700">
+                          Standard Base Price
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Value Input & Unit Switcher */}
+                {slotAdjustMode !== "FIXED" ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                        {slotAdjustMode === "HIKE" ? "Hike Amount" : "Discount Amount"}
+                      </label>
+
+                      {/* Unit Segmented Control */}
+                      <div className="flex p-0.5 bg-slate-100 rounded-lg border border-slate-200/60">
+                        <button
+                          type="button"
+                          onClick={() => setSlotAdjustUnit("FLAT")}
+                          className={`py-1 px-2.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            slotAdjustUnit === "FLAT"
+                              ? "bg-white text-slate-900 shadow-2xs"
+                              : "text-slate-500 hover:text-slate-900"
+                          }`}
+                        >
+                          ₹ Flat Amount
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSlotAdjustUnit("PERCENT")}
+                          className={`py-1 px-2.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                            slotAdjustUnit === "PERCENT"
+                              ? "bg-white text-slate-900 shadow-2xs"
+                              : "text-slate-500 hover:text-slate-900"
+                          }`}
+                        >
+                          % Percentage
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold">
+                        {slotAdjustUnit === "FLAT" ? "₹" : "%"}
+                      </div>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="any"
+                        value={slotAdjustAmount}
+                        onChange={(e) => setSlotAdjustAmount(e.target.value)}
+                        placeholder={slotAdjustUnit === "FLAT" ? "e.g. 200" : "e.g. 15"}
+                        className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="flex items-center space-x-1.5 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-400">Quick Presets:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(slotAdjustMode === "HIKE" ? hikePresets : discountPresets).map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setSlotAdjustAmount(String(val))}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                              slotAdjustAmount === String(val)
+                                ? "bg-slate-900 text-white border-slate-900"
+                                : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {slotAdjustMode === "HIKE" ? "+" : "-"}
+                            {slotAdjustUnit === "FLAT" ? `₹${val}` : `${val}%`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                      Target Hourly Slot Rate (₹)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-sm">
+                        ₹
+                      </div>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        step="any"
+                        value={slotAdjustAmount}
+                        onChange={(e) => setSlotAdjustAmount(e.target.value)}
+                        placeholder="e.g. 899"
+                        className="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-black font-mono text-slate-900 focus:bg-white focus:border-[#059669] focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Target Rate Quick Presets */}
+                    <div className="flex items-center space-x-1.5 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-400">Presets:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {targetPresets.map((val) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setSlotAdjustAmount(String(val))}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                              slotAdjustAmount === String(val)
+                                ? "bg-slate-900 text-white border-slate-900"
+                                : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
+                            }`}
+                          >
+                            {val === baseRate ? `Base (₹${val})` : `₹${val}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Scope Selector */}
+                <div className="space-y-1.5 pt-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                    Application Scope
+                  </label>
+                  <div className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSlotScope("DATE_ONLY")}
+                      className={`w-full p-2.5 rounded-xl border text-left flex items-start space-x-2.5 transition-all cursor-pointer ${
+                        slotScope === "DATE_ONLY"
+                          ? "bg-emerald-50/70 border-[#059669] ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/80"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                          slotScope === "DATE_ONLY"
+                            ? "border-[#059669] bg-[#059669] text-white"
+                            : "border-slate-300 bg-white"
+                        }`}
+                      >
+                        {slotScope === "DATE_ONLY" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1">
+                        <span className="block text-xs font-bold text-slate-900">
+                          Only this date ({selectedDate})
+                        </span>
+                        <span className="block text-[11px] text-slate-500 font-medium">
+                          One-time override for {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSlotScope("RECURRING_WEEKDAY")}
+                      className={`w-full p-2.5 rounded-xl border text-left flex items-start space-x-2.5 transition-all cursor-pointer ${
+                        slotScope === "RECURRING_WEEKDAY"
+                          ? "bg-emerald-50/70 border-[#059669] ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/80"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                          slotScope === "RECURRING_WEEKDAY"
+                            ? "border-[#059669] bg-[#059669] text-white"
+                            : "border-slate-300 bg-white"
+                        }`}
+                      >
+                        {slotScope === "RECURRING_WEEKDAY" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1">
+                        <span className="block text-xs font-bold text-slate-900">
+                          Every {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long" })} at this hour
+                        </span>
+                        <span className="block text-[11px] text-slate-500 font-medium">
+                          Recurring weekly policy for {selectedSlot?.start_time?.slice(0, 5)} - {selectedSlot?.end_time?.slice(0, 5)}
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSlotScope("ALL_DAYS")}
+                      className={`w-full p-2.5 rounded-xl border text-left flex items-start space-x-2.5 transition-all cursor-pointer ${
+                        slotScope === "ALL_DAYS"
+                          ? "bg-emerald-50/70 border-[#059669] ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/80"
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                          slotScope === "ALL_DAYS"
+                            ? "border-[#059669] bg-[#059669] text-white"
+                            : "border-slate-300 bg-white"
+                        }`}
+                      >
+                        {slotScope === "ALL_DAYS" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div className="flex-1">
+                        <span className="block text-xs font-bold text-slate-900">
+                          Every day at this hour (Permanent)
+                        </span>
+                        <span className="block text-[11px] text-slate-500 font-medium">
+                          Applies 7 days a week for all future bookings at this hour
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5. Footer Actions */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div>
+                    {hasCustomRate && (
+                      <button
+                        type="button"
+                        onClick={handleResetSlotToBase}
+                        disabled={slotAdjustSubmitting}
+                        className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer disabled:opacity-50"
+                        title="Remove overrides and revert to base rate"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Revert to Base</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSlotAdjustModalOpen(false)}
+                      disabled={slotAdjustSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      isLoading={slotAdjustSubmitting}
+                    >
+                      Apply Rate Change
+                    </Button>
+                  </div>
+                </div>
+              </form>
             </div>
-          ) : (
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-[#0F172A]">Target Slot Rate (₹)</label>
-              <input
-                type="number"
-                required
-                min="0"
-                step="any"
-                value={slotAdjustAmount}
-                onChange={(e) => setSlotAdjustAmount(e.target.value)}
-                placeholder="e.g. 1399"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#0F172A] focus:bg-white focus:ring-1 focus:ring-[#059669]"
-              />
-            </div>
-          )}
-
-          {/* Scope Selector */}
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-[#0F172A]">Apply Scope</label>
-            <select
-              value={slotScope}
-              onChange={(e) => setSlotScope(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#0F172A] focus:bg-white focus:ring-1 focus:ring-[#059669] cursor-pointer"
-            >
-              <option value="DATE_ONLY">Only this specific date ({selectedDate})</option>
-              <option value="RECURRING_WEEKDAY">
-                Every {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long" })} at this hour
-              </option>
-              <option value="ALL_DAYS">Every day at this hour (Recurring)</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
-            <Button type="button" variant="outline" onClick={() => setSlotAdjustModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" isLoading={slotAdjustSubmitting}>
-              Apply Rate Change
-            </Button>
-          </div>
-        </form>
-      </Modal>
+          </Modal>
 
       {/* Delete Rule Confirmation */}
       <ConfirmDialog

@@ -97,8 +97,26 @@ export const initiateRazorpayCheckout = async (
   // Ensure amount is integer in paise
   const amountPaise = Math.round(Number(orderData.amount));
 
+  // Persist order context in session/local storage for fail-safe redirect recovery
   try {
-    const options = {
+    const orderContext = {
+      order_id: orderData.order_id,
+      amount: amountPaise,
+      booking_id: orderData.booking_id,
+      payment_id: orderData.payment_id,
+      title: orderData.title,
+      description: orderData.description,
+      key_id: orderData.key_id,
+      saved_at: Date.now(),
+    };
+    sessionStorage.setItem("ft_active_razorpay_order", JSON.stringify(orderContext));
+    localStorage.setItem("ft_active_razorpay_order", JSON.stringify(orderContext));
+  } catch (_) {}
+
+  try {
+    const callbackUrl = `${window.location.origin}/api/payments/razorpay/callback/`;
+
+    const options: any = {
       key: orderData.key_id,
       amount: amountPaise,
       currency: orderData.currency || "INR",
@@ -126,12 +144,20 @@ export const initiateRazorpayCheckout = async (
         },
         escape: true,
         backdropclose: false,
+        confirm_close: true,
       },
+      callback_url: callbackUrl,
+      redirect: false,
       handler: function (response: {
         razorpay_payment_id: string;
         razorpay_order_id: string;
         razorpay_signature: string;
       }) {
+        try {
+          sessionStorage.removeItem("ft_active_razorpay_order");
+          localStorage.removeItem("ft_active_razorpay_order");
+        } catch (_) {}
+
         if (onStatusChange) {
           onStatusChange("Verifying payment with Friends Turf servers...");
         }

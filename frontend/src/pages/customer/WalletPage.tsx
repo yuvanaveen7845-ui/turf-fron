@@ -1001,7 +1001,7 @@ export const WalletPage: React.FC = () => {
                 }}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-emerald-glow transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
-                <span>⚽ Book a Pitch Now</span>
+                <span>Book a Pitch Now</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button

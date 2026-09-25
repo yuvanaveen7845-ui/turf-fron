@@ -15,6 +15,7 @@ import {
   RotateCw,
 } from "lucide-react";
 import api from "../../services/api";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export interface PaymentModalProps {
   isOpen: boolean;
@@ -53,6 +54,8 @@ export const FriendsTurfPaymentModal: React.FC<PaymentModalProps> = ({
   onPaymentSuccess,
   onPaymentError,
 }) => {
+  const { payments: paymentSettings } = useBusinessSettings();
+  const venueUpiId = paymentSettings?.upiId || "friendsturf@okhdfcbank";
   const [activeTab, setActiveTab] = useState<PaymentTab>("upi");
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -288,7 +291,7 @@ export const FriendsTurfPaymentModal: React.FC<PaymentModalProps> = ({
                       </div>
                     </div>
                   </div>
-                  <span className="text-[9px] font-mono text-slate-500 mt-1">UPI ID: friendsturf@razorpay</span>
+                  <span className="text-[9px] font-mono text-slate-500 mt-1">UPI ID: {venueUpiId}</span>
                 </div>
               </div>
 

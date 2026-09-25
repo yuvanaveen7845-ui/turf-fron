@@ -7,18 +7,87 @@ const api = axios.create({
   },
 });
 
-// Add Bearer token to outgoing requests
+// ── In-Memory Client Cache for Static Catalogs ──
+interface CacheEntry {
+  data: any;
+  headers: any;
+  status: number;
+  timestamp: number;
+}
+const memoryCache = new Map<string, CacheEntry>();
+
+// Endpoints suitable for short client-side memoization (ms)
+const CACHEABLE_ROUTES: { prefix: string; ttl: number }[] = [
+  { prefix: "/turfs/facilities/", ttl: 120_000 }, // 2 min
+  { prefix: "/turfs/", ttl: 45_000 },             // 45 sec (catalog only, not availability/schedule)
+  { prefix: "/auth/settings/", ttl: 60_000 },     // 1 min
+];
+
+export const clearApiCache = (filter?: string) => {
+  if (!filter) {
+    memoryCache.clear();
+  } else {
+    for (const key of memoryCache.keys()) {
+      if (key.includes(filter)) {
+        memoryCache.delete(key);
+      }
+    }
+  }
+};
+
+// Add Bearer token to outgoing requests and serve cached GETs if fresh
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("ft_access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Invalidate cache on mutations
+  if (config.method && !["get", "head", "options"].includes(config.method.toLowerCase())) {
+    clearApiCache();
+  }
+
+  // If GET and cached fresh, return from memory cache immediately (0ms network bypass)
+  if (config.method?.toLowerCase() === "get") {
+    const url = config.url || "";
+    const cached = memoryCache.get(url);
+    if (cached && Date.now() < cached.timestamp) {
+      config.adapter = async () => ({
+        data: cached.data,
+        status: cached.status,
+        statusText: "OK",
+        headers: cached.headers,
+        config,
+      });
+    }
+  }
+
   return config;
 });
 
-// Intercept 401 responses and try refreshing token
+// Cache interceptor on response
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const url = response.config.url || "";
+    // Only cache pure catalog GET requests (exclude /schedule/ or /availability/ or query-heavy dynamic routes)
+    if (
+      response.config.method?.toLowerCase() === "get" &&
+      !url.includes("/schedule/") &&
+      !url.includes("/availability/") &&
+      !url.includes("/lock/")
+    ) {
+      const match = CACHEABLE_ROUTES.find((r) => url === r.prefix || url.startsWith(r.prefix));
+      if (match) {
+        memoryCache.set(url, {
+          data: response.data,
+          headers: response.headers,
+          status: response.status,
+          timestamp: Date.now() + match.ttl,
+        });
+      }
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     // Don't attempt to refresh if the failed request was the login/refresh endpoint itself

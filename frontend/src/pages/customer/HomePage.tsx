@@ -62,7 +62,7 @@ export const HomePage: React.FC = () => {
 
   const handleSearchSubmit = () => {
     const targetId = selectedTurfId || turfs[0]?.id || "1";
-    navigate(`/turfs/${targetId}?date=${selectedDate}&session=${selectedSession}`);
+    navigate(`/turfs/${targetId}?date=${selectedDate}&session=${selectedSession}#slots-section`);
   };
 
   const filteredTurfs =

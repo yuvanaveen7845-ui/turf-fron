@@ -16,9 +16,13 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { useToast } from "../../context/ToastContext";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
+import { usePermission } from "../../context/PermissionContext";
 
 export const AdminSettingsPage: React.FC = () => {
   const toast = useToast();
+  const { refreshSettings } = useBusinessSettings();
+  const { refreshFeatureFlags } = usePermission();
   const [activeTab, setActiveTab] = useState<
     "features" | "company" | "booking" | "hours" | "payments" | "notifications" | "auth"
   >("features");
@@ -51,9 +55,11 @@ export const AdminSettingsPage: React.FC = () => {
     address: "Near Sirupooluvapatti, Kamatchepuram, Tiruppur, Tamil Nadu 641603 (RTO Office Backside)",
     phone: "+91 93619 89494",
     email: "contact@friendsturf.com",
+    support_email: "support@friendsturf.com",
     website: "https://friendsturf.com",
     instagram: "@friendsturf_tiruppur",
     whatsapp: "+91 93639 89494",
+    gstin: "33ABCDE1234F1Z5",
   });
 
   const [bookingRules, setBookingRules] = useState({
@@ -86,6 +92,8 @@ export const AdminSettingsPage: React.FC = () => {
     advanceDepositPercent: 50,
     taxPercentage: 18,
     isTaxIncluded: true,
+    minSlotPrice: 100,
+    minTopUpAmount: 10,
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
@@ -135,6 +143,8 @@ export const AdminSettingsPage: React.FC = () => {
         }),
         api.put("/auth/features/", featureFlags),
       ]);
+      await refreshSettings();
+      await refreshFeatureFlags?.();
       setSaveSuccess(true);
       toast.success("Settings successfully saved to server.");
       setTimeout(() => setSaveSuccess(false), 3500);
@@ -319,79 +329,203 @@ export const AdminSettingsPage: React.FC = () => {
 
         {/* Tab 1: Company Info */}
         {activeTab === "company" && (
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">
-              Company Identity & Contact
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Company / Venue Name
-                </label>
-                <input
-                  type="text"
-                  value={companySettings.name}
-                  onChange={(e) =>
-                    setCompanySettings({ ...companySettings, name: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                />
-              </div>
+          <div className="space-y-6">
+            <div className="border-b border-slate-100 pb-2">
+              <h3 className="text-base font-bold text-slate-900">
+                Company Identity &amp; Contact
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage official venue branding, public contact channels, physical address, and statutory registration numbers.
+              </p>
+            </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Brand Tagline
-                </label>
-                <input
-                  type="text"
-                  value={companySettings.tagline}
-                  onChange={(e) =>
-                    setCompanySettings({ ...companySettings, tagline: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                />
-              </div>
+            {/* Core Brand Identity */}
+            <div className="space-y-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
+                1. Core Brand Identity
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Company / Venue Name
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.name}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, name: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Displayed on navbar, tickets, receipts, and emails
+                  </span>
+                </div>
 
-              <div className="sm:col-span-2">
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Official Ground Address
-                </label>
-                <input
-                  type="text"
-                  value={companySettings.address}
-                  onChange={(e) =>
-                    setCompanySettings({ ...companySettings, address: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                />
-              </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Brand Tagline
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.tagline}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, tagline: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Official motto shown across landing banners and invoices
+                  </span>
+                </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Primary Contact Phone
-                </label>
-                <input
-                  type="text"
-                  value={companySettings.phone}
-                  onChange={(e) =>
-                    setCompanySettings({ ...companySettings, phone: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                />
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Official Ground Address
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.address}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, address: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Physical GPS address for player navigation and invoice compliance
+                  </span>
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Official Email
-                </label>
-                <input
-                  type="email"
-                  value={companySettings.email}
-                  onChange={(e) =>
-                    setCompanySettings({ ...companySettings, email: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                />
+            {/* Direct Communication Channels */}
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
+                2. Direct Player Contact &amp; Support Channels
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Primary Contact Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.phone}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, phone: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Direct phone line for ground bookings and customer reception
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    WhatsApp Booking &amp; Alert Line
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.whatsapp || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, whatsapp: e.target.value })
+                    }
+                    placeholder="+91 93639 89494"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Used for automated squad match pass invitations and WhatsApp alerts
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Official Email
+                  </label>
+                  <input
+                    type="email"
+                    value={companySettings.email}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, email: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Primary inbox for booking receipts, inquiries, and staff correspondence
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Dedicated Support Email
+                  </label>
+                  <input
+                    type="email"
+                    value={companySettings.support_email || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, support_email: e.target.value })
+                    }
+                    placeholder="support@friendsturf.com"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Printed on tax receipts for refunds and escalation inquiries
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Online Presence & Legal */}
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
+                3. Online Presence &amp; Statutory GSTIN
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Official Website URL
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.website || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, website: e.target.value })
+                    }
+                    placeholder="https://friendsturf.com"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Instagram Handle
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.instagram || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, instagram: e.target.value })
+                    }
+                    placeholder="@friendsturf_tiruppur"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    GSTIN Tax Identification
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.gstin || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, gstin: e.target.value })
+                    }
+                    placeholder="33ABCDE1234F1Z5"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -547,76 +681,287 @@ export const AdminSettingsPage: React.FC = () => {
 
         {/* Tab 4: Payments & Taxes */}
         {activeTab === "payments" && (
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-2">
-              Payment Gateway & Tax Configuration
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Primary Payment Gateway
-                </label>
-                <select
-                  value={paymentSettings.gateway}
-                  onChange={(e) =>
-                    setPaymentSettings({ ...paymentSettings, gateway: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                >
-                  <option value="RAZORPAY">Razorpay (Cards, UPI, Netbanking)</option>
-                  <option value="CASHFREE">Cashfree Payments</option>
-                  <option value="STRIPE">Stripe</option>
-                </select>
+          <div className="space-y-6">
+            <div className="border-b border-slate-100 pb-2">
+              <h3 className="text-base font-bold text-slate-900">
+                Payment Gateway &amp; Tax Configuration
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage online gateway providers, credentials, on-spot venue UPI, partial advance deposits, and statutory GST taxation.
+              </p>
+            </div>
+
+            {/* Gateway & Environment */}
+            <div className="space-y-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
+                1. Gateway Provider &amp; Credentials
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Primary Payment Gateway
+                  </label>
+                  <select
+                    value={paymentSettings.gateway}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, gateway: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  >
+                    <option value="RAZORPAY">Razorpay (Cards, UPI, Netbanking)</option>
+                    <option value="CASHFREE">Cashfree Payments</option>
+                    <option value="STRIPE">Stripe</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Gateway Environment
+                  </label>
+                  <select
+                    value={paymentSettings.mode}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, mode: e.target.value })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  >
+                    <option value="TEST">Test / Sandbox (Simulation)</option>
+                    <option value="LIVE">Live Production Mode</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Razorpay Key ID
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentSettings.keyId || ""}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, keyId: e.target.value.trim() })
+                    }
+                    placeholder="rzp_test_... or rzp_live_..."
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Public Key ID delivered to official checkout SDK
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Razorpay Key Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={paymentSettings.keySecret || ""}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, keySecret: e.target.value.trim() })
+                    }
+                    placeholder="••••••••••••••••"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Used server-side for HMAC-SHA256 signature verification &amp; webhook authorization
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Gateway Environment
-                </label>
-                <select
-                  value={paymentSettings.mode}
-                  onChange={(e) =>
-                    setPaymentSettings({ ...paymentSettings, mode: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                >
-                  <option value="TEST">Test / Sandbox (Simulation)</option>
-                  <option value="LIVE">Live Production Mode</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Venue UPI ID (For on-spot QR payments)
-                </label>
-                <input
-                  type="text"
-                  value={paymentSettings.upiId}
-                  onChange={(e) =>
-                    setPaymentSettings({ ...paymentSettings, upiId: e.target.value })
-                  }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+              {/* Status Banner */}
+              <div
+                className={`p-3.5 rounded-2xl border text-xs flex items-center space-x-2.5 ${
+                  paymentSettings.mode === "LIVE"
+                    ? "bg-amber-50 border-amber-200 text-amber-900"
+                    : "bg-[#ECFDF5] border-emerald-200 text-emerald-900"
+                }`}
+              >
+                <div
+                  className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    paymentSettings.mode === "LIVE" ? "bg-amber-500" : "bg-[#10B981] animate-pulse"
+                  }`}
                 />
+                <div>
+                  <span className="font-bold">
+                    {paymentSettings.mode === "LIVE"
+                      ? "Live Production Mode Active: "
+                      : "Test Simulation Sandbox Active: "}
+                  </span>
+                  <span>
+                    {paymentSettings.mode === "LIVE"
+                      ? "Real payment transactions will be routed and charged via your configured live Razorpay account."
+                      : "Transactions run in sandbox simulation mode. Safe for staging & feature testing."}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Split Deposits & On-Spot UPI */}
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
+                2. On-Spot Venue UPI &amp; Partial Advance Deposits
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Venue UPI ID (For on-spot QR payments)
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentSettings.upiId || ""}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, upiId: e.target.value.trim() })
+                    }
+                    placeholder="e.g. friendsturf@okhdfcbank"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Used to generate live counter QR codes and digital UPI payment requests
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Advance Deposit Ratio (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={100}
+                    value={paymentSettings.advanceDepositPercent ?? 50}
+                    onChange={(e) =>
+                      setPaymentSettings({
+                        ...paymentSettings,
+                        advanceDepositPercent: Number(e.target.value),
+                      })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Allow customers to pay {paymentSettings.advanceDepositPercent ?? 50}% now and rest at ground
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Advance Deposit Ratio (%)
-                </label>
+              <label className="flex items-center space-x-3 p-3.5 bg-[#F8FAFC] border border-slate-200 rounded-2xl cursor-pointer">
                 <input
-                  type="number"
-                  value={paymentSettings.advanceDepositPercent}
+                  type="checkbox"
+                  checked={paymentSettings.enableSplitDeposit ?? true}
                   onChange={(e) =>
                     setPaymentSettings({
                       ...paymentSettings,
-                      advanceDepositPercent: Number(e.target.value),
+                      enableSplitDeposit: e.target.checked,
                     })
                   }
-                  className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  className="w-4 h-4 accent-[#059669] rounded"
                 />
-                <span className="text-[10px] text-slate-500">
-                  Allow customers to pay {paymentSettings.advanceDepositPercent}% now and rest at ground
-                </span>
+                <div>
+                  <div className="text-xs font-bold text-slate-900">
+                    Enable Split Deposit / Partial Booking Advance
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    When enabled, customer checkout gives the option to pay {paymentSettings.advanceDepositPercent ?? 50}% advance and settle remainder at the venue
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* GST Tax & Operational Limits */}
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
+                3. Statutory GST Taxation &amp; Pricing Limits
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    GST / Tax Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={30}
+                    value={paymentSettings.taxPercentage ?? 18}
+                    onChange={(e) =>
+                      setPaymentSettings({
+                        ...paymentSettings,
+                        taxPercentage: Number(e.target.value),
+                      })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Dynamic GST rate applied to taxable booking amounts (Standard GST is 18%)
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Minimum Slot Floor Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={paymentSettings.minSlotPrice ?? 1}
+                    onChange={(e) =>
+                      setPaymentSettings({
+                        ...paymentSettings,
+                        minSlotPrice: Number(e.target.value),
+                      })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Guaranteed minimum floor rate enforced even after heavy coupon discounts
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Minimum Wallet Top-up (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={paymentSettings.minTopUpAmount ?? 10}
+                    onChange={(e) =>
+                      setPaymentSettings({
+                        ...paymentSettings,
+                        minTopUpAmount: Number(e.target.value),
+                      })
+                    }
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Minimum amount customers can add to their Friends Turf digital cash wallet
+                  </span>
+                </div>
+
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.isTaxIncluded ?? true}
+                      onChange={(e) =>
+                        setPaymentSettings({
+                          ...paymentSettings,
+                          isTaxIncluded: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 accent-[#059669] rounded"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">
+                        Display Prices as Tax-Inclusive
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Show all pitch hourly rates inclusive of statutory taxes on catalog cards
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

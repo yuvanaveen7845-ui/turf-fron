@@ -25,7 +25,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 import { useSlotRealtime } from "../../hooks/useRealtime";
 import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
-import { saveBookingIntent, getBookingIntent } from "../../utils/bookingIntent";
+import { saveBookingIntent, getBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
 import { triggerHaptic } from "../../utils/haptics";
 
 export const TurfDetailPage: React.FC = () => {
@@ -36,6 +36,7 @@ export const TurfDetailPage: React.FC = () => {
   const { booking: bookingRules } = useBusinessSettings();
 
   const queryDate = searchParams.get("date");
+  const querySession = searchParams.get("session")?.toUpperCase();
   const [turf, setTurf] = useState<Turf | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return queryDate || new Date().toISOString().split("T")[0];
@@ -44,7 +45,12 @@ export const TurfDetailPage: React.FC = () => {
   const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0);
   const [isFastFill, setIsFastFill] = useState<boolean>(false);
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
-  const [selectedTimePeriod, setSelectedTimePeriod] = useState<"ALL" | "MORNING" | "AFTERNOON" | "NIGHT">("ALL");
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<"ALL" | "MORNING" | "AFTERNOON" | "NIGHT">(() => {
+    if (querySession === "MORNING") return "MORNING";
+    if (querySession === "AFTERNOON") return "AFTERNOON";
+    if (querySession === "NIGHT" || querySession === "EVENING") return "NIGHT";
+    return "ALL";
+  });
   const [loadingTurf, setLoadingTurf] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [lockLoading, setLockLoading] = useState(false);
@@ -57,6 +63,16 @@ export const TurfDetailPage: React.FC = () => {
       setSelectedDate(queryDate);
     }
   }, [queryDate]);
+
+  // Sync session filter if query param changes
+  useEffect(() => {
+    if (querySession) {
+      if (querySession === "MORNING") setSelectedTimePeriod("MORNING");
+      else if (querySession === "AFTERNOON") setSelectedTimePeriod("AFTERNOON");
+      else if (querySession === "NIGHT" || querySession === "EVENING") setSelectedTimePeriod("NIGHT");
+      else setSelectedTimePeriod("ALL");
+    }
+  }, [querySession]);
 
   // Premium Polish: Remember customer's last-used booking duration
   const [preferredDuration, setPreferredDuration] = useState<number>(() => {
@@ -78,6 +94,91 @@ export const TurfDetailPage: React.FC = () => {
       .finally(() => setLoadingTurf(false));
   }, [id]);
 
+  const autoSelectSlotsFromQueryOrIntent = (loadedSlots: TimeSlot[], targetDate: string) => {
+    const querySlot = searchParams.get("slot") || searchParams.get("slotId");
+    const queryTime = searchParams.get("time");
+    const queryDate = searchParams.get("date");
+    const isTargetDate = queryDate ? queryDate === targetDate : true;
+    const intent = getBookingIntent();
+
+    let targetSlotIds: string[] = [];
+
+    // 1. If explicit slot ID was passed in query params and date matches
+    if (isTargetDate && querySlot) {
+      const match = loadedSlots.find(
+        (s) => String(s.id) === String(querySlot) && (s.is_available || s.status === "AVAILABLE")
+      );
+      if (match) {
+        targetSlotIds = [match.id];
+      }
+    }
+
+    // 2. If start time was passed in query params and date matches
+    if (targetSlotIds.length === 0 && isTargetDate && queryTime) {
+      const match = loadedSlots.find(
+        (s) =>
+          s.start_time.slice(0, 5) === queryTime &&
+          (s.is_available || s.status === "AVAILABLE")
+      );
+      if (match) {
+        targetSlotIds = [match.id];
+      }
+    }
+
+    // 3. Fallback: check saved intent in sessionStorage
+    if (
+      targetSlotIds.length === 0 &&
+      intent &&
+      String(intent.turfId) === String(id) &&
+      intent.date === targetDate &&
+      intent.slotIds?.length > 0
+    ) {
+      const valid = intent.slotIds.filter((sId) =>
+        loadedSlots.some((s) => String(s.id) === String(sId) && (s.is_available || s.status === "AVAILABLE"))
+      );
+      if (valid.length > 0) {
+        targetSlotIds = valid;
+      }
+    }
+
+    if (targetSlotIds.length > 0) {
+      setSelectedSlotIds(targetSlotIds);
+
+      // Auto-switch time period tab so the slot is visible
+      const firstTargetSlot = loadedSlots.find((s) => s.id === targetSlotIds[0]);
+      if (firstTargetSlot) {
+        const startTime = firstTargetSlot.start_time;
+        if (startTime >= "06:00:00" && startTime < "12:00:00") {
+          setSelectedTimePeriod("MORNING");
+        } else if (startTime >= "12:00:00" && startTime < "17:00:00") {
+          setSelectedTimePeriod("AFTERNOON");
+        } else if (startTime >= "17:00:00") {
+          setSelectedTimePeriod("NIGHT");
+        }
+      }
+
+      // Smoothly scroll to the target slot element
+      setTimeout(() => {
+        const slotEl = document.getElementById(`slot-${targetSlotIds[0]}`);
+        if (slotEl) {
+          slotEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          const sectionEl = document.getElementById("slots-section");
+          if (sectionEl) {
+            sectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }
+      }, 250);
+    } else if (window.location.hash === "#slots-section" || queryDate || querySession) {
+      setTimeout(() => {
+        const sectionEl = document.getElementById("slots-section");
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 300);
+    }
+  };
+
   const fetchSlots = () => {
     if (!id) return;
     api
@@ -87,22 +188,7 @@ export const TurfDetailPage: React.FC = () => {
         setSlots(loadedSlots);
         setAvailableSlotsCount(res.data.available_slots_count || 0);
         setIsFastFill(res.data.is_fast_fill || false);
-
-        // Auto-restore slots from pending intent if matching
-        const intent = getBookingIntent();
-        if (
-          intent &&
-          intent.turfId === String(id) &&
-          intent.date === selectedDate &&
-          intent.slotIds?.length > 0
-        ) {
-          const validIds = intent.slotIds.filter((sId) =>
-            loadedSlots.some((s) => s.id === sId && s.status === "AVAILABLE")
-          );
-          if (validIds.length > 0) {
-            setSelectedSlotIds(validIds);
-          }
-        }
+        autoSelectSlotsFromQueryOrIntent(loadedSlots, selectedDate);
       })
       .catch((err) => {
         console.error(err);
@@ -123,22 +209,7 @@ export const TurfDetailPage: React.FC = () => {
         setSlots(loadedSlots);
         setAvailableSlotsCount(res.data.available_slots_count || 0);
         setIsFastFill(res.data.is_fast_fill || false);
-
-        // Auto-restore slots from pending intent if matching
-        const intent = getBookingIntent();
-        if (
-          intent &&
-          intent.turfId === String(id) &&
-          intent.date === selectedDate &&
-          intent.slotIds?.length > 0
-        ) {
-          const validIds = intent.slotIds.filter((sId) =>
-            loadedSlots.some((s) => s.id === sId && s.status === "AVAILABLE")
-          );
-          if (validIds.length > 0) {
-            setSelectedSlotIds(validIds);
-          }
-        }
+        autoSelectSlotsFromQueryOrIntent(loadedSlots, selectedDate);
       })
       .catch((err) => {
         console.error(err);
@@ -194,6 +265,36 @@ export const TurfDetailPage: React.FC = () => {
       night: slots.filter((s) => s.is_available && s.start_time >= "17:00:00").length,
     };
   }, [slots]);
+
+  const selectedSlotsData = slots.filter((s) => selectedSlotIds.includes(s.id));
+  const totalAmount = selectedSlotsData.reduce(
+    (sum, s) => sum + Number(s.price),
+    0
+  );
+
+  // Keep booking intent synced in sessionStorage whenever slot selection changes
+  useEffect(() => {
+    if (!turf || !selectedDate) return;
+    if (selectedSlotIds.length === 0) {
+      const current = getBookingIntent();
+      if (current && current.turfId === String(turf.id)) {
+        clearBookingIntent();
+      }
+      return;
+    }
+
+    const currentSlots = slots.filter((s) => selectedSlotIds.includes(s.id));
+    saveBookingIntent({
+      turfId: String(turf.id),
+      turfName: turf.name,
+      date: selectedDate,
+      slotIds: selectedSlotIds,
+      turf,
+      selectedSlots: currentSlots,
+      totalAmount: currentSlots.reduce((sum, s) => sum + Number(s.price), 0),
+      returnUrl: `/turfs/${turf.id}?date=${selectedDate}`,
+    });
+  }, [selectedSlotIds, turf, selectedDate, slots]);
 
   const toggleSlotSelection = (slot: TimeSlot) => {
     if (!slot.is_available || slot.status !== "AVAILABLE") return;
@@ -281,13 +382,14 @@ export const TurfDetailPage: React.FC = () => {
       localStorage.setItem("ft_preferred_duration_minutes", String(durationMinutes));
 
       const lockPayload = res.data.data || res.data;
+      const slotHoldSecs = (bookingRules?.slotHoldMinutes || 5) * 60;
       const lockedUntil =
         res.data.locked_until ||
         lockPayload.locked_until ||
         res.data.expires_at ||
-        new Date(Date.now() + 300000).toISOString();
+        new Date(Date.now() + slotHoldSecs * 1000).toISOString();
       const lockDurationSeconds =
-        res.data.lock_duration_seconds || lockPayload.lock_duration_seconds || 300;
+        res.data.lock_duration_seconds || lockPayload.lock_duration_seconds || slotHoldSecs;
 
       // Navigate to checkout with the active lock reservation
       navigate("/checkout", {
@@ -324,12 +426,6 @@ export const TurfDetailPage: React.FC = () => {
       setLockLoading(false);
     }
   };
-
-  const selectedSlotsData = slots.filter((s) => selectedSlotIds.includes(s.id));
-  const totalAmount = selectedSlotsData.reduce(
-    (sum, s) => sum + Number(s.price),
-    0
-  );
 
   if (loadingTurf) {
     return (
@@ -527,7 +623,7 @@ export const TurfDetailPage: React.FC = () => {
             </div>
 
             {/* Step 2: Slot Selection Header & Time-of-Day Segmented Filter Tabs */}
-            <div className="space-y-3 pt-2">
+            <div id="slots-section" className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
@@ -571,9 +667,10 @@ export const TurfDetailPage: React.FC = () => {
                   }`}
                   title="06:00 AM - 12:00 PM"
                 >
-                  <span className="text-[11px] flex items-center justify-center gap-0.5">
-                    <span>🌅</span>
-                    <span>Morn</span>
+                  <span className="text-[11px] flex items-center justify-center gap-1 font-bold">
+                    <Sunrise className="w-3.5 h-3.5 text-[#059669]" />
+                    <span className="hidden sm:inline">Morning</span>
+                    <span className="sm:hidden">Morn</span>
                   </span>
                 </button>
                 <button
@@ -589,9 +686,10 @@ export const TurfDetailPage: React.FC = () => {
                   }`}
                   title="12:00 PM - 05:00 PM"
                 >
-                  <span className="text-[11px] flex items-center justify-center gap-0.5">
-                    <span>☀️</span>
-                    <span>Noon</span>
+                  <span className="text-[11px] flex items-center justify-center gap-1 font-bold">
+                    <Sun className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="hidden sm:inline">Afternoon</span>
+                    <span className="sm:hidden">Noon</span>
                   </span>
                 </button>
                 <button
@@ -607,8 +705,8 @@ export const TurfDetailPage: React.FC = () => {
                   }`}
                   title="05:00 PM - 11:59 PM (Floodlit Prime)"
                 >
-                  <span className="text-[11px] flex items-center justify-center gap-0.5">
-                    <span>🌙</span>
+                  <span className="text-[11px] flex items-center justify-center gap-1 font-bold">
+                    <Moon className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Night</span>
                   </span>
                 </button>
@@ -670,6 +768,7 @@ export const TurfDetailPage: React.FC = () => {
                   return (
                     <button
                       key={slot.id}
+                      id={`slot-${slot.id}`}
                       disabled={!isAvail}
                       onClick={() => toggleSlotSelection(slot)}
                       title={

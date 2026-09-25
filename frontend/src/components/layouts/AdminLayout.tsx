@@ -109,8 +109,8 @@ export const AdminLayout: React.FC = () => {
         { label: "Overview", path: "/admin", icon: LayoutDashboard },
         { label: "Live Schedule", path: "/admin/schedule", icon: Clock },
         { label: "Bookings", path: "/admin/bookings", icon: CalendarDays, permission: "BOOKING_VIEW" },
-        { label: "QR Scanner", path: "/admin/scanner", icon: Camera, permission: "CHECKIN_SCAN" },
-        { label: "Gate Check-In", path: "/admin/qr-management", icon: QrCode, permission: "CHECKIN_VIEW" },
+        { label: "QR Scanner", path: "/admin/scanner", icon: Camera, permission: "CHECKIN_SCAN", feature: "QR_CHECKIN" },
+        { label: "Gate Check-In", path: "/admin/qr-management", icon: QrCode, permission: "CHECKIN_VIEW", feature: "QR_CHECKIN" },
       ],
     },
     {
@@ -118,14 +118,14 @@ export const AdminLayout: React.FC = () => {
       items: [
         { label: "Payments", path: "/admin/payments", icon: CreditCard, permission: "PAYMENT_VIEW" },
         { label: "Refunds", path: "/admin/refunds", icon: RotateCcw, permission: "PAYMENT_REFUND" },
-        { label: "Reports & KPIs", path: "/admin/reports", icon: BarChart3, permission: "REPORT_VIEW" },
+        { label: "Reports & KPIs", path: "/admin/reports", icon: BarChart3, permission: "REPORT_VIEW", feature: "ADVANCED_REPORTING" },
       ],
     },
     {
       title: "TURFS & PRICING",
       items: [
         { label: "Turf Venues", path: "/admin/turfs", icon: Layers, permission: "FACILITY_VIEW" },
-        { label: "Hourly Pricing", path: "/admin/pricing", icon: Sliders, permission: "PRICING_VIEW" },
+        { label: "Hourly Pricing", path: "/admin/pricing", icon: Sliders, permission: "PRICING_VIEW", feature: "DYNAMIC_PRICING" },
         { label: "Maintenance", path: "/admin/maintenance", icon: Wrench, permission: "FACILITY_EDIT" },
       ],
     },

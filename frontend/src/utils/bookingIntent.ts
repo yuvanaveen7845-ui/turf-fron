@@ -13,7 +13,7 @@ export interface PendingBookingIntent {
 }
 
 const INTENT_KEY = "ft_pending_booking_intent";
-const INTENT_MAX_AGE_MS = 20 * 60 * 1000; // 20 minutes
+const INTENT_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes matching authoritative server slot lock
 
 /**
  * Persists a customer's unauthenticated booking intent to sessionStorage.

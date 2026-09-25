@@ -268,9 +268,18 @@ export const RegisterPage: React.FC = () => {
 
           {/* Bottom Trust & Compliance */}
           <div className="relative z-10 flex items-center justify-between text-xs text-slate-400 font-semibold pt-6 border-t border-white/10">
-            <span>🛡️ FIFA-Certified Surfaces</span>
-            <span>⚡ Zero-Latency Booking</span>
-            <span>🔒 100% Privacy Protected</span>
+            <span className="flex items-center space-x-1.5">
+              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <span>FIFA-Certified Surfaces</span>
+            </span>
+            <span className="flex items-center space-x-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Zero-Latency Booking</span>
+            </span>
+            <span className="flex items-center space-x-1.5">
+              <Lock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>100% Privacy Protected</span>
+            </span>
           </div>
         </div>
 
@@ -302,17 +311,33 @@ export const RegisterPage: React.FC = () => {
             </div>
 
             {/* Pending Booking Continuation Banner */}
-            {(getBookingIntent() || (location.state as any)?.hasPendingBooking) && (
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-start space-x-2.5 text-xs text-emerald-900 shadow-sm animate-in fade-in">
-                <Zap className="w-4 h-4 text-[#059669] shrink-0 mt-0.5 fill-[#059669]" />
-                <div>
-                  <p className="font-bold text-[#059669]">Complete Your Match Reservation</p>
-                  <p className="text-emerald-700 text-[11px] mt-0.5">
-                    Register in 30 seconds to instantly lock your selected slots and proceed to checkout.
-                  </p>
+            {(() => {
+              const pendingIntent = getBookingIntent();
+              const stateData = location.state as any;
+              if (!pendingIntent && !stateData?.hasPendingBooking) return null;
+              const turfName = pendingIntent?.turfName || stateData?.turfName || "Selected Turf";
+              const slotCount = pendingIntent?.slotIds?.length || stateData?.slotCount || 1;
+              const totalAmt = pendingIntent?.totalAmount || stateData?.totalAmount;
+
+              return (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-start space-x-3 text-xs text-emerald-900 shadow-sm animate-in fade-in">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-xs">
+                    <Zap className="w-4 h-4 text-white fill-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-slate-900">{turfName}</p>
+                      {totalAmt && (
+                        <span className="font-black text-[#059669] font-mono">₹{Number(totalAmt).toLocaleString("en-IN")}</span>
+                      )}
+                    </div>
+                    <p className="text-emerald-800 text-[11px] mt-0.5">
+                      Register to instantly lock {slotCount} selected match slot{slotCount > 1 ? "s" : ""} and continue directly to checkout.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Existing User Warning Alert */}
             {(emailAvailability.exists || phoneAvailability.exists) && (

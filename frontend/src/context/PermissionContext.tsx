@@ -10,6 +10,7 @@ export interface PermissionContextType {
   featureFlags: Record<string, boolean>;
   loadingFlags: boolean;
   toggleFeatureFlag: (key: string, value: boolean) => Promise<void>;
+  refreshFeatureFlags: () => Promise<void>;
   // Safe Access Preview Mode (Admins only)
   previewRole: UserRole | null;
   setPreviewRole: (role: UserRole | null) => void;
@@ -205,6 +206,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({
         featureFlags,
         loadingFlags,
         toggleFeatureFlag,
+        refreshFeatureFlags: fetchFlags,
         previewRole,
         setPreviewRole,
         isSimulating,

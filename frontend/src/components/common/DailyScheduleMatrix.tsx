@@ -14,6 +14,8 @@ import {
 import api from "../../services/api";
 import { useSlotRealtime } from "../../hooks/useRealtime";
 import { useBusinessSettings } from "../../hooks/useBusinessSettings";
+import { saveBookingIntent } from "../../utils/bookingIntent";
+import { triggerHaptic } from "../../utils/haptics";
 
 interface ScheduleSlot {
   id: string;
@@ -323,7 +325,24 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                             key={slot.id}
                             type="button"
                             disabled={!isAvail}
-                            onClick={() => navigate(`/turfs/${turf.id}`)}
+                            onClick={() => {
+                              if (!isAvail) return;
+                              triggerHaptic("light");
+
+                              // Pre-save customer booking intent so it persists whether logged in or not
+                              saveBookingIntent({
+                                turfId: String(turf.id),
+                                turfName: turf.name,
+                                date: selectedDate,
+                                slotIds: [String(slot.id)],
+                                totalAmount: Number(slot.price),
+                                returnUrl: `/turfs/${turf.id}?date=${selectedDate}&slot=${slot.id}`,
+                              });
+
+                              navigate(
+                                `/turfs/${turf.id}?date=${selectedDate}&slot=${slot.id}&time=${slot.start_time.slice(0, 5)}`
+                              );
+                            }}
                             title={
                               isAvail
                                 ? `Click to book ${formatTimeSlot(slot.start_time)} (₹${slot.price})`
@@ -353,7 +372,7 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                             </div>
                             <div className="text-[10px] mt-0.5 opacity-85 font-medium">
                               {isAvail
-                                ? `₹${Number(slot.price)}`
+                                ? `₹${Number(slot.price).toLocaleString("en-IN")}`
                                 : isOngoing
                                   ? "in session"
                                   : isPast

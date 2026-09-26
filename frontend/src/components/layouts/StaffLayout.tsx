@@ -73,7 +73,7 @@ export const StaffLayout: React.FC = () => {
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-20 sm:pb-16">
         <Suspense
           fallback={
             <div className="max-w-4xl mx-auto py-12 px-4 space-y-4 animate-pulse">

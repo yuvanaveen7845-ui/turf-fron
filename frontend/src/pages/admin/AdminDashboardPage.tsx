@@ -434,39 +434,24 @@ export const AdminDashboardPage: React.FC = () => {
             })}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { name: "The Champions Arena", spec: "7v7 • FIFA AstroTurf • Floodlit" },
-              { name: "Legends Box Cricket", spec: "Box Cricket • Enclosed Netting" },
-              { name: "Strikers Dome", spec: "5v5 • Premium Synthetic Pitch" },
-            ].map((pitch, idx) => (
-              <div
-                key={idx}
-                className="p-5 rounded-2xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-300 transition-all flex flex-col justify-between"
+          <div className="p-8 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#059669] flex items-center justify-center mx-auto">
+              <Layers className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">No Active Turf Arenas Registered</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              You do not have any active turf pitches operating. Configure your arenas to start accepting reservations and tracking matches.
+            </p>
+            <div className="pt-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate("/admin/turfs")}
+                leftIcon={<PlusCircle className="w-4 h-4" />}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-base text-[#0F172A] tracking-tight">
-                      {pitch.name}
-                    </h3>
-                    <span className="text-xs text-[#475569]">{pitch.spec}</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700">
-                    ○ OPEN
-                  </span>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-200 text-xs flex items-center justify-between">
-                  <span className="text-[#475569] font-medium">Ready for play</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsNewBookingOpen(true)}
-                    className="text-xs font-bold text-[#059669] hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>+ Book Walk-in</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+                Go to Turf Management
+              </Button>
+            </div>
           </div>
         )}
       </div>

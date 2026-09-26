@@ -180,8 +180,13 @@ export const ManageStaffPage: React.FC = () => {
             </div>
           )}
           <div>
-            <div className="font-bold text-slate-900 text-sm">
-              {member.full_name || member.email}
+            <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+              <span>{member.full_name || member.email}</span>
+              {(member.is_permanent || member.email?.toLowerCase() === "friendsturf171@gmail.com") && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300 shadow-xs">
+                  Permanent Root
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-slate-500 font-mono">
               {member.email}
@@ -193,32 +198,44 @@ export const ManageStaffPage: React.FC = () => {
     {
       key: "role",
       header: "Role Clearance",
-      render: (member: User) => (
-        <div className="flex items-center space-x-2">
-          <select
-            value={member.role}
-            onChange={(e) => {
-              const newRole = e.target.value as UserRole;
-              if (newRole !== member.role) {
-                setRoleChangeTarget({ user: member, newRole });
-              }
-            }}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border outline-none cursor-pointer ${getRoleBadgeClass(
-              member.role
-            )}`}
-          >
-            <option value="STAFF">STAFF</option>
-            <option value="ADMIN">ADMIN</option>
-          </select>
-          <button
-            onClick={() => setInspectUser(member)}
-            title="Inspect permissions"
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
+      render: (member: User) => {
+        const isPermanent = Boolean(member.is_permanent || member.email?.toLowerCase() === "friendsturf171@gmail.com");
+        return (
+          <div className="flex items-center space-x-2">
+            {isPermanent ? (
+              <span
+                title="Root Administrator account is permanent and cannot be demoted."
+                className="px-2.5 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-300 cursor-not-allowed select-none"
+              >
+                ADMIN (PERMANENT)
+              </span>
+            ) : (
+              <select
+                value={member.role}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserRole;
+                  if (newRole !== member.role) {
+                    setRoleChangeTarget({ user: member, newRole });
+                  }
+                }}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border outline-none cursor-pointer ${getRoleBadgeClass(
+                  member.role
+                )}`}
+              >
+                <option value="STAFF">STAFF</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            )}
+            <button
+              onClick={() => setInspectUser(member)}
+              title="Inspect permissions"
+              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      },
     },
     {
       key: "status",
@@ -269,29 +286,42 @@ export const ManageStaffPage: React.FC = () => {
       key: "actions",
       header: "Actions",
       align: "right" as const,
-      render: (member: User) => (
-        <div className="flex items-center justify-end space-x-1.5">
-          {member.status === "ACTIVE" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleStatusChange(member.id, "SUSPENDED")}
-              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 text-xs"
+      render: (member: User) => {
+        const isPermanent = Boolean(member.is_permanent || member.email?.toLowerCase() === "friendsturf171@gmail.com");
+        if (isPermanent) {
+          return (
+            <span
+              title="Permanent Root Administrator cannot be suspended or deleted."
+              className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 select-none cursor-default"
             >
-              Suspend
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleStatusChange(member.id, "ACTIVE")}
-              className="text-[#059669] hover:bg-emerald-50 hover:text-[#047857] border-emerald-200 text-xs"
-            >
-              Activate
-            </Button>
-          )}
-        </div>
-      ),
+              Protected
+            </span>
+          );
+        }
+        return (
+          <div className="flex items-center justify-end space-x-1.5">
+            {member.status === "ACTIVE" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleStatusChange(member.id, "SUSPENDED")}
+                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 text-xs"
+              >
+                Suspend
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleStatusChange(member.id, "ACTIVE")}
+                className="text-[#059669] hover:bg-emerald-50 hover:text-[#047857] border-emerald-200 text-xs"
+              >
+                Activate
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

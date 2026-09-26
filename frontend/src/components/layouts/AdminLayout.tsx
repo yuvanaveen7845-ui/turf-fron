@@ -573,7 +573,7 @@ export const AdminLayout: React.FC = () => {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-12 max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-20 sm:pb-16 max-w-7xl w-full mx-auto">
           <Suspense
             fallback={
               <div className="space-y-4 animate-pulse">

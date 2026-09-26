@@ -50,49 +50,19 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
     { id: "NIGHT", label: "Floodlit Evening (17:00 – 23:00)" },
   ];
 
-  // Default fallback pitches if turfs list is loading
-  const defaultPitches = [
-    {
-      id: "1",
-      name: "Pitch 1 — Champions Arena",
-      sport_type: "FOOTBALL",
-      sport_label: "7v7 Football",
-      surface: "50mm FIFA Turf",
-      base_price: 1400,
-    },
-    {
-      id: "2",
-      name: "Pitch 2 — Legends Arena",
-      sport_type: "CRICKET",
-      sport_label: "Box Cricket & Futsal",
-      surface: "High-Bounce Turf",
-      base_price: 1200,
-    },
-    {
-      id: "3",
-      name: "Pitch 3 — Strikers Arena",
-      sport_type: "MULTI_SPORT",
-      sport_label: "Multi-Sport Arena",
-      surface: "All-Weather Turf",
-      base_price: 1600,
-    },
-  ];
-
-  const displayPitches = turfs.length > 0
-    ? turfs.slice(0, 3).map((t) => ({
-        id: String(t.id),
-        name: t.name,
-        sport_type: t.sport_type,
-        sport_label:
-          t.sport_type === "FOOTBALL"
-            ? "7v7 Football"
-            : t.sport_type === "CRICKET"
-            ? "Box Cricket"
-            : "Multi-Sport Arena",
-        surface: t.surface_spec ? t.surface_spec.split(" ")[0] + " Grass" : "FIFA Standard",
-        base_price: Number(t.base_price),
-      }))
-    : defaultPitches;
+  const displayPitches = turfs.slice(0, 3).map((t) => ({
+    id: String(t.id),
+    name: t.name,
+    sport_type: t.sport_type,
+    sport_label:
+      t.sport_type === "FOOTBALL"
+        ? "7v7 Football"
+        : t.sport_type === "CRICKET"
+        ? "Box Cricket"
+        : "Multi-Sport Arena",
+    surface: t.surface_spec ? t.surface_spec.split(" ")[0] + " Grass" : "FIFA Standard",
+    base_price: Number(t.base_price),
+  }));
 
   const matchedPitchBySport = selectedSport
     ? displayPitches.find((p) => p.sport_type.toUpperCase() === selectedSport.toUpperCase())
@@ -139,14 +109,24 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
           </label>
           <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white/60 backdrop-blur-md border border-white/80 text-[11px] font-bold text-[#059669] shadow-[0_2px_6px_rgba(15,23,42,0.03),inset_0_1px_1px_rgba(255,255,255,0.95)]">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
-            <span>3 Pitches Available</span>
+            <span>{turfs.length} {turfs.length === 1 ? "Pitch" : "Pitches"} Available</span>
           </span>
         </div>
 
         {/* Spacious Responsive Pitch Deck */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-          {displayPitches.map((pitch) => {
-            const isSelected = pitch.id === currentActiveId;
+          {displayPitches.length === 0 ? (
+            [1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-28 rounded-2xl bg-white/40 border border-white/60 animate-pulse flex items-center justify-center text-slate-400 text-xs font-semibold"
+              >
+                Loading arenas...
+              </div>
+            ))
+          ) : (
+            displayPitches.map((pitch) => {
+              const isSelected = pitch.id === currentActiveId;
             return (
               <button
                 key={pitch.id}
@@ -251,7 +231,8 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
                 </div>
               </button>
             );
-          })}
+          })
+        )}
         </div>
       </div>
 

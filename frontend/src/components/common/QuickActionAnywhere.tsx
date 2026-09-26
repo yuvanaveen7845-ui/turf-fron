@@ -34,7 +34,7 @@ export const QuickActionAnywhere: React.FC = () => {
   const [isBlockSlotOpen, setIsBlockSlotOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
 
-  // Check if currently on scanner page
+  // Check if currently on scanner page (hide scanner FAB when already there)
   const isScannerPage =
     location.pathname === "/admin/scanner" ||
     location.pathname === "/staff/scanner" ||
@@ -159,48 +159,32 @@ export const QuickActionAnywhere: React.FC = () => {
 
   return (
     <>
-      {/* Persistent Floating Action Cluster (Right Edge - Mobile Friendly) */}
-      <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
-        {/* 1-Tap Quick Launch Scanner Button */}
+      {/* Floating Action Buttons — Vertical Stack (Right Edge) */}
+      <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col items-center gap-2.5">
+        {/* Scanner FAB — Small, white surface, emerald accent */}
         {canAccess("CHECKIN_SCAN", "QR_CHECKIN") && !isScannerPage && (
           <button
             type="button"
             onClick={() => navigate(targetScannerPath)}
-            aria-label="Launch QR Scanner (⌘Q)"
-            className="pointer-events-auto group relative flex items-center justify-center px-3.5 sm:px-4 h-12 sm:h-13 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-xl shadow-slate-950/30 border-2 border-emerald-500/80 hover:border-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden"
-            title="Launch QR Scanner (⌘Q)"
+            aria-label="QR Scanner (⌘Q)"
+            title="QR Scanner (⌘Q)"
+            className="group relative flex items-center justify-center w-10 h-10 bg-white hover:bg-emerald-50 text-[#059669] rounded-full shadow-md shadow-slate-900/8 hover:shadow-lg hover:shadow-emerald-600/15 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer border border-emerald-200 hover:border-emerald-300"
           >
-            {/* Pulsing Radar Glow Effect */}
-            <span className="absolute -inset-0.5 rounded-full bg-emerald-500/20 animate-pulse pointer-events-none" />
-
-            <div className="relative flex items-center space-x-2">
-              <div className="relative flex items-center justify-center">
-                <ScanLine className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform duration-200" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
-              </div>
-
-              {/* Text label */}
-              <span className="text-xs font-black tracking-wide uppercase text-white group-hover:text-emerald-300 transition-colors whitespace-nowrap">
-                Scan QR
-              </span>
-
-              {/* Keyboard Shortcut badge on desktop */}
-              <span className="hidden md:inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-md bg-white/10 text-[9px] font-mono text-emerald-300 font-bold border border-white/10">
-                <span>⌘Q</span>
-              </span>
-            </div>
+            <ScanLine className="w-[18px] h-[18px] stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
+            {/* Live pulse dot */}
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#10B981] rounded-full ring-2 ring-white animate-pulse" />
           </button>
         )}
 
-        {/* General Operations Quick Action FAB (⌘J) */}
+        {/* Primary Actions FAB — Emerald brand circle */}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          aria-label="Quick Operations Launcher (⌘J)"
-          className="pointer-events-auto group flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[#059669] hover:bg-[#047857] text-white rounded-full shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border-2 border-emerald-400/40"
-          title="Quick Operations Launcher (⌘J)"
+          aria-label="Quick Actions (⌘J)"
+          title="Quick Actions (⌘J)"
+          className="group flex items-center justify-center w-12 h-12 bg-[#059669] hover:bg-[#047857] text-white rounded-full shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer border-2 border-emerald-400/30 hover:border-emerald-300/50"
         >
-          <Plus className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
+          <Plus className="w-6 h-6 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
         </button>
       </div>
 

@@ -27,8 +27,10 @@ import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 import { QuickPriceChangeModal } from "../../components/admin/QuickPriceChangeModal";
 import { TurfCustomEditorModal } from "../../components/admin/TurfCustomEditorModal";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../../context/ToastContext";
 
 export const ManageTurfsPage: React.FC = () => {
+  const toast = useToast();
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,12 +78,20 @@ export const ManageTurfsPage: React.FC = () => {
     if (!turfToDelete) return;
     setIsDeleting(true);
     try {
-      await api.delete(`/turfs/${turfToDelete.id}/`);
+      const res = await api.delete(`/turfs/${turfToDelete.id}/`);
+      toast.success(
+        "Turf Arena Deleted",
+        res.data?.message || `Turf '${turfToDelete.name}' has been successfully archived.`
+      );
       setTurfToDelete(null);
       fetchData();
     } catch (err: any) {
       console.error("Delete failed:", err);
-      alert(err.response?.data?.message || err.response?.data?.error || "Failed to delete turf ground.");
+      const errMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to delete turf ground.";
+      toast.error("Cannot Delete Arena", errMsg, 7000);
     } finally {
       setIsDeleting(false);
     }

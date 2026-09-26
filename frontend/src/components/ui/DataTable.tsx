@@ -192,28 +192,32 @@ export function DataTable<T>({
 
       {/* Pagination Footer */}
       {!isLoading && sortedData.length > pageSize && (
-        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 bg-[#F8FAFC]/50">
+        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 bg-[#F8FAFC]/50">
           <div>
-            Showing {(currentPage - 1) * pageSize + 1} to{" "}
-            {Math.min(currentPage * pageSize, sortedData.length)} of{" "}
-            {sortedData.length} records
+            Showing <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+            <span className="font-semibold text-slate-700">{Math.min(currentPage * pageSize, sortedData.length)}</span> of{" "}
+            <span className="font-semibold text-slate-700">{sortedData.length}</span> records
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 sm:mr-16">
             <button
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => p - 1)}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              title="Previous page"
+              aria-label="Previous page"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="font-bold text-slate-700 px-2">
+            <span className="font-bold text-slate-700 px-2 min-w-[3rem] text-center">
               {currentPage} / {totalPages}
             </span>
             <button
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => p + 1)}
-              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              title="Next page"
+              aria-label="Next page"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

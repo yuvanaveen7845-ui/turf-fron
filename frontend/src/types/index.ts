@@ -33,6 +33,7 @@ export interface User {
   is_superuser?: boolean;
   is_staff?: boolean;
   permissions?: string[];
+  is_permanent?: boolean;
   customer_profile?: CustomerProfile;
   staff_profile?: StaffProfile;
 }

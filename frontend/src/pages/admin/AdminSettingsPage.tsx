@@ -893,7 +893,7 @@ export const AdminSettingsPage: React.FC = () => {
                     className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
                   />
                   <span className="text-[10px] text-slate-500">
-                    Dynamic GST rate applied to taxable booking amounts (Standard GST is 18%)
+                    Statutory GST rate included in slot rates (All slot prices on the website are 100% GST-inclusive; no additional tax is added at checkout)
                   </span>
                 </div>
 

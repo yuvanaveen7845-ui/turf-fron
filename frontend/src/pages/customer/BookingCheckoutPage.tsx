@@ -26,6 +26,7 @@ import { initiateRazorpayCheckout } from "../../services/razorpay";
 import { WalletPaymentProcessingModal } from "../../components/booking/WalletPaymentProcessingModal";
 import { FriendsTurfMatchPass } from "../../components/booking/FriendsTurfMatchPass";
 import { getBookingIntent, saveBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
+import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 
 export const BookingCheckoutPage: React.FC = () => {
   const location = useLocation();
@@ -591,9 +592,19 @@ export const BookingCheckoutPage: React.FC = () => {
 
             <div className="flex items-start space-x-4">
               <img
-                src={state.turf.images[0]}
+                src={resolveImageUrl(
+                  state.turf.images && state.turf.images.length > 0
+                    ? state.turf.images[0]
+                    : null,
+                  state.turf.sport_type,
+                  { width: 320, quality: 80, format: "webp" }
+                )}
                 alt={state.turf.name}
                 className="w-20 h-20 rounded-2xl object-cover bg-slate-100 border border-slate-200 shrink-0"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
+                onError={(e) => handleImageError(e, state.turf.sport_type)}
               />
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-slate-900">
@@ -870,15 +881,25 @@ export const BookingCheckoutPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex justify-between">
-                  <span>GST Taxes ({priceBreakdown.tax_rate_percent}%)</span>
-                  <span className="font-bold text-slate-900">
+                <div className="flex justify-between text-slate-500">
+                  <span className="flex items-center space-x-1.5">
+                    <span>Statutory GST ({priceBreakdown.tax_rate_percent}%)</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Included
+                    </span>
+                  </span>
+                  <span className="font-semibold text-slate-700">
                     ₹{priceBreakdown.tax_amount}
                   </span>
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex justify-between text-base font-black text-slate-900">
-                  <span>Total Match Price</span>
+                  <div>
+                    <span>Total Match Price</span>
+                    <span className="text-[10px] text-slate-400 font-medium block">
+                      Inclusive of all taxes &amp; GST
+                    </span>
+                  </div>
                   <span className="text-[#059669]">
                     ₹{priceBreakdown.final_amount}
                   </span>

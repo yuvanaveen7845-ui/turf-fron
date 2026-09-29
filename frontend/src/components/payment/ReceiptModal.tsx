@@ -220,18 +220,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   {Number(receipt.financial_summary?.gst_amount || 0) > 0 && (
                     <>
                       <div className="flex justify-between text-slate-500 text-[11px]">
-                        <span>Central GST (CGST @ 9%)</span>
+                        <span>Central GST (CGST @ 9% Included)</span>
                         <span>₹{Number(receipt.financial_summary?.cgst_amount || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-slate-500 text-[11px]">
-                        <span>State GST (SGST @ 9%)</span>
+                        <span>State GST (SGST @ 9% Included)</span>
                         <span>₹{Number(receipt.financial_summary?.sgst_amount || 0).toFixed(2)}</span>
                       </div>
                     </>
                   )}
 
                   <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-black text-slate-900">
-                    <span>Total Amount (INR)</span>
+                    <span>Total Match Fee (GST Included)</span>
                     <span className="text-[#059669]">
                       ₹{Number(receipt.financial_summary?.final_amount || 0).toFixed(2)}
                     </span>

@@ -114,8 +114,6 @@ export const initiateRazorpayCheckout = async (
   } catch (_) {}
 
   try {
-    const callbackUrl = `${window.location.origin}/api/payments/razorpay/callback/`;
-
     const options: any = {
       key: orderData.key_id,
       amount: amountPaise,
@@ -140,14 +138,15 @@ export const initiateRazorpayCheckout = async (
       },
       modal: {
         ondismiss: function () {
+          try {
+            sessionStorage.removeItem("ft_active_razorpay_order");
+            localStorage.removeItem("ft_active_razorpay_order");
+          } catch (_) {}
           if (onDismiss) onDismiss();
         },
         escape: true,
         backdropclose: false,
-        confirm_close: true,
       },
-      callback_url: callbackUrl,
-      redirect: false,
       handler: function (response: {
         razorpay_payment_id: string;
         razorpay_order_id: string;
@@ -189,6 +188,10 @@ export const initiateRazorpayCheckout = async (
     const rzpInstance = new window.Razorpay(options);
 
     rzpInstance.on("payment.failed", (response: any) => {
+      try {
+        sessionStorage.removeItem("ft_active_razorpay_order");
+        localStorage.removeItem("ft_active_razorpay_order");
+      } catch (_) {}
       const failReason =
         response.error?.description ||
         response.error?.reason ||

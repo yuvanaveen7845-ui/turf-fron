@@ -88,7 +88,11 @@ export const PrintReceiptPage: React.FC = () => {
   const discountAmount = Number(
     receipt.pricing?.discount_amount || receipt.financial_summary?.total_discount || 0
   );
-  const taxableAmount = baseAmount - discountAmount;
+  const taxableAmount = Number(
+    receipt.pricing?.taxable_amount ||
+    receipt.financial_summary?.taxable_amount ||
+    (totalAmount - taxAmount)
+  );
 
   const customerName =
     receipt.customer?.name ||
@@ -198,8 +202,8 @@ export const PrintReceiptPage: React.FC = () => {
                 <th className="py-2.5 px-2 text-center">SAC Code</th>
                 <th className="py-2.5 px-2 text-right">Base Fee</th>
                 <th className="py-2.5 px-2 text-right">Discount</th>
-                <th className="py-2.5 px-2 text-right">Taxable Amt</th>
-                <th className="py-2.5 px-2 text-right">GST (18%)</th>
+                <th className="py-2.5 px-2 text-right">Taxable Base</th>
+                <th className="py-2.5 px-2 text-right">GST (18% Incl.)</th>
                 <th className="py-2.5 px-3 text-right">Total (₹)</th>
               </tr>
             </thead>
@@ -245,19 +249,19 @@ export const PrintReceiptPage: React.FC = () => {
 
           <div className="w-full sm:w-64 space-y-1.5 text-xs">
             <div className="flex justify-between text-slate-600">
-              <span>Taxable Value</span>
+              <span>Taxable Value (Excl. Tax)</span>
               <span className="font-bold">₹{taxableAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>CGST (9.0%)</span>
+              <span>CGST (9.0% Included)</span>
               <span className="font-bold">₹{cgst.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-slate-600">
-              <span>SGST (9.0%)</span>
+              <span>SGST (9.0% Included)</span>
               <span className="font-bold">₹{sgst.toFixed(2)}</span>
             </div>
             <div className="pt-2 border-t-2 border-slate-900 flex justify-between text-sm font-black text-slate-900">
-              <span>Total Match Fee</span>
+              <span>Total Match Fee (GST Included)</span>
               <span className="text-[#059669]">₹{totalAmount.toFixed(2)}</span>
             </div>
 

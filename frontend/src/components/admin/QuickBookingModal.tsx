@@ -346,7 +346,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 ₹{priceData.final_amount}
               </p>
               <span className="text-[10px] text-emerald-700 font-semibold">
-                Base: ₹{priceData.subtotal} | Tax: ₹{priceData.tax_amount}
+                Slot Rate: ₹{priceData.subtotal} | GST Included (₹{priceData.tax_amount})
               </span>
             </div>
 

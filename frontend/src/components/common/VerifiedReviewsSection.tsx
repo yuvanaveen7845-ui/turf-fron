@@ -43,9 +43,11 @@ export const VerifiedReviewsSection: React.FC = () => {
 
   useEffect(() => {
     api
-      .get("/reviews/")
+      .get("/reviews/?min_rating=4")
       .then((res) => {
-        const list = normalizeList<Review>(res.data);
+        const list = normalizeList<Review>(res.data).filter(
+          (r) => Number(r.rating || 5) >= 4
+        );
         if (list.length > 0) {
           setReviews(
             list.slice(0, 3).map((r) => ({

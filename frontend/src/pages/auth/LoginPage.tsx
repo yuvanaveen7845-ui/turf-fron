@@ -181,13 +181,15 @@ export const LoginPage: React.FC = () => {
     };
   }, [dynamicClientId]);
 
-  // Fetch real reviews dynamically from database
+  // Fetch real reviews dynamically from database (filtered strictly for positive feedback)
   useEffect(() => {
     const fetchVerifiedReviews = async () => {
       try {
-        const res = await api.get("/reviews/");
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setReviews(res.data);
+        const res = await api.get("/reviews/?min_rating=4");
+        const list = Array.isArray(res.data) ? res.data : [];
+        const positiveReviews = list.filter((r: any) => Number(r.rating) >= 4);
+        if (positiveReviews.length > 0) {
+          setReviews(positiveReviews);
         }
       } catch (err) {
         console.warn("Could not load database reviews:", err);

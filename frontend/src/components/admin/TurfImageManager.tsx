@@ -64,16 +64,33 @@ export const TurfImageManager: React.FC<TurfImageManagerProps> = ({
   const [urlInputValue, setUrlInputValue] = useState("");
   const [showPresets, setShowPresets] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle local file uploads
+  // Handle local file uploads with server WebP processing
   const handleFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
+    setUploadError(null);
+
+    const fileList = Array.from(files);
+    // Client-side file size and format guard
+    for (const file of fileList) {
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError(`File "${file.name}" exceeds the 10MB limit. Please select smaller images.`);
+        return;
+      }
+      const ext = file.name.toLowerCase();
+      if (!ext.match(/\.(jpe?g|png|webp|gif)$/i)) {
+        setUploadError(`File "${file.name}" has an unsupported format. Please upload JPG, PNG, or WebP.`);
+        return;
+      }
+    }
+
     setIsUploading(true);
 
     try {
       const formData = new FormData();
-      Array.from(files).forEach((file) => {
+      fileList.forEach((file) => {
         formData.append("images", file);
       });
 
@@ -81,30 +98,20 @@ export const TurfImageManager: React.FC<TurfImageManagerProps> = ({
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      if (response.data && response.data.urls) {
+      if (response.data && Array.isArray(response.data.urls) && response.data.urls.length > 0) {
         onChange([...images, ...response.data.urls]);
       } else if (response.data && response.data.url) {
         onChange([...images, response.data.url]);
+      } else {
+        throw new Error("No image URLs returned from upload server.");
       }
-    } catch (err) {
-      console.warn("Server multipart upload failed, converting to high-res data URL fallback:", err);
-      // Fallback to FileReader base64 Data URLs so it always works client-side
-      const newUrls: string[] = [];
-      const filePromises = Array.from(files).map((file) => {
-        return new Promise<void>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (e.target?.result) {
-              newUrls.push(e.target.result as string);
-            }
-            resolve();
-          };
-          reader.readAsDataURL(file);
-        });
-      });
-
-      await Promise.all(filePromises);
-      onChange([...images, ...newUrls]);
+    } catch (err: any) {
+      console.error("Server image upload failed:", err);
+      const serverMsg =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Upload failed. Please ensure the backend is running and valid image files were selected.";
+      setUploadError(serverMsg);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -304,6 +311,23 @@ export const TurfImageManager: React.FC<TurfImageManagerProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Upload Error Banner */}
+      {uploadError && (
+        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between animate-in fade-in duration-200">
+          <div className="flex items-center space-x-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+            <span className="font-semibold">{uploadError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadError(null)}
+            className="text-rose-500 hover:text-rose-800 text-sm font-bold ml-2 cursor-pointer px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Gallery Strip with Controls */}
       {images.length > 0 && (

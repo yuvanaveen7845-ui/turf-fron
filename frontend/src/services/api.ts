@@ -19,9 +19,22 @@ const memoryCache = new Map<string, CacheEntry>();
 // Endpoints suitable for short client-side memoization (ms)
 const CACHEABLE_ROUTES: { prefix: string; ttl: number }[] = [
   { prefix: "/turfs/facilities/", ttl: 120_000 }, // 2 min
-  { prefix: "/turfs/", ttl: 45_000 },             // 45 sec (catalog only, not availability/schedule)
-  { prefix: "/auth/settings/", ttl: 60_000 },     // 1 min
+  { prefix: "/turfs/", ttl: 60_000 },             // 1 min (catalog only, not availability/schedule)
+  { prefix: "/auth/settings/", ttl: 120_000 },    // 2 min
+  { prefix: "/reviews/", ttl: 120_000 },          // 2 min
+  { prefix: "/promotions/active/", ttl: 60_000 }, // 1 min
 ];
+
+const getCacheKey = (config: any): string => {
+  const url = config.url || "";
+  if (!config.params) return url;
+  try {
+    const paramsStr = new URLSearchParams(config.params).toString();
+    return paramsStr ? `${url}?${paramsStr}` : url;
+  } catch {
+    return url;
+  }
+};
 
 export const clearApiCache = (filter?: string) => {
   if (!filter) {
@@ -49,8 +62,8 @@ api.interceptors.request.use((config) => {
 
   // If GET and cached fresh, return from memory cache immediately (0ms network bypass)
   if (config.method?.toLowerCase() === "get") {
-    const url = config.url || "";
-    const cached = memoryCache.get(url);
+    const key = getCacheKey(config);
+    const cached = memoryCache.get(key);
     if (cached && Date.now() < cached.timestamp) {
       config.adapter = async () => ({
         data: cached.data,
@@ -78,7 +91,8 @@ api.interceptors.response.use(
     ) {
       const match = CACHEABLE_ROUTES.find((r) => url === r.prefix || url.startsWith(r.prefix));
       if (match) {
-        memoryCache.set(url, {
+        const key = getCacheKey(response.config);
+        memoryCache.set(key, {
           data: response.data,
           headers: response.headers,
           status: response.status,

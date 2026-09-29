@@ -12,6 +12,10 @@ import {
   ShieldCheck,
   Receipt,
   FileText,
+  Banknote,
+  QrCode,
+  Building2,
+  MoreHorizontal,
 } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
@@ -326,23 +330,24 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
                     How was the payment received?
                   </label>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                    {[
-                      { id: "CASH", label: "💵 Cash" },
-                      { id: "UPI", label: "📱 UPI / QR" },
-                      { id: "CARD", label: "💳 POS Card" },
-                      { id: "BANK_TRANSFER", label: "🏦 Transfer" },
-                      { id: "OTHER", label: "✨ Other" },
-                    ].map((m) => (
+                    {([
+                      { id: "CASH",          label: "Cash",       Icon: Banknote },
+                      { id: "UPI",           label: "UPI / QR",   Icon: QrCode },
+                      { id: "CARD",          label: "POS Card",   Icon: CreditCard },
+                      { id: "BANK_TRANSFER", label: "Transfer",   Icon: Building2 },
+                      { id: "OTHER",         label: "Other",      Icon: MoreHorizontal },
+                    ] as { id: string; label: string; Icon: React.ElementType }[]).map((m) => (
                       <button
                         key={m.id}
                         type="button"
                         onClick={() => setPaymentMethod(m.id as any)}
-                        className={`py-2 px-1.5 rounded-xl font-bold text-xs text-center border transition cursor-pointer ${
+                        className={`flex flex-col items-center justify-center gap-1.5 py-2.5 px-1.5 rounded-xl font-bold text-[11px] text-center border transition cursor-pointer ${
                           paymentMethod === m.id
                             ? "bg-emerald-50 text-[#059669] border-[#059669] ring-2 ring-emerald-500/20"
-                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
                         }`}
                       >
+                        <m.Icon className="w-4 h-4" />
                         {m.label}
                       </button>
                     ))}

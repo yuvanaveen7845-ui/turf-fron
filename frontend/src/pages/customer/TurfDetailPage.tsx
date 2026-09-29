@@ -468,7 +468,7 @@ export const TurfDetailPage: React.FC = () => {
           {/* Main Photo with Overlay */}
           <div className="relative h-64 sm:h-96 rounded-3xl overflow-hidden bg-slate-100 border border-slate-200 shadow-pitch-card">
             <img
-              src={resolveImageUrl(selectedImage || (turf.images && turf.images[0]), turf.sport_type)}
+              src={resolveImageUrl(selectedImage || (turf.images && turf.images[0]), turf.sport_type, { width: 1080, quality: 80, format: "webp" })}
               alt={turf.name}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -516,9 +516,10 @@ export const TurfDetailPage: React.FC = () => {
                   }`}
                 >
                   <img
-                    src={resolveImageUrl(img, turf.sport_type)}
+                    src={resolveImageUrl(img, turf.sport_type, { width: 240, quality: 70, format: "webp" })}
                     alt="thumbnail"
                     className="w-full h-full object-cover"
+                    loading="lazy"
                     referrerPolicy="no-referrer"
                     crossOrigin="anonymous"
                     onError={(e) => handleImageError(e, turf.sport_type)}

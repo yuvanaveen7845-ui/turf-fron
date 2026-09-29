@@ -11,13 +11,25 @@ import { CustomerLayout } from "./components/layouts/CustomerLayout";
 import { StaffLayout } from "./components/layouts/StaffLayout";
 import { AdminLayout } from "./components/layouts/AdminLayout";
 
-// Auth Pages (eager — needed immediately on any visit)
-import { LoginPage } from "./pages/auth/LoginPage";
-import { RegisterPage } from "./pages/auth/RegisterPage";
-import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
-import { AccessDeniedPage } from "./pages/auth/AccessDeniedPage";
-import { UnauthorizedPage } from "./pages/auth/UnauthorizedPage";
+// Auth Pages (Lazy loaded on demand for minimal initial bundle)
+const LoginPage = React.lazy(() =>
+  import("./pages/auth/LoginPage").then((m) => ({ default: m.LoginPage }))
+);
+const RegisterPage = React.lazy(() =>
+  import("./pages/auth/RegisterPage").then((m) => ({ default: m.RegisterPage }))
+);
+const ForgotPasswordPage = React.lazy(() =>
+  import("./pages/auth/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage }))
+);
+const ResetPasswordPage = React.lazy(() =>
+  import("./pages/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage }))
+);
+const AccessDeniedPage = React.lazy(() =>
+  import("./pages/auth/AccessDeniedPage").then((m) => ({ default: m.AccessDeniedPage }))
+);
+const UnauthorizedPage = React.lazy(() =>
+  import("./pages/auth/UnauthorizedPage").then((m) => ({ default: m.UnauthorizedPage }))
+);
 
 // ─── Customer Facing Pages ───
 // Eagerly bundled for instant 0ms initial landing
@@ -162,12 +174,54 @@ export const App: React.FC = () => {
             <RealtimeProvider>
               <Routes>
                 {/* Auth & Access Routes */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-                <Route path="/access-denied" element={<AccessDeniedPage />} />
-                <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                <Route
+                  path="/login"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <LoginPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <RegisterPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/forgot-password"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <ForgotPasswordPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/reset-password"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <ResetPasswordPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/access-denied"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <AccessDeniedPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/unauthorized"
+                  element={
+                    <Suspense fallback={<PageSuspenseFallback />}>
+                      <UnauthorizedPage />
+                    </Suspense>
+                  }
+                />
 
                 {/* Customer Facing Routes */}
                 <Route element={<CustomerLayout />}>

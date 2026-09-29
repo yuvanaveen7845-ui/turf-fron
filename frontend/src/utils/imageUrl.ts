@@ -106,7 +106,17 @@ export function getTurfFallbackImage(sportType?: string): string {
   return FOOTBALL_TURF_SVG;
 }
 
-export function resolveImageUrl(url?: string | null, sportType?: string): string {
+export interface ImageOptimizationOptions {
+  width?: number;
+  quality?: number;
+  format?: "webp" | "auto" | "avif";
+}
+
+export function resolveImageUrl(
+  url?: string | null,
+  sportType?: string,
+  options?: ImageOptimizationOptions
+): string {
   if (!url || typeof url !== "string" || url.trim() === "") {
     return getTurfFallbackImage(sportType);
   }
@@ -118,6 +128,8 @@ export function resolveImageUrl(url?: string | null, sportType?: string): string
     return trimmed;
   }
 
+  let finalUrl = trimmed;
+
   // If it's a relative media URL e.g. /media/turfs/... or media/turfs/...
   if (trimmed.startsWith("/media/") || trimmed.startsWith("media/")) {
     const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
@@ -125,13 +137,31 @@ export function resolveImageUrl(url?: string | null, sportType?: string): string
     const apiUrl = import.meta.env.VITE_API_URL || "";
     if (apiUrl.startsWith("http")) {
       const backendOrigin = new URL(apiUrl).origin;
-      return `${backendOrigin}${cleanPath}`;
+      finalUrl = `${backendOrigin}${cleanPath}`;
+    } else {
+      finalUrl = cleanPath;
     }
-    return cleanPath;
   }
 
-  // External full URLs (e.g. Unsplash)
-  return trimmed;
+  // Automatic CDN and Unsplash optimization (clamp width to max 640 for cards, webp format)
+  if (finalUrl.includes("images.unsplash.com")) {
+    try {
+      const parsed = new URL(finalUrl);
+      const width = options?.width || 640;
+      const quality = options?.quality || 75;
+      const format = options?.format || "webp";
+      parsed.searchParams.set("w", String(width));
+      parsed.searchParams.set("q", String(quality));
+      parsed.searchParams.set("auto", "format");
+      parsed.searchParams.set("fm", format);
+      parsed.searchParams.set("fit", "crop");
+      return parsed.toString();
+    } catch {
+      return finalUrl;
+    }
+  }
+
+  return finalUrl;
 }
 
 /**

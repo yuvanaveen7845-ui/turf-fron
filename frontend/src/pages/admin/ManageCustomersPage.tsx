@@ -14,6 +14,8 @@ import {
   Sparkles,
   UserPlus,
   PlusCircle,
+  UserCircle2,
+  SlidersHorizontal,
 } from "lucide-react";
 import api from "../../services/api";
 import { User } from "../../types";
@@ -252,34 +254,37 @@ export const ManageCustomersPage: React.FC = () => {
       header: "Actions",
       align: "right" as const,
       render: (user: User) => (
-        <div className="flex items-center justify-end space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
+        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+          {/* Book Match */}
+          <button
             onClick={() => {
               setBookingCustomerId(user.id);
               setIsNewBookingOpen(true);
             }}
-            className="text-[#059669] hover:bg-emerald-50 border-emerald-200"
-            leftIcon={<PlusCircle className="w-3.5 h-3.5" />}
+            title="Book a match for this customer"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-white text-[#059669] hover:bg-emerald-50 hover:border-[#059669] text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
-            Book Match
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+            <PlusCircle className="w-3.5 h-3.5" />
+            Book
+          </button>
+          {/* CRM Profile */}
+          <button
             onClick={() => openCrmProfile(user)}
+            title="Open 360 CRM profile"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
-            CRM Profile
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+            <UserCircle2 className="w-3.5 h-3.5" />
+            CRM
+          </button>
+          {/* Adjust Wallet */}
+          <button
             onClick={() => handleOpenAdjust(user)}
-            leftIcon={<Wallet className="w-3.5 h-3.5 text-[#059669]" />}
+            title="Adjust wallet balance"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
             Adjust
-          </Button>
+          </button>
         </div>
       ),
     },
@@ -465,7 +470,7 @@ export const ManageCustomersPage: React.FC = () => {
               <div className="font-bold text-slate-900 text-xs flex items-center justify-between">
                 <span>Account & Contact</span>
                 <span className="font-mono text-[11px] text-slate-500">
-                  Player ID: <strong className="text-slate-800">#{crmCustomer.customer.id.slice(0, 8)}</strong>
+                  Player ID: <strong className="text-slate-800">#{String(crmCustomer.customer.id || "").slice(0, 8)}</strong>
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
@@ -556,10 +561,10 @@ export const ManageCustomersPage: React.FC = () => {
                       crmCustomer.recent_bookings.map((b: any) => (
                         <tr key={b.id} className="hover:bg-slate-50/50">
                           <td className="p-2.5 font-mono font-bold text-slate-800">
-                            #{b.booking_number || b.id}
+                            #{b.booking_id || b.id}
                           </td>
                           <td className="p-2.5 font-medium text-slate-700">
-                            {b.facility_name || "Turf Arena"}
+                            {b.turf_details?.name || "Turf Arena"}
                           </td>
                           <td className="p-2.5 text-slate-500">
                             {b.date} • {b.start_time?.slice(0, 5)}

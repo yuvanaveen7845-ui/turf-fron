@@ -18,10 +18,11 @@ import {
   Eye,
   Check,
   X,
+  Trash2,
 } from "lucide-react";
 import api from "../../services/api";
 import { User, UserRole, UserStatus } from "../../types";
-import { Button, Input, Select, Modal, DataTable, StatusBadge, EmptyState } from "../../components/ui";
+import { Button, Input, Select, Modal, DataTable, StatusBadge, EmptyState, ConfirmDialog } from "../../components/ui";
 import { useToast } from "../../context/ToastContext";
 import { normalizeList } from "../../utils/helpers";
 
@@ -46,6 +47,10 @@ export const ManageStaffPage: React.FC = () => {
 
   // Access / Permissions Preview Modal State
   const [inspectUser, setInspectUser] = useState<User | null>(null);
+
+  // Staff Deletion State
+  const [staffToDelete, setStaffToDelete] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -150,6 +155,29 @@ export const ManageStaffPage: React.FC = () => {
       toast.error(err.response?.data?.error || "Failed to update role.");
     } finally {
       setUpdatingRole(false);
+    }
+  };
+
+  const handleDeleteStaff = async () => {
+    if (!staffToDelete) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/auth/b2b-users/${staffToDelete.id}/`);
+      const successMsg = `Staff member ${staffToDelete.email} has been removed.`;
+      toast.success("Staff Account Removed", successMsg);
+      setActionSuccess(successMsg);
+      setStaffToDelete(null);
+      fetchStaff();
+      setTimeout(() => setActionSuccess(""), 3500);
+    } catch (err: any) {
+      console.error("Staff delete failed:", err);
+      const errMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to remove staff account.";
+      toast.error("Cannot Remove Staff", errMsg, 6000);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -319,6 +347,15 @@ export const ManageStaffPage: React.FC = () => {
                 Activate
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStaffToDelete(member)}
+              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-300 p-1.5 transition-colors"
+              title="Remove staff account"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
           </div>
         );
       },
@@ -687,6 +724,23 @@ export const ManageStaffPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Remove Staff Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(staffToDelete)}
+        title="Remove Staff Account"
+        message={`Are you sure you want to permanently delete the account for "${
+          staffToDelete?.first_name
+            ? `${staffToDelete.first_name} ${staffToDelete.last_name || ""}`.trim()
+            : staffToDelete?.email
+        }" (${staffToDelete?.role})? All platform clearance and credentials will be permanently revoked.`}
+        confirmText={isDeleting ? "Removing..." : "Remove Staff Account"}
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeleting}
+        onConfirm={handleDeleteStaff}
+        onClose={() => setStaffToDelete(null)}
+      />
     </div>
   );
 };

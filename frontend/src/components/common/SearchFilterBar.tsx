@@ -116,14 +116,10 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
         {/* Spacious Responsive Pitch Deck */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {displayPitches.length === 0 ? (
-            [1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-28 rounded-2xl bg-white/40 border border-white/60 animate-pulse flex items-center justify-center text-slate-400 text-xs font-semibold"
-              >
-                Loading arenas...
-              </div>
-            ))
+            <div className="col-span-full h-28 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 animate-pulse flex items-center justify-center space-x-2.5 text-slate-500 text-xs font-semibold shadow-xs">
+              <span className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-600 rounded-full animate-spin" />
+              <span>Loading arenas...</span>
+            </div>
           ) : (
             displayPitches.map((pitch) => {
               const isSelected = pitch.id === currentActiveId;

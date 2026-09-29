@@ -143,7 +143,8 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
     e.preventDefault();
     setCancelling(true);
     try {
-      await api.post(`/bookings/${booking.id}/cancel/`, {
+      const identifier = booking.booking_id || booking.id;
+      await api.post(`/bookings/${identifier}/cancel/`, {
         reason: cancelReason,
       });
       setCancelModal(false);

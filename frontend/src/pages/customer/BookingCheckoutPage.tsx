@@ -82,6 +82,7 @@ export const BookingCheckoutPage: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [existingConfirmedBookingId, setExistingConfirmedBookingId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -318,9 +319,16 @@ export const BookingCheckoutPage: React.FC = () => {
       setProcessing(false);
       setStatusMessage("");
       setPaymentAttemptFailed(true);
+      const resData = err.response?.data;
+      if (resData?.is_already_booked_by_user && resData?.booking_id) {
+        setExistingConfirmedBookingId(resData.booking_id);
+      } else if (err.response?.status === 409) {
+        // Slot is already booked or occupied - expire hold timer so user picks another
+        setTimeLeftSeconds(0);
+      }
       setErrorMessage(
-        err.response?.data?.error ||
-          err.response?.data?.detail ||
+        resData?.error ||
+          resData?.detail ||
           err.message ||
           "Failed to initialize payment gateway."
       );
@@ -542,10 +550,25 @@ export const BookingCheckoutPage: React.FC = () => {
         <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-2.5">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-            <h3 className="text-sm font-black">Payment Not Completed</h3>
+            <h3 className="text-sm font-black">
+              {existingConfirmedBookingId ? "Match Pass Already Confirmed" : "Payment Not Completed"}
+            </h3>
           </div>
           {errorMessage && <p className="text-xs text-amber-800">{errorMessage}</p>}
-          {timeLeftSeconds > 0 ? (
+          {existingConfirmedBookingId ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-amber-200/60 text-xs">
+              <p className="text-slate-700">
+                You already hold a verified match ticket for this reservation.
+              </p>
+              <button
+                onClick={() => navigate(`/confirmation/${existingConfirmedBookingId}`)}
+                className="px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white font-bold rounded-xl shadow-sm text-xs cursor-pointer flex items-center space-x-1"
+              >
+                <span>View Match Pass #{existingConfirmedBookingId}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : timeLeftSeconds > 0 ? (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-amber-200/60 text-xs">
               <p className="text-slate-700">
                 Your booking hold is still active for:{" "}
@@ -561,13 +584,13 @@ export const BookingCheckoutPage: React.FC = () => {
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-amber-200/60 text-xs">
-              <p className="text-slate-700">Your slot is no longer reserved.</p>
-              <Link
-                to="/turfs"
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow-sm text-xs"
+              <p className="text-slate-700">This slot is no longer reserved for this session.</p>
+              <button
+                onClick={handleBackToPitch}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow-sm text-xs cursor-pointer"
               >
                 Choose Another Slot
-              </Link>
+              </button>
             </div>
           )}
         </div>

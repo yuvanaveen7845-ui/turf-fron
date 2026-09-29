@@ -176,8 +176,11 @@ export const MyBookingsPage: React.FC = () => {
     if (!selectedBookingForReschedule || !selectedRescheduleSlotId) return;
     setRescheduleLoading(true);
     try {
+      const bookingIdentifier =
+        selectedBookingForReschedule.booking_id ||
+        selectedBookingForReschedule.id;
       await api.post(
-        `/bookings/${selectedBookingForReschedule.id}/reschedule/`,
+        `/bookings/${bookingIdentifier}/reschedule/`,
         {
           new_date: rescheduleDate,
           new_slot_ids: [selectedRescheduleSlotId],
@@ -203,8 +206,10 @@ export const MyBookingsPage: React.FC = () => {
     if (!selectedBookingForCancel) return;
     setCancelLoading(true);
     try {
+      const bookingIdentifier =
+        selectedBookingForCancel.booking_id || selectedBookingForCancel.id;
       const res = await api.post(
-        `/bookings/${selectedBookingForCancel.id}/cancel/`,
+        `/bookings/${bookingIdentifier}/cancel/`,
         {
           reason: cancelReason || "Customer cancelled before match",
         }

@@ -99,9 +99,18 @@ export const ManageStaffPage: React.FC = () => {
     setErrorMsg("");
 
     try {
-      await api.post("/auth/b2b-users/", formData);
+      const payload = {
+        ...formData,
+        email: formData.email.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        phone: formData.phone.trim(),
+        department: formData.department.trim() || "Turf Operations",
+        employee_id: formData.employee_id.trim(),
+      };
+      await api.post("/auth/b2b-users/", payload);
       setShowModal(false);
-      setActionSuccess(`Invited ${formData.email} successfully!`);
+      setActionSuccess(`Invited ${payload.email} successfully!`);
       setFormData({
         first_name: "",
         last_name: "",
@@ -115,11 +124,22 @@ export const ManageStaffPage: React.FC = () => {
       fetchStaff();
       setTimeout(() => setActionSuccess(""), 4000);
     } catch (err: any) {
-      setErrorMsg(
-        err.response?.data?.email?.[0] ||
-          err.response?.data?.error ||
-          "Failed to invite B2B user. Please verify email and fields."
-      );
+      const data = err.response?.data;
+      let msg = "Failed to invite B2B user. Please verify email and fields.";
+      if (typeof data === "string") {
+        msg = data;
+      } else if (data?.error) {
+        msg = data.error;
+      } else if (data?.detail) {
+        msg = data.detail;
+      } else if (typeof data === "object" && data !== null) {
+        const fieldErrors = Object.entries(data)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+          .join(" | ");
+        if (fieldErrors) msg = fieldErrors;
+      }
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

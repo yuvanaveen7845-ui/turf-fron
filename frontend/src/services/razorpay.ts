@@ -114,6 +114,10 @@ export const initiateRazorpayCheckout = async (
   } catch (_) {}
 
   try {
+    const callbackUrl = `${window.location.origin}/api/payments/razorpay/callback/`;
+
+    let rzpInstance: any = null;
+
     const options: any = {
       key: orderData.key_id,
       amount: amountPaise,
@@ -146,7 +150,14 @@ export const initiateRazorpayCheckout = async (
         },
         escape: true,
         backdropclose: false,
+        confirm_close: false,
       },
+      // Authoritative redirect configuration:
+      // When redirect: true is configured with callback_url, Razorpay sends an HTTP POST
+      // directly to our backend callback handler upon payment completion (Cards, UPI, Netbanking, Wallets).
+      // This completely eliminates the 5-second frozen countdown and prevents blank screens at api.razorpay.com.
+      callback_url: callbackUrl,
+      redirect: true,
       handler: function (response: {
         razorpay_payment_id: string;
         razorpay_order_id: string;
@@ -155,6 +166,14 @@ export const initiateRazorpayCheckout = async (
         try {
           sessionStorage.removeItem("ft_active_razorpay_order");
           localStorage.removeItem("ft_active_razorpay_order");
+        } catch (_) {}
+
+        // Programmatically close the checkout modal immediately upon payment success.
+        // This stops Razorpay's 5-second countdown timer inside the iframe from attempting top-window navigation.
+        try {
+          if (rzpInstance && typeof rzpInstance.close === "function") {
+            rzpInstance.close();
+          }
         } catch (_) {}
 
         if (onStatusChange) {
@@ -185,12 +204,17 @@ export const initiateRazorpayCheckout = async (
       },
     };
 
-    const rzpInstance = new window.Razorpay(options);
+    rzpInstance = new window.Razorpay(options);
 
     rzpInstance.on("payment.failed", (response: any) => {
       try {
         sessionStorage.removeItem("ft_active_razorpay_order");
         localStorage.removeItem("ft_active_razorpay_order");
+      } catch (_) {}
+      try {
+        if (rzpInstance && typeof rzpInstance.close === "function") {
+          rzpInstance.close();
+        }
       } catch (_) {}
       const failReason =
         response.error?.description ||

@@ -11,23 +11,26 @@ import { CustomerLayout } from "./components/layouts/CustomerLayout";
 import { StaffLayout } from "./components/layouts/StaffLayout";
 import { AdminLayout } from "./components/layouts/AdminLayout";
 
-// Auth Pages (Lazy loaded on demand for minimal initial bundle)
-const LoginPage = React.lazy(() =>
+import { lazyWithRetry } from "./utils/lazyWithRetry";
+import { ChunkErrorBoundary } from "./components/common/ChunkErrorBoundary";
+
+// Auth Pages (Lazy loaded on demand with auto-reload recovery)
+const LoginPage = lazyWithRetry(() =>
   import("./pages/auth/LoginPage").then((m) => ({ default: m.LoginPage }))
 );
-const RegisterPage = React.lazy(() =>
+const RegisterPage = lazyWithRetry(() =>
   import("./pages/auth/RegisterPage").then((m) => ({ default: m.RegisterPage }))
 );
-const ForgotPasswordPage = React.lazy(() =>
+const ForgotPasswordPage = lazyWithRetry(() =>
   import("./pages/auth/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage }))
 );
-const ResetPasswordPage = React.lazy(() =>
+const ResetPasswordPage = lazyWithRetry(() =>
   import("./pages/auth/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage }))
 );
-const AccessDeniedPage = React.lazy(() =>
+const AccessDeniedPage = lazyWithRetry(() =>
   import("./pages/auth/AccessDeniedPage").then((m) => ({ default: m.AccessDeniedPage }))
 );
-const UnauthorizedPage = React.lazy(() =>
+const UnauthorizedPage = lazyWithRetry(() =>
   import("./pages/auth/UnauthorizedPage").then((m) => ({ default: m.UnauthorizedPage }))
 );
 
@@ -35,125 +38,125 @@ const UnauthorizedPage = React.lazy(() =>
 // Eagerly bundled for instant 0ms initial landing
 import { HomePage } from "./pages/customer/HomePage";
 
-// Route-level code-split for minimal initial JS payload & lightning fast FCP
-const TurfListingPage = React.lazy(() =>
+// Route-level code-split with automatic deployment reload recovery
+const TurfListingPage = lazyWithRetry(() =>
   import("./pages/customer/TurfListingPage").then((m) => ({ default: m.TurfListingPage }))
 );
-const TurfDetailPage = React.lazy(() =>
+const TurfDetailPage = lazyWithRetry(() =>
   import("./pages/customer/TurfDetailPage").then((m) => ({ default: m.TurfDetailPage }))
 );
-const BookingCheckoutPage = React.lazy(() =>
+const BookingCheckoutPage = lazyWithRetry(() =>
   import("./pages/customer/BookingCheckoutPage").then((m) => ({ default: m.BookingCheckoutPage }))
 );
-const BookingConfirmationPage = React.lazy(() =>
+const BookingConfirmationPage = lazyWithRetry(() =>
   import("./pages/customer/BookingConfirmationPage").then((m) => ({ default: m.BookingConfirmationPage }))
 );
-const MyBookingsPage = React.lazy(() =>
+const MyBookingsPage = lazyWithRetry(() =>
   import("./pages/customer/MyBookingsPage").then((m) => ({ default: m.MyBookingsPage }))
 );
-const WalletPage = React.lazy(() =>
+const WalletPage = lazyWithRetry(() =>
   import("./pages/customer/WalletPage").then((m) => ({ default: m.WalletPage }))
 );
-const OffersPage = React.lazy(() =>
+const OffersPage = lazyWithRetry(() =>
   import("./pages/customer/OffersPage").then((m) => ({ default: m.OffersPage }))
 );
-const ProfilePage = React.lazy(() =>
+const ProfilePage = lazyWithRetry(() =>
   import("./pages/customer/ProfilePage").then((m) => ({ default: m.ProfilePage }))
 );
-const NotificationsPage = React.lazy(() =>
+const NotificationsPage = lazyWithRetry(() =>
   import("./pages/customer/NotificationsPage").then((m) => ({ default: m.NotificationsPage }))
 );
-const PaymentCallbackPage = React.lazy(() =>
+const PaymentCallbackPage = lazyWithRetry(() =>
   import("./pages/customer/PaymentCallbackPage").then((m) => ({ default: m.PaymentCallbackPage }))
 );
-const TermsOfServicePage = React.lazy(() =>
+const TermsOfServicePage = lazyWithRetry(() =>
   import("./pages/customer/TermsOfServicePage").then((m) => ({ default: m.TermsOfServicePage }))
 );
-const PrivacyPolicyPage = React.lazy(() =>
+const PrivacyPolicyPage = lazyWithRetry(() =>
   import("./pages/customer/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage }))
 );
 
 // ─── Lazy-loaded Print Document Templates ──────────────────────────────────
-const PrintMatchPassPage = React.lazy(() =>
+const PrintMatchPassPage = lazyWithRetry(() =>
   import("./pages/print/PrintMatchPassPage").then((m) => ({ default: m.PrintMatchPassPage }))
 );
-const PrintReceiptPage = React.lazy(() =>
+const PrintReceiptPage = lazyWithRetry(() =>
   import("./pages/print/PrintReceiptPage").then((m) => ({ default: m.PrintReceiptPage }))
 );
-const PrintReportPage = React.lazy(() =>
+const PrintReportPage = lazyWithRetry(() =>
   import("./pages/print/PrintReportPage").then((m) => ({ default: m.PrintReportPage }))
 );
 
 // ─── Lazy-loaded Staff Pages ────────────────────────────────────────────────
-const StaffDashboardPage = React.lazy(() =>
+const StaffDashboardPage = lazyWithRetry(() =>
   import("./pages/staff/StaffDashboardPage").then((m) => ({ default: m.StaffDashboardPage }))
 );
-const StaffQRScannerPage = React.lazy(() =>
+const StaffQRScannerPage = lazyWithRetry(() =>
   import("./pages/staff/StaffQRScannerPage").then((m) => ({ default: m.StaffQRScannerPage }))
 );
-const StaffWalkInPage = React.lazy(() =>
+const StaffWalkInPage = lazyWithRetry(() =>
   import("./pages/staff/StaffWalkInPage").then((m) => ({ default: m.StaffWalkInPage }))
 );
-const StaffBookingSearchPage = React.lazy(() =>
+const StaffBookingSearchPage = lazyWithRetry(() =>
   import("./pages/staff/StaffBookingSearchPage").then((m) => ({ default: m.StaffBookingSearchPage }))
 );
-const StaffCheckinLogsPage = React.lazy(() =>
+const StaffCheckinLogsPage = lazyWithRetry(() =>
   import("./pages/staff/StaffCheckinLogsPage").then((m) => ({ default: m.StaffCheckinLogsPage }))
 );
 
 // ─── Lazy-loaded Admin Pages ────────────────────────────────────────────────
-const AdminDashboardPage = React.lazy(() =>
+const AdminDashboardPage = lazyWithRetry(() =>
   import("./pages/admin/AdminDashboardPage").then((m) => ({ default: m.AdminDashboardPage }))
 );
-const AdminSchedulePage = React.lazy(() =>
+const AdminSchedulePage = lazyWithRetry(() =>
   import("./pages/admin/AdminSchedulePage").then((m) => ({ default: m.AdminSchedulePage }))
 );
-const ManageBookingsPage = React.lazy(() =>
+const ManageBookingsPage = lazyWithRetry(() =>
   import("./pages/admin/ManageBookingsPage").then((m) => ({ default: m.ManageBookingsPage }))
 );
-const ManageTurfsPage = React.lazy(() =>
+const ManageTurfsPage = lazyWithRetry(() =>
   import("./pages/admin/ManageTurfsPage").then((m) => ({ default: m.ManageTurfsPage }))
 );
-const ManagePricingPage = React.lazy(() =>
+const ManagePricingPage = lazyWithRetry(() =>
   import("./pages/admin/ManagePricingPage").then((m) => ({ default: m.ManagePricingPage }))
 );
-const ManageCouponsPage = React.lazy(() =>
+const ManageCouponsPage = lazyWithRetry(() =>
   import("./pages/admin/ManageCouponsPage").then((m) => ({ default: m.ManageCouponsPage }))
 );
-const ManageCustomersPage = React.lazy(() =>
+const ManageCustomersPage = lazyWithRetry(() =>
   import("./pages/admin/ManageCustomersPage").then((m) => ({ default: m.ManageCustomersPage }))
 );
-const ManageStaffPage = React.lazy(() =>
+const ManageStaffPage = lazyWithRetry(() =>
   import("./pages/admin/ManageStaffPage").then((m) => ({ default: m.ManageStaffPage }))
 );
-const ManageMaintenancePage = React.lazy(() =>
+const ManageMaintenancePage = lazyWithRetry(() =>
   import("./pages/admin/ManageMaintenancePage").then((m) => ({ default: m.ManageMaintenancePage }))
 );
-const ManageReviewsPage = React.lazy(() =>
+const ManageReviewsPage = lazyWithRetry(() =>
   import("./pages/admin/ManageReviewsPage").then((m) => ({ default: m.ManageReviewsPage }))
 );
-const ManageQRPage = React.lazy(() =>
+const ManageQRPage = lazyWithRetry(() =>
   import("./pages/admin/ManageQRPage").then((m) => ({ default: m.ManageQRPage }))
 );
-const ManagePaymentsPage = React.lazy(() =>
+const ManagePaymentsPage = lazyWithRetry(() =>
   import("./pages/admin/ManagePaymentsPage").then((m) => ({ default: m.ManagePaymentsPage }))
 );
-const ManageRefundsPage = React.lazy(() =>
+const ManageRefundsPage = lazyWithRetry(() =>
   import("./pages/admin/ManageRefundsPage").then((m) => ({ default: m.ManageRefundsPage }))
 );
-const DailyOperationsPage = React.lazy(() =>
+const DailyOperationsPage = lazyWithRetry(() =>
   import("./pages/admin/DailyOperationsPage").then((m) => ({ default: m.DailyOperationsPage }))
 );
-const SystemHealthPage = React.lazy(() =>
+const SystemHealthPage = lazyWithRetry(() =>
   import("./pages/admin/SystemHealthPage").then((m) => ({ default: m.SystemHealthPage }))
 );
-const AdminReportsPage = React.lazy(() =>
+const AdminReportsPage = lazyWithRetry(() =>
   import("./pages/admin/AdminReportsPage").then((m) => ({ default: m.AdminReportsPage }))
 );
-const AuditLogsPage = React.lazy(() =>
+const AuditLogsPage = lazyWithRetry(() =>
   import("./pages/admin/AuditLogsPage").then((m) => ({ default: m.AuditLogsPage }))
 );
-const AdminSettingsPage = React.lazy(() =>
+const AdminSettingsPage = lazyWithRetry(() =>
   import("./pages/admin/AdminSettingsPage").then((m) => ({ default: m.AdminSettingsPage }))
 );
 
@@ -172,7 +175,8 @@ export const App: React.FC = () => {
         <AuthProvider>
           <PermissionProvider>
             <RealtimeProvider>
-              <Routes>
+              <ChunkErrorBoundary>
+                <Routes>
                 {/* Auth & Access Routes */}
                 <Route
                   path="/login"
@@ -436,6 +440,7 @@ export const App: React.FC = () => {
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+            </ChunkErrorBoundary>
             {/* Global Quick Action & Scanner FAB (Active for Staff & Admin throughout website) */}
             <QuickActionAnywhere />
           </RealtimeProvider>

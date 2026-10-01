@@ -31,7 +31,7 @@ import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 export const BookingCheckoutPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, refreshProfile } = useAuth();
+  const { user, loading: authLoading, refreshProfile } = useAuth();
   const {
     booking: bookingRules,
     company: companySettings,
@@ -78,6 +78,14 @@ export const BookingCheckoutPage: React.FC = () => {
   );
   const [notes, setNotes] = useState("");
 
+  const onlinePaymentsEnabled = featureFlags?.ONLINE_PAYMENTS !== false;
+
+  useEffect(() => {
+    if (!onlinePaymentsEnabled && paymentMethod === "RAZORPAY") {
+      setPaymentMethod("WALLET");
+    }
+  }, [onlinePaymentsEnabled, paymentMethod]);
+
   // Processing states
   const [processing, setProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -86,6 +94,8 @@ export const BookingCheckoutPage: React.FC = () => {
 
 
   useEffect(() => {
+    if (authLoading) return;
+
     // If not authenticated, redirect to login with intent preserved
     if (!user) {
       if (state?.turf && actualSlotIds.length > 0) {
@@ -129,7 +139,7 @@ export const BookingCheckoutPage: React.FC = () => {
     }
 
     fetchPricePreview("");
-  }, [state, defaultLockSecs, user]);
+  }, [state, defaultLockSecs, user, authLoading]);
 
   // Countdown interval for slot reservation hold
   useEffect(() => {
@@ -235,13 +245,25 @@ export const BookingCheckoutPage: React.FC = () => {
         ]);
 
         await refreshProfile();
+        clearBookingIntent();
         setShowWalletProcessing(false);
         setProcessing(false);
         setStatusMessage("");
-        setPaymentSuccessData({
-          booking: walletRes.data.booking,
-          payment: walletRes.data.payment,
-        });
+        const confirmedBookingId = walletRes.data?.booking?.booking_id;
+        if (confirmedBookingId) {
+          navigate(`/confirmation/${confirmedBookingId}`, {
+            replace: true,
+            state: {
+              booking: walletRes.data.booking,
+              payment: walletRes.data.payment,
+            },
+          });
+        } else {
+          setPaymentSuccessData({
+            booking: walletRes.data.booking,
+            payment: walletRes.data.payment,
+          });
+        }
       } catch (wErr: any) {
         setShowWalletProcessing(false);
         setProcessing(false);
@@ -296,12 +318,29 @@ export const BookingCheckoutPage: React.FC = () => {
           });
 
           await refreshProfile();
+          clearBookingIntent();
+          try {
+            sessionStorage.removeItem("ft_active_razorpay_order");
+            localStorage.removeItem("ft_active_razorpay_order");
+          } catch (_) {}
           setProcessing(false);
           setStatusMessage("");
-          setPaymentSuccessData({
-            booking: verifyRes.data.booking,
-            payment: verifyRes.data.payment,
-          });
+          const confirmedBookingId =
+            verifyRes.data?.booking?.booking_id || orderData.booking_id;
+          if (confirmedBookingId) {
+            navigate(`/confirmation/${confirmedBookingId}`, {
+              replace: true,
+              state: {
+                booking: verifyRes.data.booking,
+                payment: verifyRes.data.payment,
+              },
+            });
+          } else {
+            setPaymentSuccessData({
+              booking: verifyRes.data.booking,
+              payment: verifyRes.data.payment,
+            });
+          }
         },
         onError: (errText) => {
           setProcessing(false);
@@ -382,8 +421,6 @@ export const BookingCheckoutPage: React.FC = () => {
     navigate(`/turfs/${state?.turf.id || ""}`);
   };
 
-  if (!state?.turf && !paymentSuccessData) return null;
-
   if (paymentSuccessData) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in">
@@ -436,7 +473,46 @@ export const BookingCheckoutPage: React.FC = () => {
     );
   }
 
-  if (!state?.turf) return null;
+  if (authLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 space-y-6 animate-pulse">
+        <div className="h-8 w-48 bg-slate-200/60 rounded-xl" />
+        <div className="h-40 bg-slate-200/50 rounded-2xl" />
+        <div className="h-64 bg-slate-200/40 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (!state?.turf) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6">
+        <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-[#059669]">
+          <Calendar className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider text-[#059669] bg-[#ECFDF5] px-3 py-1 rounded-full">
+            No Active Slot Selection
+          </span>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            Select Your Pitch First
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            You don't have any reserved turf slots in this checkout session. Please choose your preferred pitch and time slot from the schedule.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={() => navigate("/turfs")}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-md transition-all cursor-pointer"
+          >
+            <span>Explore All Turfs</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
 
   const minutes = Math.floor(timeLeftSeconds / 60);
   const seconds = timeLeftSeconds % 60;
@@ -451,14 +527,8 @@ export const BookingCheckoutPage: React.FC = () => {
     featureFlags?.PARTIAL_PAYMENTS !== false;
   const effectivePaymentType = !canPartialPay && paymentType === "PARTIAL" ? "FULL" : paymentType;
   const amountToCharge = effectivePaymentType === "FULL" ? finalPayable : advancePayable;
-  const onlinePaymentsEnabled = featureFlags?.ONLINE_PAYMENTS !== false;
   const couponsEnabled = featureFlags?.COUPONS !== false;
 
-  useEffect(() => {
-    if (!onlinePaymentsEnabled && paymentMethod === "RAZORPAY") {
-      setPaymentMethod("WALLET");
-    }
-  }, [onlinePaymentsEnabled, paymentMethod]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">

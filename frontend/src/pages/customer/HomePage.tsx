@@ -1,48 +1,96 @@
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Trophy,
   ArrowRight,
-  ShieldCheck,
-  Zap,
-  QrCode,
-  Gift,
-  Sparkles,
-  Flame,
-  Star,
-  Users,
-  CheckCircle2,
-  Calendar,
   Clock,
   MapPin,
-  Phone,
   Navigation,
-  Activity,
+  AlertCircle,
+  Lock,
+  Sun,
+  Moon,
+  Sunrise,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  Info,
+  Flame,
+  Zap,
+  Share2,
+  Eye,
+  EyeOff,
+  Calendar,
 } from "lucide-react";
 import api from "../../services/api";
-import { Turf } from "../../types";
+import { Turf, TimeSlot } from "../../types";
 import { normalizeList } from "../../utils/helpers";
 import { useBusinessSettings } from "../../hooks/useBusinessSettings";
-import { PitchCard } from "../../components/common/PitchCard";
-import { SearchFilterBar } from "../../components/common/SearchFilterBar";
-import { AmenityGrid } from "../../components/common/AmenityGrid";
-import { DailyScheduleMatrix } from "../../components/common/DailyScheduleMatrix";
-import { SquadSplitWidget } from "../../components/common/SquadSplitWidget";
+import { useSlotRealtime } from "../../hooks/useRealtime";
+import { useAuth } from "../../context/AuthContext";
+import { saveBookingIntent } from "../../utils/bookingIntent";
+import { triggerHaptic } from "../../utils/haptics";
 import { VerifiedReviewsSection } from "../../components/common/VerifiedReviewsSection";
 import { MatchDayFAQ } from "../../components/common/MatchDayFAQ";
+import { AmenityGrid } from "../../components/common/AmenityGrid";
+import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { company, hours, booking } = useBusinessSettings();
-  const [turfs, setTurfs] = useState<Turf[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTurfId, setSelectedTurfId] = useState<string | number>("");
-  const [selectedSport, setSelectedSport] = useState<string>("ALL");
-  const [selectedDate, setSelectedDate] = useState<string>(
-    () => new Date().toISOString().split("T")[0]
-  );
-  const [selectedSession, setSelectedSession] = useState<string>("ALL");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const { company, booking: bookingRules } = useBusinessSettings();
 
+  // Query parameter extraction
+  const queryTurfId = searchParams.get("turf") || searchParams.get("id");
+  const queryDate = searchParams.get("date");
+  const querySession = searchParams.get("session")?.toUpperCase();
+  const querySlot = searchParams.get("slot") || searchParams.get("slotId");
+
+  // State
+  const [turfs, setTurfs] = useState<Turf[]>([]);
+  const [loadingTurfs, setLoadingTurfs] = useState(true);
+  const [selectedTurfId, setSelectedTurfId] = useState<string | number>("");
+
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const tomorrowStr = useMemo(() => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    return t.toISOString().split("T")[0];
+  }, []);
+
+  const [selectedDate, setSelectedDate] = useState<string>(() => queryDate || todayStr);
+
+  const [selectedSession, setSelectedSession] = useState<"ALL" | "MORNING" | "AFTERNOON" | "NIGHT">(() => {
+    if (querySession === "MORNING") return "MORNING";
+    if (querySession === "AFTERNOON") return "AFTERNOON";
+    if (querySession === "NIGHT" || querySession === "EVENING") return "NIGHT";
+    return "ALL";
+  });
+
+  const [slots, setSlots] = useState<TimeSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0);
+  const [isFastFill, setIsFastFill] = useState<boolean>(false);
+  const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
+  const [lockLoading, setLockLoading] = useState(false);
+  const [lockError, setLockError] = useState("");
+  const [showPitchSpecs, setShowPitchSpecs] = useState(false);
+  const [pitchOpenCounts, setPitchOpenCounts] = useState<Record<string, number>>({});
+  const [showPastSlots, setShowPastSlots] = useState(false);
+
+  // Preferred duration
+  const [preferredDuration, setPreferredDuration] = useState<number>(() => {
+    const saved = localStorage.getItem("ft_preferred_duration_minutes");
+    return saved ? Number(saved) : 60;
+  });
+
+  // Active turf object
+  const activeTurf = useMemo(() => {
+    if (!selectedTurfId || turfs.length === 0) return turfs[0] || null;
+    return turfs.find((t) => String(t.id) === String(selectedTurfId)) || turfs[0] || null;
+  }, [turfs, selectedTurfId]);
+
+  // Load Turfs
   useEffect(() => {
     api
       .get("/turfs/")
@@ -50,372 +98,1089 @@ export const HomePage: React.FC = () => {
         const list = normalizeList<Turf>(res.data);
         setTurfs(list);
         if (list.length > 0) {
-          setSelectedTurfId(list[0].id);
+          if (queryTurfId && list.some((t) => String(t.id) === String(queryTurfId))) {
+            setSelectedTurfId(queryTurfId);
+          } else {
+            setSelectedTurfId(list[0].id);
+          }
         }
       })
       .catch((err) => {
         console.error("Failed to load turfs:", err);
         setTurfs([]);
       })
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => setLoadingTurfs(false));
+  }, [queryTurfId]);
 
-  const handleSearchSubmit = () => {
-    const targetId = selectedTurfId || turfs[0]?.id || "1";
-    navigate(`/turfs/${targetId}?date=${selectedDate}&session=${selectedSession}#slots-section`);
+  // Sync date if query param changes
+  useEffect(() => {
+    if (queryDate && queryDate !== selectedDate) {
+      setSelectedDate(queryDate);
+    }
+  }, [queryDate]);
+
+  // Dynamic date carousel options based on advanceBookingDays
+  const advanceDays = bookingRules?.advanceBookingDays || 14;
+  const dateOptions = useMemo(() => {
+    return Array.from({ length: advanceDays }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().split("T")[0];
+      const dayName =
+        i === 0
+          ? "Today"
+          : i === 1
+            ? "Tomorrow"
+            : d.toLocaleDateString("en-US", { weekday: "short" });
+      const formattedDate = d.toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "short",
+      });
+      return { dateStr, dayName, formattedDate };
+    });
+  }, [advanceDays]);
+
+  // Fetch slots for active turf
+  const fetchSlots = (turfId: string | number, date: string) => {
+    if (!turfId) return;
+    setLoadingSlots(true);
+    setLockError("");
+
+    api
+      .get(`/turfs/${turfId}/availability/?date=${date}`)
+      .then((res) => {
+        const loadedSlots: TimeSlot[] = res.data.slots || [];
+        setSlots(loadedSlots);
+        setAvailableSlotsCount(res.data.available_slots_count || 0);
+        setIsFastFill(res.data.is_fast_fill || false);
+
+        // Auto select slot from query if requested
+        if (querySlot) {
+          const match = loadedSlots.find(
+            (s) => String(s.id) === String(querySlot) && (s.is_available || s.status === "AVAILABLE")
+          );
+          if (match) {
+            setSelectedSlotIds([match.id]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load slot availability:", err);
+        setSlots([]);
+        setLockError("Could not fetch slots for this date. Please try again.");
+      })
+      .finally(() => setLoadingSlots(false));
   };
 
-  const filteredTurfs =
-    selectedSport === "ALL"
-      ? turfs
-      : turfs.filter((t) => t.sport_type === selectedSport);
+  // Re-fetch slots when activeTurf or selectedDate changes
+  useEffect(() => {
+    if (activeTurf?.id) {
+      setSelectedSlotIds([]);
+      fetchSlots(activeTurf.id, selectedDate);
+    }
+  }, [activeTurf?.id, selectedDate]);
+
+  // Real-time live sync for the active turf & date
+  useSlotRealtime(activeTurf?.id ? String(activeTurf.id) : undefined, selectedDate, () => {
+    if (activeTurf?.id) {
+      fetchSlots(activeTurf.id, selectedDate);
+    }
+  });
+
+  // Query schedule across all turfs for active date to populate pitch availability badges
+  useEffect(() => {
+    api
+      .get(`/turfs/schedule/?date=${selectedDate}`)
+      .then((res) => {
+        const list = res.data.turfs || [];
+        const countMap: Record<string, number> = {};
+        list.forEach((item: any) => {
+          countMap[String(item.id)] = item.available_slots_count ?? 0;
+        });
+        setPitchOpenCounts(countMap);
+      })
+      .catch(() => {});
+  }, [selectedDate]);
+
+  // Filter slots by session (Morning / Afternoon / Night)
+  const filteredSlots = useMemo(() => {
+    if (selectedSession === "MORNING") {
+      return slots.filter((s) => s.start_time >= "06:00:00" && s.start_time < "12:00:00");
+    }
+    if (selectedSession === "AFTERNOON") {
+      return slots.filter((s) => s.start_time >= "12:00:00" && s.start_time < "17:00:00");
+    }
+    if (selectedSession === "NIGHT") {
+      return slots.filter((s) => s.start_time >= "17:00:00");
+    }
+    return slots;
+  }, [slots, selectedSession]);
+
+  // Separate past slots vs active/future slots to eliminate mobile clutter
+  const isToday = selectedDate === todayStr;
+  const { visibleSlots, pastSlotsCount } = useMemo(() => {
+    const isSlotPast = (s: TimeSlot) =>
+      Boolean(s.is_past || s.slot_state === "PAST" || s.slot_state === "COMPLETED");
+
+    const pastCount = filteredSlots.filter(isSlotPast).length;
+
+    // For today, if user has not toggled showPastSlots, show only upcoming/active slots
+    if (isToday && !showPastSlots) {
+      return {
+        visibleSlots: filteredSlots.filter((s) => !isSlotPast(s)),
+        pastSlotsCount: pastCount,
+      };
+    }
+    return { visibleSlots: filteredSlots, pastSlotsCount: pastCount };
+  }, [filteredSlots, isToday, showPastSlots]);
+
+  // Slot availability counts
+  const sessionCounts = useMemo(() => {
+    return {
+      all: slots.filter((s) => s.is_available).length,
+      morning: slots.filter((s) => s.is_available && s.start_time >= "06:00:00" && s.start_time < "12:00:00").length,
+      afternoon: slots.filter((s) => s.is_available && s.start_time >= "12:00:00" && s.start_time < "17:00:00").length,
+      night: slots.filter((s) => s.is_available && s.start_time >= "17:00:00").length,
+    };
+  }, [slots]);
+
+  // Selected slots data and calculated total
+  const selectedSlotsData = useMemo(() => {
+    return slots
+      .filter((s) => selectedSlotIds.includes(s.id))
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  }, [slots, selectedSlotIds]);
+
+  const totalAmount = useMemo(() => {
+    return selectedSlotsData.reduce((sum, s) => sum + Number(s.price), 0);
+  }, [selectedSlotsData]);
+
+  // Format 24-hr time into clean 12-hr AM/PM
+  const formatSlotTime = (timeStr: string) => {
+    if (!timeStr) return "";
+    const parts = timeStr.split(":");
+    const hour = parseInt(parts[0], 10);
+    const min = parts[1] || "00";
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${hour12}:${min} ${ampm}`;
+  };
+
+  // WhatsApp squad share link
+  const squadShareUrl = useMemo(() => {
+    if (!activeTurf || selectedSlotIds.length === 0 || selectedSlotsData.length === 0) return "";
+    const firstSlot = selectedSlotsData[0];
+    const lastSlot = selectedSlotsData[selectedSlotsData.length - 1];
+    const timeText = `${formatSlotTime(firstSlot.start_time)} - ${formatSlotTime(lastSlot.end_time)}`;
+    const link = `${window.location.origin}/?turf=${activeTurf.id}&date=${selectedDate}&slot=${selectedSlotIds[0]}`;
+    const text = `*Match Alert* | Friends Turf Tiruppur: ${activeTurf.name} is open on ${selectedDate} from ${timeText} (₹${totalAmount.toLocaleString("en-IN")}). Confirm quick so I can lock our slot:\n${link}`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  }, [activeTurf, selectedSlotIds, selectedSlotsData, selectedDate, totalAmount]);
+
+  // Quick Preset Handlers
+  const handleQuickPick = (preset: "TONIGHT" | "TOMORROW" | "WEEKEND") => {
+    triggerHaptic("light");
+    if (preset === "TONIGHT") {
+      setSelectedDate(todayStr);
+      setSelectedSession("NIGHT");
+    } else if (preset === "TOMORROW") {
+      setSelectedDate(tomorrowStr);
+      setSelectedSession("NIGHT");
+    } else if (preset === "WEEKEND") {
+      const now = new Date();
+      const daysUntilSat = (6 - now.getDay() + 7) % 7 || 7;
+      const sat = new Date();
+      sat.setDate(sat.getDate() + daysUntilSat);
+      setSelectedDate(sat.toISOString().split("T")[0]);
+      setSelectedSession("ALL");
+    }
+  };
+
+  // Toggle slot selection (enforcing continuous hours)
+  const toggleSlotSelection = (slot: TimeSlot) => {
+    if (!slot.is_available || slot.status !== "AVAILABLE") return;
+    triggerHaptic("light");
+    setLockError("");
+
+    if (selectedSlotIds.includes(slot.id)) {
+      const remaining = selectedSlotIds.filter((sId) => sId !== slot.id);
+      setSelectedSlotIds(remaining);
+      return;
+    }
+
+    if (selectedSlotIds.length === 0) {
+      setSelectedSlotIds([slot.id]);
+      return;
+    }
+
+    const currentSelected = slots
+      .filter((s) => selectedSlotIds.includes(s.id))
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    const earliest = currentSelected[0];
+    const latest = currentSelected[currentSelected.length - 1];
+
+    if (slot.end_time === earliest.start_time || slot.start_time === latest.end_time) {
+      setSelectedSlotIds([...selectedSlotIds, slot.id]);
+    } else {
+      setSelectedSlotIds([slot.id]);
+      setLockError(
+        `Selected ${formatSlotTime(slot.start_time)}. Multi-slot reservations require consecutive match hours.`
+      );
+    }
+  };
+
+  // Handle proceed to lock & checkout
+  const handleProceedToLock = async () => {
+    if (!activeTurf) return;
+    if (selectedSlotIds.length === 0) {
+      setLockError("Please select at least 1 open time slot.");
+      return;
+    }
+
+    triggerHaptic("success");
+
+    // If unauthenticated, save booking intent and redirect to login
+    if (!user) {
+      saveBookingIntent({
+        turfId: String(activeTurf.id),
+        turfName: activeTurf.name,
+        date: selectedDate,
+        slotIds: selectedSlotIds,
+        turf: activeTurf,
+        selectedSlots: selectedSlotsData,
+        totalAmount,
+        returnUrl: `/?turf=${activeTurf.id}&date=${selectedDate}`,
+      });
+      navigate(`/login?redirect=/checkout`, {
+        state: {
+          from: { pathname: "/", search: `?turf=${activeTurf.id}&date=${selectedDate}` },
+          hasPendingBooking: true,
+          turfName: activeTurf.name,
+          slotCount: selectedSlotIds.length,
+          totalAmount,
+        },
+      });
+      return;
+    }
+
+    setLockLoading(true);
+    setLockError("");
+
+    try {
+      const res = await api.post("/bookings/lock/", {
+        turf_id: activeTurf.id,
+        date: selectedDate,
+        slot_ids: selectedSlotIds,
+      });
+
+      const durationMinutes = selectedSlotIds.length * 60;
+      localStorage.setItem("ft_preferred_duration_minutes", String(durationMinutes));
+
+      const lockPayload = res.data.data || res.data;
+      const slotHoldSecs = (bookingRules?.slotHoldMinutes || 5) * 60;
+      const lockedUntil =
+        res.data.locked_until ||
+        lockPayload.locked_until ||
+        res.data.expires_at ||
+        new Date(Date.now() + slotHoldSecs * 1000).toISOString();
+      const lockDurationSeconds =
+        res.data.lock_duration_seconds || lockPayload.lock_duration_seconds || slotHoldSecs;
+
+      // Navigate to checkout directly with the locked reservation
+      navigate("/checkout", {
+        state: {
+          turf: activeTurf,
+          date: selectedDate,
+          selectedDate,
+          slotIds: selectedSlotIds,
+          selectedSlotIds,
+          selectedSlots: selectedSlotsData,
+          lockedSlots: res.data.locked_slots || lockPayload.locked_slots || selectedSlotsData,
+          lockData: {
+            locked_until: lockedUntil,
+            slot_ids: selectedSlotIds,
+          },
+          lockDurationSeconds,
+          expiresAt: lockedUntil,
+          totalPrice: totalAmount,
+        },
+      });
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error ||
+        (typeof err.response?.data === "string" ? err.response?.data : null) ||
+        err.response?.data?.non_field_errors?.[0] ||
+        "Could not lock the selected slots. Someone may have just reserved them.";
+      setLockError(errorMsg);
+      triggerHaptic("error");
+      if (activeTurf?.id) {
+        fetchSlots(activeTurf.id, selectedDate);
+      }
+    } finally {
+      setLockLoading(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen">
-      {/* Fixed Full-Page Athletic Ground Watermark (Subtle, Premium, Low-Contrast Slate/White Architectural Geometry) */}
+      {/* Background Subtle Depth Glows */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center">
-        {/* Soft Ambient Depth Glows (Ultra-dimmed, non-distracting) */}
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[1200px] h-[500px] bg-gradient-to-b from-emerald-500/[0.03] via-slate-200/[0.04] to-transparent blur-3xl" />
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[1200px] h-[500px] bg-gradient-to-b from-emerald-500/[0.04] via-slate-200/[0.03] to-transparent blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-emerald-500/[0.02] blur-3xl rounded-full" />
-        <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-[1200px] h-[500px] bg-gradient-to-t from-emerald-500/[0.02] to-transparent blur-3xl" />
-
-        {/* Tactical FIFA Pitch Geometry SVG — Dimmed, Wide Architectural Blueprint in Slate/White */}
-        <svg
-          className="w-full h-full max-w-[1680px] max-h-[960px] px-2 sm:px-6 opacity-[0.09] sm:opacity-[0.13]"
-          viewBox="0 0 1200 700"
-          fill="none"
-          stroke="#94A3B8"
-          strokeWidth="1.75"
-        >
-          {/* Outer Pitch Boundary */}
-          <rect x="40" y="25" width="1120" height="650" rx="14" />
-          
-          {/* Halfway Line & Center Circle */}
-          <line x1="600" y1="25" x2="600" y2="675" strokeWidth="1.75" />
-          <circle cx="600" cy="350" r="110" strokeWidth="1.75" />
-          <circle cx="600" cy="350" r="4.5" fill="#94A3B8" />
-
-          {/* Left Penalty Area, Goal Box, Spot & Arc */}
-          <rect x="40" y="165" width="200" height="370" />
-          <rect x="40" y="250" width="75" height="200" />
-          <circle cx="155" cy="350" r="4" fill="#94A3B8" />
-          <path d="M 240 280 A 90 90 0 0 1 240 420" strokeDasharray="5 5" />
-
-          {/* Right Penalty Area, Goal Box, Spot & Arc */}
-          <rect x="960" y="165" width="200" height="370" />
-          <rect x="1085" y="250" width="75" height="200" />
-          <circle cx="1045" cy="350" r="4" fill="#94A3B8" />
-          <path d="M 960 280 A 90 90 0 0 0 960 420" strokeDasharray="5 5" />
-
-          {/* Corner Arcs (All 4 Corners) */}
-          <path d="M 40 60 A 35 35 0 0 1 75 25" />
-          <path d="M 1125 25 A 35 35 0 0 1 1160 60" />
-          <path d="M 40 640 A 35 35 0 0 0 75 675" />
-          <path d="M 1125 675 A 35 35 0 0 0 1160 640" />
-        </svg>
       </div>
 
-      {/* Main Page Content Layers (Scrollable above fixed pitch background) */}
-      <div className="relative z-10 space-y-14 sm:space-y-20 pb-10 sm:pb-14">
-        {/* 1. Hero Section */}
-        <section className="pt-2 pb-10 sm:pt-6 sm:pb-16 border-b border-slate-200/60">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
-            <div className="text-center max-w-3xl mx-auto space-y-3 sm:space-y-4">
-            {/* Live Operational Ticker Badge */}
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white border border-emerald-200 text-[#059669] text-xs font-bold shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-              <span className="tracking-wide uppercase">
-                OFFICIAL BOOKING PORTAL • {company.name}, TIRUPPUR
-              </span>
-            </div>
-
-            {/* Display / Hero H1 */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-[1.15]">
-              PLAY HARD.{" "}
-              <span className="text-[#059669] drop-shadow-sm">
-                BOOK DIRECT.
-              </span>
-              <br />
-              OWN THE PITCH.
-            </h1>
-
-            {/* Subtext */}
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-normal max-w-2xl mx-auto">
-              Reserve our tournament-grade artificial football & box cricket pitches in Tiruppur ({company.address}) with guaranteed {booking.slotHoldMinutes}-minute slot lock and instant digital pass.
-            </p>
-          </div>
-
-          {/* 2. Unified Hero Booking Console */}
-          <div className="max-w-4xl mx-auto">
-            <SearchFilterBar
-              turfs={turfs}
-              selectedTurfId={selectedTurfId}
-              onSelectTurfId={setSelectedTurfId}
-              selectedSport={selectedSport}
-              onSelectSport={setSelectedSport}
-              selectedDate={selectedDate}
-              onDateChange={setSelectedDate}
-              selectedSession={selectedSession}
-              onSessionChange={setSelectedSession}
-              onSearchSubmit={handleSearchSubmit}
-            />
-          </div>
-
-          {/* 3. Live Stats Counter Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 max-w-4xl mx-auto pt-2">
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
-              <p className="text-2xl sm:text-3xl font-black text-[#059669]">Pro</p>
-              <p className="text-xs font-bold text-slate-600 mt-0.5">Tournament Pitches</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
-              <p className="text-2xl sm:text-3xl font-black text-slate-900">100%</p>
-              <p className="text-xs font-bold text-slate-600 mt-0.5">Direct Booking (0% Brokerage)</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
-              <p className="text-2xl sm:text-3xl font-black text-[#059669]">{booking.slotHoldMinutes} Min</p>
-              <p className="text-xs font-bold text-slate-600 mt-0.5">Auto Slot Hold Lock</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm text-center hover:border-emerald-300 transition-all">
-              <p className="text-2xl sm:text-3xl font-black text-slate-900">4.9 ★</p>
-              <p className="text-xs font-bold text-slate-600 mt-0.5">Verified Player Rating</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. Live Daily Pitch Schedule Matrix */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <DailyScheduleMatrix selectedSport={selectedSport} />
-      </section>
-
-      {/* 3. Featured Grounds Section (PitchCard Grid) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3">
-          <div>
-            <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
-              Our Athletic Arenas
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-6 space-y-4 sm:space-y-6 pb-28 md:pb-16">
+        {/* 1. Header Banner (Compact & Streamlined) */}
+        <section className="text-center max-w-3xl mx-auto space-y-1.5 sm:space-y-2.5">
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white border border-emerald-200 text-[#059669] text-[11px] sm:text-xs font-bold shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+            <span className="tracking-wide uppercase">
+              LIVE SCHEDULE • {company.name}, TIRUPPUR
             </span>
-            <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
-              Pitches & Courts at {company.name}, Tiruppur
-            </h2>
-            <p className="text-sm text-slate-600 mt-0.5">
-              High-performance artificial turf with anti-glare floodlights at our facility in {company.address}.
-            </p>
           </div>
 
-          <Link
-            to="/turfs"
-            className="inline-flex items-center space-x-1.5 text-sm font-bold text-[#059669] hover:text-[#047857] hover:underline"
-          >
-            <span>View pitch specs</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
+          <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+            SELECT A SLOT.{" "}
+            <span className="text-[#059669] drop-shadow-2xs">LOCK & PLAY.</span>
+          </h1>
 
-        {/* Pitch Cards Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden flex flex-col animate-pulse shadow-sm h-[440px]"
-              >
-                <div className="h-52 sm:h-56 bg-slate-200/70 w-full shrink-0" />
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <div className="w-3/4 h-5 rounded bg-slate-200/80" />
-                    <div className="w-1/2 h-3.5 rounded bg-slate-200/60" />
-                  </div>
-                  <div className="space-y-2 py-1">
-                    <div className="w-full h-8 rounded-xl bg-slate-100" />
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <div className="w-20 h-5 rounded bg-slate-200/70" />
-                    <div className="w-24 h-9 rounded-xl bg-slate-200/80" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {filteredTurfs.map((turf) => (
-              <PitchCard key={turf.id} turf={turf} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 4. Interactive Squad Fee Split Calculator Widget */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <SquadSplitWidget turfs={turfs} />
-      </section>
-
-      {/* 5. Amenity Section (AmenityGrid) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div>
-          <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
-            Match-Day Amenities
-          </span>
-          <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
-            Engineered for High Performance
-          </h2>
-          <p className="text-sm text-slate-600 mt-0.5">
-            Every match at {company.name} comes standard with tournament-ready amenities.
+          <p className="text-[11px] sm:text-xs text-slate-600 font-medium max-w-xl mx-auto">
+            Direct pitch reservations in Tiruppur. Guaranteed {bookingRules.slotHoldMinutes}-minute slot lock with 0% broker fees.
           </p>
-        </div>
+        </section>
 
-        <AmenityGrid />
-      </section>
+        {/* 2. Unified Slot Checking Console */}
+        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-pitch-card overflow-hidden">
+          {/* Pitch Selector Segmented Tabs with Live Availability Indicators */}
+          <div className="border-b border-slate-200/80 bg-slate-50/80 p-2 sm:p-3">
+            <div className="flex items-center justify-between gap-2 mb-1.5 px-1">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                1. Select Arena Pitch
+              </span>
+              {activeTurf && (
+                <span className="text-xs font-bold text-[#059669]">
+                  Base: ₹{Number(activeTurf.base_price).toLocaleString("en-IN")}/hr
+                </span>
+              )}
+            </div>
 
-      {/* 6. Frictionless Workflow (4 Steps) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 sm:p-10 space-y-8">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider">
-              Seamless Match Access
-            </span>
-            <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
-              From Screen to Kickoff in 60 Seconds
-            </h2>
-            <p className="text-sm text-slate-600">
-              Direct booking, zero double bookings. Instant digital verification at the {company.name} gate.
-            </p>
+            {loadingTurfs ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="h-11 rounded-xl bg-slate-200 animate-pulse" />
+                <div className="h-11 rounded-xl bg-slate-200 animate-pulse" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2">
+                {turfs.map((turf) => {
+                  const isSelected = activeTurf?.id === turf.id;
+                  const openCount = pitchOpenCounts[String(turf.id)];
+
+                  return (
+                    <button
+                      key={turf.id}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setSelectedTurfId(turf.id);
+                        setSearchParams({ turf: String(turf.id), date: selectedDate });
+                      }}
+                      className={`group p-2 sm:p-2.5 rounded-xl sm:rounded-2xl text-left transition-all duration-200 cursor-pointer flex items-center justify-between gap-2.5 sm:gap-3 border ${
+                        isSelected
+                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-600/20 scale-[1.01]"
+                          : "bg-white border-slate-200/90 text-slate-700 hover:border-emerald-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        {/* Turf Preview Image */}
+                        <div
+                          className={`relative w-11 h-11 sm:w-13 sm:h-13 rounded-lg sm:rounded-xl overflow-hidden shrink-0 transition-transform duration-300 group-hover:scale-105 ${
+                            isSelected
+                              ? "ring-2 ring-white/40 shadow-xs"
+                              : "border border-slate-200/90 shadow-xs bg-slate-100"
+                          }`}
+                        >
+                          <img
+                            src={resolveImageUrl(turf.images && turf.images.length > 0 ? turf.images[0] : null, turf.sport_type)}
+                            alt={turf.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover"
+                            onError={(e) => handleImageError(e, turf.sport_type)}
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1 pr-1">
+                          <div className="flex items-center space-x-1.5">
+                            <span
+                              className={`text-[9px] sm:text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md ${
+                                isSelected ? "bg-white/20 text-white" : "bg-emerald-50 text-[#059669] border border-emerald-200/60"
+                              }`}
+                            >
+                              {turf.sport_type}
+                            </span>
+                            <span className="text-xs font-black truncate">{turf.name}</span>
+                          </div>
+                          <p
+                            className={`text-[10px] sm:text-[11px] mt-0.5 truncate ${
+                              isSelected ? "text-emerald-100" : "text-slate-500"
+                            }`}
+                          >
+                            {turf.dimensions || "Tournament Pitch"} • {turf.surface_spec?.split(" ")[0] || "50mm"} Turf
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`text-xs font-black ${
+                            isSelected ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          ₹{Number(turf.base_price).toLocaleString("en-IN")}
+                        </span>
+                        {openCount !== undefined ? (
+                          <span
+                            className={`inline-flex items-center text-[9px] font-extrabold uppercase mt-0.5 ${
+                              isSelected
+                                ? "text-emerald-100"
+                                : openCount > 0
+                                  ? "text-[#059669]"
+                                  : "text-slate-400"
+                            }`}
+                          >
+                            {openCount > 0 ? (
+                              <>
+                                <span className={`w-1.5 h-1.5 rounded-full inline-block mr-1 ${isSelected ? "bg-white" : "bg-emerald-500"}`} />
+                                <span>{openCount} Open</span>
+                              </>
+                            ) : (
+                              "Sold Out"
+                            )}
+                          </span>
+                        ) : (
+                          <span
+                            className={`block text-[9px] uppercase font-bold ${
+                              isSelected ? "text-emerald-200" : "text-slate-400"
+                            }`}
+                          >
+                            /hour
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Step 1 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
-                1
-              </div>
-              <h4 className="text-[16px] font-bold text-slate-900">Select Pitch & Date</h4>
-              <p className="text-[13px] text-slate-600 leading-relaxed">
-                Choose your preferred pitch and game slot at {company.name}, Tiruppur.
-              </p>
+          {/* Main Slot Console Body */}
+          <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+            {/* Quick Match Shortcuts Bar */}
+            <div className="flex items-center space-x-1.5 sm:space-x-2 overflow-x-auto pb-1 text-xs scrollbar-none">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 shrink-0 flex items-center space-x-1">
+                <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#059669]" />
+                <span>Quick:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => handleQuickPick("TONIGHT")}
+                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer shrink-0 border flex items-center space-x-1 ${
+                  selectedDate === todayStr && selectedSession === "NIGHT"
+                    ? "bg-[#059669] text-white border-[#059669] shadow-2xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50"
+                }`}
+              >
+                <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+                <span>Tonight (6-12 PM)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickPick("TOMORROW")}
+                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer shrink-0 border flex items-center space-x-1 ${
+                  selectedDate === tomorrowStr && selectedSession === "NIGHT"
+                    ? "bg-[#059669] text-white border-[#059669] shadow-2xs"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50"
+                }`}
+              >
+                <Moon className="w-3 h-3 text-indigo-500 fill-indigo-500/20" />
+                <span>Tomorrow Night</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickPick("WEEKEND")}
+                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer shrink-0 border bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 flex items-center space-x-1"
+              >
+                <Calendar className="w-3 h-3 text-emerald-600" />
+                <span>Weekend</span>
+              </button>
             </div>
 
-            {/* Step 2 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
-                2
+            {/* Step 2: Date Selector Carousel */}
+            <div className="space-y-1.5 sm:space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  2. Select Match Date
+                </span>
+                <span className="text-[11px] sm:text-xs font-semibold text-slate-500">
+                  {advanceDays} Days window
+                </span>
               </div>
-              <h4 className="text-[16px] font-bold text-slate-900">{booking.slotHoldMinutes}-Minute Slot Hold</h4>
-              <p className="text-[13px] text-slate-600 leading-relaxed">
-                Our reservation lock guarantees nobody snatches your slot while you confirm your squad.
-              </p>
+
+              {/* Horizontal Scrollable Date Carousel */}
+              <div className="flex items-center space-x-1.5 sm:space-x-2 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin scrollbar-thumb-slate-200">
+                {dateOptions.map((opt) => {
+                  const isSelected = selectedDate === opt.dateStr;
+                  return (
+                    <button
+                      key={opt.dateStr}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setSelectedDate(opt.dateStr);
+                        if (activeTurf?.id) {
+                          setSearchParams({ turf: String(activeTurf.id), date: opt.dateStr });
+                        }
+                      }}
+                      className={`px-2.5 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl text-center shrink-0 border transition-all cursor-pointer active:scale-95 min-w-[62px] sm:min-w-[76px] ${
+                        isSelected
+                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/25 scale-105"
+                          : "bg-[#F8FAFC] border-slate-200/90 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <p
+                        className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
+                          isSelected ? "text-emerald-100" : "text-slate-500"
+                        }`}
+                      >
+                        {opt.dayName}
+                      </p>
+                      <p className="text-xs sm:text-sm font-black mt-0.5 whitespace-nowrap">
+                        {opt.formattedDate}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Step 3 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
-                3
+            {/* Step 3: Session Filter & Match Duration */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-100">
+              {/* Session Filter Tabs */}
+              <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100/80 rounded-xl sm:rounded-2xl border border-slate-200/80 text-xs font-bold max-w-md">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedSession("ALL");
+                  }}
+                  className={`py-1 px-1.5 sm:py-1.5 sm:px-2 rounded-lg sm:rounded-xl text-center transition-all cursor-pointer ${
+                    selectedSession === "ALL"
+                      ? "bg-white text-slate-900 shadow-2xs font-extrabold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span className="text-[11px] sm:text-xs">All ({sessionCounts.all})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedSession("MORNING");
+                  }}
+                  className={`py-1 px-1 sm:py-1.5 sm:px-1.5 rounded-lg sm:rounded-xl text-center transition-all cursor-pointer flex items-center justify-center space-x-1 ${
+                    selectedSession === "MORNING"
+                      ? "bg-white text-[#059669] shadow-2xs font-extrabold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="06:00 AM - 12:00 PM"
+                >
+                  <Sunrise className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#059669]" />
+                  <span className="text-[11px] sm:text-xs">Morn ({sessionCounts.morning})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedSession("AFTERNOON");
+                  }}
+                  className={`py-1 px-1 sm:py-1.5 sm:px-1.5 rounded-lg sm:rounded-xl text-center transition-all cursor-pointer flex items-center justify-center space-x-1 ${
+                    selectedSession === "AFTERNOON"
+                      ? "bg-white text-amber-700 shadow-2xs font-extrabold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="12:00 PM - 05:00 PM"
+                >
+                  <Sun className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
+                  <span className="text-[11px] sm:text-xs">Noon ({sessionCounts.afternoon})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic("light");
+                    setSelectedSession("NIGHT");
+                  }}
+                  className={`py-1 px-1 sm:py-1.5 sm:px-1.5 rounded-lg sm:rounded-xl text-center transition-all cursor-pointer flex items-center justify-center space-x-1 ${
+                    selectedSession === "NIGHT"
+                      ? "bg-white text-indigo-700 shadow-2xs font-extrabold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="05:00 PM - 12:00 AM (Floodlit Prime)"
+                >
+                  <Moon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-600" />
+                  <span className="text-[11px] sm:text-xs">Night ({sessionCounts.night})</span>
+                </button>
               </div>
-              <h4 className="text-[16px] font-bold text-slate-900">Pay Full or Deposit</h4>
-              <p className="text-[13px] text-slate-600 leading-relaxed">
-                Pay online via UPI, credit card, turf wallet, or reserve with an advance deposit.
-              </p>
-            </div>
 
-            {/* Step 4 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-[#F8FAFC] border border-slate-100 hover:border-emerald-200 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center font-extrabold text-base shadow-sm">
-                4
-              </div>
-              <h4 className="text-[16px] font-bold text-slate-900">Scan QR & Play</h4>
-              <p className="text-[13px] text-slate-600 leading-relaxed">
-                Show your cryptographic QR pass at the entrance counter for instant contactless check-in.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. Verified Player Reviews & Community Feedback */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <VerifiedReviewsSection />
-      </section>
-
-      {/* 8. Match-Day FAQs & Guidelines Accordion */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <MatchDayFAQ />
-      </section>
-
-      {/* 9. Campus Location & Contact Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-7 space-y-4">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
-                <MapPin className="w-3.5 h-3.5" />
-                <span>VISIT OUR COMPLEX</span>
-              </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                {company.name}, Tiruppur
-              </h3>
-              <p className="text-sm text-slate-300 leading-relaxed max-w-xl">
-                {company.address}. Easy access with secure two-wheeler and four-wheeler parking, high-output floodlit arenas, clean washrooms, and player seating dugouts.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
-                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <span className="text-slate-400 block font-medium">Daily Hours</span>
-                  <span className="font-bold text-emerald-400 mt-0.5 block">{hours.openTime} – {hours.closeTime}</span>
+              {/* Match Duration Selector */}
+              <div className="flex items-center justify-between sm:justify-end space-x-2 text-xs">
+                <span className="text-slate-500 font-semibold flex items-center space-x-1 text-[11px] sm:text-xs">
+                  <Clock className="w-3 h-3 text-[#059669]" />
+                  <span>Duration:</span>
+                </span>
+                <div className="flex items-center space-x-1">
+                  {[60, 90, 120].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setPreferredDuration(mins);
+                        localStorage.setItem("ft_preferred_duration_minutes", String(mins));
+                      }}
+                      className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition cursor-pointer ${
+                        preferredDuration === mins
+                          ? "bg-[#059669] text-white shadow-2xs"
+                          : "bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200"
+                      }`}
+                    >
+                      {mins}m
+                    </button>
+                  ))}
                 </div>
-                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <span className="text-slate-400 block font-medium">Contact & Booking</span>
-                  {company.phone && (
-                    <a href={`tel:${company.phone.replace(/[^\d+]/g, "")}`} className="font-bold text-white mt-0.5 block hover:text-emerald-400">
-                      {company.phone}
-                    </a>
+              </div>
+            </div>
+
+            {/* Fast-Fill Demand Banner */}
+            {isFastFill && (
+              <div className="flex items-center space-x-1.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] sm:text-xs font-bold text-amber-900 animate-pulse">
+                <Flame className="w-3.5 h-3.5 text-[#F59E0B] fill-[#F59E0B]" />
+                <span>Prime Match Slots Filling Fast for this date! Lock your time slot now.</span>
+              </div>
+            )}
+
+            {/* Step 4: High-Density Interactive Time Slots Grid */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    3. Select Time Slot
+                  </span>
+                  <span className="text-[11px] sm:text-xs font-bold text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {availableSlotsCount} Open
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2 text-[10px] sm:text-[11px] font-semibold text-slate-500">
+                  {/* Past slots toggle button for today */}
+                  {isToday && pastSlotsCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPastSlots(!showPastSlots)}
+                      className="inline-flex items-center space-x-1 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md transition cursor-pointer font-bold"
+                    >
+                      {showPastSlots ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showPastSlots ? "Hide Ended" : `${pastSlotsCount} Ended`}</span>
+                    </button>
                   )}
-                  {company.whatsapp && company.whatsapp !== company.phone && (
-                    <a href={`tel:${company.whatsapp.replace(/[^\d+]/g, "")}`} className="font-bold text-white block hover:text-emerald-400">
-                      {company.whatsapp}
-                    </a>
-                  )}
-                </div>
-                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <span className="text-slate-400 block font-medium">Landmark & Parking</span>
-                  <span className="font-bold text-white mt-0.5 block">RTO Office Backside</span>
-                  <span className="text-slate-400 text-[11px] block">Free On-Site Parking</span>
+
+                  <div className="hidden sm:flex items-center space-x-3">
+                    <span className="flex items-center space-x-1">
+                      <span className="w-2 h-2 rounded-full bg-[#059669]" />
+                      <span>Open</span>
+                    </span>
+                    <span className="flex items-center space-x-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span>Held (5m)</span>
+                    </span>
+                    <span className="flex items-center space-x-1">
+                      <span className="w-2 h-2 rounded-full bg-slate-300" />
+                      <span>Booked</span>
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              {loadingSlots ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-12 rounded-xl bg-slate-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : visibleSlots.length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                  {visibleSlots.map((slot) => {
+                    const isSelected = selectedSlotIds.includes(slot.id);
+                    const isAvail = slot.is_available;
+                    const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
+                    const isPast = slot.is_past || slot.slot_state === "PAST" || slot.slot_state === "COMPLETED";
+                    const isHeld = slot.status === "LOCKED";
+                    const isNight = slot.start_time >= "18:00:00";
+
+                    return (
+                      <button
+                        key={slot.id}
+                        id={`slot-${slot.id}`}
+                        type="button"
+                        disabled={!isAvail}
+                        onClick={() => toggleSlotSelection(slot)}
+                        title={
+                          isAvail
+                            ? `Select ${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)} (₹${Number(slot.price)})`
+                            : isOngoing
+                              ? `Match in session (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
+                              : isPast
+                                ? `Slot time ended (${formatSlotTime(slot.start_time)})`
+                                : slot.status
+                        }
+                        className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all duration-150 active:scale-95 select-none cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/25 scale-[1.02] ring-2 ring-emerald-500/30"
+                            : isAvail
+                              ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900"
+                              : isOngoing
+                                ? "bg-amber-50/90 border-amber-300 text-amber-950 cursor-not-allowed shadow-2xs"
+                                : isHeld
+                                  ? "bg-amber-50/70 border-amber-200 text-amber-900 cursor-not-allowed opacity-90"
+                                  : "bg-slate-100/70 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed line-through"
+                        }`}
+                      >
+                        {/* Top Line: Start Time & Sun/Lock Icons */}
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-[11px] sm:text-xs font-black flex items-center truncate">
+                            {isOngoing && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1 inline-block" />
+                            )}
+                            <span>{formatSlotTime(slot.start_time)}</span>
+                          </span>
+                          {isNight && isAvail && (
+                            <Sun className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${isSelected ? "text-amber-200" : "text-amber-500"}`} />
+                          )}
+                          {isHeld && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-600" />}
+                        </div>
+
+                        {/* Bottom Line: Price & Status */}
+                        <div className="mt-1 flex items-center justify-between w-full">
+                          <span
+                            className={`text-[10px] sm:text-xs font-black ${
+                              isSelected
+                                ? "text-white"
+                                : isHeld
+                                  ? "text-amber-950"
+                                  : isPast
+                                    ? "text-slate-400 line-through"
+                                    : "text-slate-900"
+                            }`}
+                          >
+                            ₹{Number(slot.price).toLocaleString("en-IN")}
+                          </span>
+                          <span
+                            className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tight ${
+                              isSelected
+                                ? "text-emerald-100"
+                                : isAvail
+                                  ? "text-[#059669]"
+                                  : isOngoing
+                                    ? "text-amber-700"
+                                    : isHeld
+                                      ? "text-amber-700"
+                                      : "text-slate-400"
+                            }`}
+                          >
+                            {isSelected
+                              ? "Pick"
+                              : isAvail
+                                ? "Open"
+                                : isOngoing
+                                  ? "Live"
+                                  : isHeld
+                                    ? "Held"
+                                    : isPast
+                                      ? "Ended"
+                                      : slot.status.toLowerCase()}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-200 space-y-2.5 p-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-slate-800">
+                    No slots open for the {selectedSession.toLowerCase()} period on this date.
+                  </p>
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    Prime match hours on {selectedDate} may already be booked. Try viewing all sessions or jump to tomorrow.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    {selectedSession !== "ALL" && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSession("ALL")}
+                        className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-800 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                      >
+                        View All Hours on {selectedDate}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(selectedDate);
+                        d.setDate(d.getDate() + 1);
+                        setSelectedDate(d.toISOString().split("T")[0]);
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#059669] text-white text-xs font-bold hover:bg-[#047857] transition shadow-2xs cursor-pointer flex items-center space-x-1"
+                    >
+                      <span>Check Tomorrow ({">"})</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="lg:col-span-5 flex flex-col items-center justify-center p-6 rounded-2xl bg-slate-800/40 border border-slate-700/50 text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#059669] flex items-center justify-center text-white shadow-emerald-glow">
-                <Navigation className="w-7 h-7" />
+            {/* Error Message */}
+            {lockError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{lockError}</span>
               </div>
-              <div>
-                <h4 className="text-lg font-bold text-white">Find Us on Maps</h4>
-                <p className="text-xs text-slate-400 mt-1">
-                  {company.address}
+            )}
+
+            {/* Step 5: Desktop Lock & Proceed Console */}
+            <div className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-50 border border-slate-200/90 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+              <div className="space-y-0.5 sm:space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Selected Match Reservation
+                  </span>
+                  {selectedSlotIds.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#059669] text-[10px] sm:text-xs font-black">
+                      {selectedSlotIds.length} Slot(s) ({selectedSlotIds.length * 60} Mins)
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
+                    ₹{totalAmount.toLocaleString("en-IN")}
+                  </span>
+                  {selectedSlotsData.length > 0 && (
+                    <span className="text-[11px] sm:text-xs text-slate-600 font-medium truncate">
+                      {activeTurf?.name} • {formatSlotTime(selectedSlotsData[0]?.start_time)} to{" "}
+                      {formatSlotTime(selectedSlotsData[selectedSlotsData.length - 1]?.end_time)}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center space-x-1">
+                  <Lock className="w-3 h-3 text-[#059669]" />
+                  <span>
+                    Guaranteed {bookingRules.slotHoldMinutes}-minute lock on pitch reservation during checkout.
+                  </span>
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <a
-                  href={`https://maps.google.com/?q=${encodeURIComponent(company.name + " " + company.address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-3 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md transition-all"
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* 1-Tap Squad WhatsApp Share Button */}
+                {selectedSlotIds.length > 0 && (
+                  <a
+                    href={squadShareUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full md:w-auto px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#128C7E] font-bold text-xs flex items-center justify-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
+                    title="Share slot details with your squad on WhatsApp"
+                  >
+                    <svg className="w-4 h-4 text-[#25D366] fill-current" viewBox="0 0 24 24">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                    </svg>
+                    <span>Share on WhatsApp</span>
+                  </a>
+                )}
+
+                <button
+                  type="button"
+                  disabled={selectedSlotIds.length === 0 || lockLoading}
+                  onClick={handleProceedToLock}
+                  className="w-full md:w-auto px-5 py-3 sm:px-7 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#059669] hover:bg-[#047857] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-emerald-glow transition-all active:scale-95 cursor-pointer"
                 >
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>Get Directions</span>
-                </a>
-                <Link
-                  to="/turfs"
-                  className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-slate-600 transition-all"
-                >
-                  <span>Book Pitch</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                  {lockLoading ? (
+                    <span className="flex items-center space-x-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Reserving Slot Lock...</span>
+                    </span>
+                  ) : !user ? (
+                    <>
+                      <span>Sign In & Book ({selectedSlotIds.length > 0 ? `₹${totalAmount}` : "Select Slot"})</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Lock Slot & Proceed to Booking</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
+        </section>
+
+        {/* 3. Compact Pitch Specs & Amenities Accordion */}
+        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 p-3.5 sm:p-6 space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowPitchSpecs(!showPitchSpecs)}
+            className="w-full flex items-center justify-between text-left cursor-pointer group"
+          >
+            <div className="flex items-center space-x-2.5 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-emerald-50 text-[#059669] flex items-center justify-center font-bold">
+                <Info className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-base font-bold text-slate-900 group-hover:text-[#059669] transition">
+                  Pitch Specifications & Match Amenities
+                </h3>
+                <p className="text-[10px] sm:text-xs text-slate-500">
+                  Surface details, floodlights, dugouts & facilities at {company.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-1 text-xs font-bold text-[#059669]">
+              <span>{showPitchSpecs ? "Hide" : "Specs"}</span>
+              {showPitchSpecs ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </div>
+          </button>
+
+          {showPitchSpecs && (
+            <div className="pt-3 border-t border-slate-100 space-y-4 animate-in fade-in duration-200">
+              {/* Pitch Spec Pills */}
+              {activeTurf && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-200/70">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400">Dimensions</span>
+                    <p className="text-xs sm:text-sm font-black text-slate-900 mt-0.5">{activeTurf.dimensions || "Tournament Standard"}</p>
+                  </div>
+                  <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-200/70">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400">Surface Spec</span>
+                    <p className="text-xs sm:text-sm font-black text-slate-900 mt-0.5">{activeTurf.surface_spec || "50mm Monofilament"}</p>
+                  </div>
+                  <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-200/70">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400">Lighting</span>
+                    <p className="text-xs sm:text-sm font-black text-slate-900 mt-0.5">{activeTurf.lighting_spec || "400 Lux Anti-Glare"}</p>
+                  </div>
+                  <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-slate-50 border border-slate-200/70">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400">Format & Capacity</span>
+                    <p className="text-xs sm:text-sm font-black text-slate-900 mt-0.5">{activeTurf.capacity ? `${activeTurf.capacity} Players` : "7v7 Standard"}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Match Amenities Grid */}
+              <AmenityGrid />
+
+              {/* Venue Location in Tiruppur */}
+              <div className="p-3 rounded-xl sm:rounded-2xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center space-x-2.5">
+                  <MapPin className="w-4 h-4 text-[#059669] shrink-0" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">Venue Location</h4>
+                    <p className="text-[11px] text-slate-600">{company.address || "Dharapuram Road, Tiruppur, Tamil Nadu"}</p>
+                  </div>
+                </div>
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(company.address || "Friends Turf Tiruppur")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1 rounded-lg bg-white border border-emerald-300 text-[#059669] text-xs font-bold flex items-center justify-center space-x-1 hover:bg-emerald-50 transition shadow-2xs self-start sm:self-auto"
+                >
+                  <Navigation className="w-3 h-3" />
+                  <span>Get Directions</span>
+                </a>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 4. Verified Player Reviews Strip */}
+        <section className="space-y-3">
+          <VerifiedReviewsSection />
+        </section>
+
+        {/* 5. Match Day FAQs */}
+        <section className="space-y-3">
+          <MatchDayFAQ />
+        </section>
+      </div>
+
+      {/* 6. Sticky Mobile Booking Bottom Dock (Visible only on mobile when slot is picked) */}
+      {selectedSlotIds.length > 0 && (
+        <div className="fixed bottom-16 inset-x-0 z-40 md:hidden px-3 pb-2 animate-in slide-in-from-bottom-5 duration-200">
+          <div className="bg-slate-950/95 text-white backdrop-blur-2xl rounded-xl p-3 shadow-[0_16px_40px_rgba(0,0,0,0.35)] border border-slate-800 flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-base font-black font-mono text-emerald-400">
+                  ₹{totalAmount.toLocaleString("en-IN")}
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold">
+                  • {selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                {selectedSlotsData[0] ? formatSlotTime(selectedSlotsData[0].start_time) : ""} -{" "}
+                {selectedSlotsData[selectedSlotsData.length - 1]
+                  ? formatSlotTime(selectedSlotsData[selectedSlotsData.length - 1].end_time)
+                  : ""}
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-1.5 shrink-0">
+              {/* Mobile WhatsApp Share Icon */}
+              <a
+                href={squadShareUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 rounded-lg bg-[#25D366]/20 border border-[#25D366]/40 text-[#25D366] flex items-center justify-center active:scale-95 transition"
+                title="Share on WhatsApp"
+              >
+                <svg className="w-4 h-4 text-[#25D366] fill-current" viewBox="0 0 24 24">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                </svg>
+              </a>
+
+              <button
+                type="button"
+                disabled={lockLoading}
+                onClick={handleProceedToLock}
+                className="px-3.5 py-2 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-black text-xs flex items-center space-x-1.5 shadow-md shadow-emerald-600/40 active:scale-95 transition-all cursor-pointer"
+              >
+                {lockLoading ? (
+                  <span>Locking...</span>
+                ) : (
+                  <>
+                    <span>Reserve & Pay</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
+      )}
     </div>
-  </div>
-);
+  );
 };

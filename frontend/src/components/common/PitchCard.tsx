@@ -147,7 +147,7 @@ export const PitchCard: React.FC<PitchCardProps> = ({ turf, featured = false }) 
 
         {/* 5. Action CTA */}
         <Link
-          to={`/turfs/${turf.id}`}
+          to={`/?turf=${turf.id}`}
           className="w-full py-3 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-[14px] flex items-center justify-center space-x-2 shadow-sm transition-all duration-200 active:scale-[0.99]"
         >
           <span>Book Pitch Slots</span>

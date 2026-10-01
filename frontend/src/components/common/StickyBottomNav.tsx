@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Compass, CalendarCheck, Shield, User, Wallet, LayoutDashboard, QrCode } from "lucide-react";
+import { Compass, CalendarCheck, Shield, User, Wallet, LayoutDashboard, QrCode, Zap } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export const StickyBottomNav: React.FC = () => {
@@ -41,9 +41,8 @@ export const StickyBottomNav: React.FC = () => {
       ];
     }
     return [
-      { label: "Explore", to: "/", icon: Compass },
-      { label: "Grounds", to: "/turfs", icon: Shield },
-      { label: "Bookings", to: "/my-bookings", icon: CalendarCheck },
+      { label: "Book Slot", to: "/", icon: Zap },
+      { label: "My Matches", to: "/my-bookings", icon: CalendarCheck },
       {
         label: "Wallet",
         to: "/wallet",

@@ -51,7 +51,7 @@ export const TurfListingPage: React.FC = () => {
   const handleSearchSubmit = () => {
     const targetId = selectedTurfId || turfs[0]?.id;
     if (targetId) {
-      navigate(`/turfs/${targetId}?date=${selectedDate}&session=${selectedSession}#slots-section`);
+      navigate(`/?turf=${targetId}&date=${selectedDate}&session=${selectedSession}`);
     } else {
       setSearchParams({
         sport: selectedSport,

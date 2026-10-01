@@ -11,17 +11,13 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  CheckCircle2,
-  Sparkles,
-  MapPin,
   Star,
-  Zap,
   ChevronLeft,
   ChevronRight,
   UserCheck,
+  Phone,
 } from "lucide-react";
 import api from "../../services/api";
-import { useUserAvailability } from "../../hooks/useUserAvailability";
 import { getBookingIntent, clearBookingIntent } from "../../utils/bookingIntent";
 import { useBusinessSettings } from "../../context/BusinessSettingsContext";
 
@@ -39,25 +35,45 @@ export const LoginPage: React.FC = () => {
 
   const dynamicClientId = (auth?.google_client_id || import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 
+  // Authentication Switcher (Mobile Phone vs Email)
+  const [authMethod, setAuthMethod] = useState<"PHONE" | "EMAIL">("PHONE");
+
+  // Form Fields
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Status & UI
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [reviews, setReviews] = useState<any[]>([]);
   const [activeReviewIdx, setActiveReviewIdx] = useState(0);
 
-  const emailAvailability = useUserAvailability("email");
+  const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setEmail(val);
-    emailAvailability.check(val);
+  // Phone input formatting & validation
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("91") && digits.length > 10) {
+      digits = digits.slice(2);
+    }
+    digits = digits.slice(0, 10);
+    setPhone(digits);
+    setError("");
   };
 
-  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const isIndianMobileValid = (digits: string) => {
+    return /^[6-9]\d{9}$/.test(digits);
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    setError("");
+  };
 
   // Helper for smart role-based redirection & booking continuation
   const handlePostLoginRedirect = async (user: User) => {
@@ -92,7 +108,6 @@ export const LoginPage: React.FC = () => {
 
         clearBookingIntent();
 
-        // Navigate directly to checkout with full state payload
         navigate("/checkout", {
           replace: true,
           state: {
@@ -116,7 +131,6 @@ export const LoginPage: React.FC = () => {
       } catch (lockErr: any) {
         console.warn("Auto-lock after login encountered conflict:", lockErr);
         clearBookingIntent();
-        // If conflict or lock failed, direct back to turf page with their date
         navigate(`/turfs/${intent.turfId}?date=${intent.date}`, { replace: true });
         return;
       }
@@ -128,7 +142,7 @@ export const LoginPage: React.FC = () => {
     navigate(from, { replace: true });
   };
 
-  // Dynamically load & initialize Google Identity Services using dynamicClientId
+  // Google OAuth GIS initialization
   useEffect(() => {
     if (!dynamicClientId) return;
 
@@ -181,7 +195,7 @@ export const LoginPage: React.FC = () => {
     };
   }, [dynamicClientId]);
 
-  // Fetch real reviews dynamically from database (filtered strictly for positive feedback)
+  // Verified reviews dynamic fetch
   useEffect(() => {
     const fetchVerifiedReviews = async () => {
       try {
@@ -226,21 +240,38 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleEmailPasswordSubmit = async (e: React.FormEvent) => {
+  // Password submission handler
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const target = authMethod === "PHONE" ? `+91${phone}` : email.trim();
+
+    if (authMethod === "PHONE" && !isIndianMobileValid(phone)) {
+      setError("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+      return;
+    }
+    if (authMethod === "EMAIL" && (!email || !/\S+@\S+\.\S+/.test(email))) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your account password.");
+      return;
+    }
+
     setLoading(true);
     setStatusMessage("Signing you in...");
 
     try {
-      const user = await login(email, password);
+      const user = await login(target, password);
       setStatusMessage("Login successful. Directing to your dashboard...");
       handlePostLoginRedirect(user);
     } catch (err: any) {
       setError(
         err.response?.data?.detail ||
           err.response?.data?.non_field_errors?.[0] ||
-          "Invalid email or password."
+          "Invalid credentials. Please verify your mobile number/email and password."
       );
     } finally {
       setLoading(false);
@@ -253,7 +284,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-6xl min-h-screen lg:min-h-[720px] bg-white lg:rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
         {/* Left Hero Showcase Panel (Desktop only / 50%) */}
         <div className="hidden lg:flex lg:col-span-6 xl:col-span-6 relative overflow-hidden bg-slate-950 flex-col justify-between p-10 xl:p-12 text-white">
-          {/* Turf Background Image with High-Contrast Gradient Layers */}
+          {/* Turf Background Image */}
           <div
             className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
             style={{
@@ -266,72 +297,64 @@ export const LoginPage: React.FC = () => {
 
           {/* Top Header: Brand Badge & Live Status */}
           <div className="relative z-10 flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-3.5 group">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-1.5 flex items-center justify-center group-hover:scale-105 transition-all shadow-lg">
-                <img src="/logo.png" alt="Friends Turf" className="w-full h-full object-contain filter drop-shadow-md" />
+            <Link to="/" className="flex items-center space-x-3 group">
+              <div className="w-11 h-11 rounded-2xl bg-[#059669] flex items-center justify-center shadow-lg shadow-emerald-900/30 group-hover:scale-105 transition-transform border border-emerald-400/30">
+                <img
+                  src="/logo.png"
+                  alt="Friends Turf"
+                  className="w-8 h-8 object-contain"
+                  onError={(e) => {
+                    // Fallback to icon if logo image not found
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
               </div>
               <div>
-                <span className="text-lg sm:text-xl font-black tracking-tight text-white block">
-                  FRIENDS TURF
+                <span className="text-xl font-black tracking-tight text-white block leading-none">
+                  FRIENDS<span className="text-emerald-400">TURF</span>
                 </span>
-                <span className="text-[11px] uppercase font-extrabold tracking-widest text-emerald-400">
-                  Sports Complex
+                <span className="text-[10px] tracking-widest text-emerald-300 font-bold uppercase">
+                  Arena & Sports Club
                 </span>
               </div>
             </Link>
+
+            <div className="flex items-center space-x-2 bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 px-3 py-1 rounded-full text-xs font-bold text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Turfs Open Today</span>
+            </div>
           </div>
 
-
-          {/* Center Content: Hero Statement & Value Prop */}
-          <div className="relative z-10 space-y-6 my-auto py-8">
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold text-emerald-300">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Tiruppur's #1 Premier Athletic Arena</span>
+          {/* Middle Pitch Headline */}
+          <div className="relative z-10 space-y-4 my-auto py-8">
+            <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 text-xs font-semibold text-emerald-300">
+              <span>● Fast 60-Second Arena Booking</span>
             </div>
-
             <h1 className="text-3xl xl:text-4xl font-black text-white leading-tight tracking-tight">
-              Pristine Turf Grounds. Instant Digital Match Passes.
+              Play Under The Floodlights. <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-green-300">
+                Book in 3 Simple Taps.
+              </span>
             </h1>
-
-            <p className="text-sm text-slate-300 leading-relaxed max-w-md">
-              Experience seamless football & cricket pitch reservations with zero-conflict 5-minute slot locks, real-time live telemetry, and instant 1-click checkout.
+            <p className="text-slate-300 text-sm max-w-md leading-relaxed font-normal">
+              Sign in with your mobile number or email to reserve slots, manage team passes, and access verified floodlit pitches.
             </p>
-
-            {/* Feature Bullets */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="flex items-center space-x-2 text-xs font-bold text-white/90">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>FIFA-Grade AstroTurf</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs font-bold text-white/90">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>5-Min Slot Lock Protection</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs font-bold text-white/90">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Instant QR Gate Entry</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs font-bold text-white/90">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Turf Cash Cashback</span>
-              </div>
-            </div>
           </div>
 
-          {/* Bottom Testimonial & Metric Badges */}
+          {/* Bottom Testimonial */}
           <div className="relative z-10 space-y-4 pt-6 border-t border-white/10">
-            {/* Verified Customer Reviews Card (Dynamically Loaded from Database) */}
             {(() => {
               const currentReview = reviews.length > 0 ? reviews[activeReviewIdx % reviews.length] : null;
               const reviewerName = currentReview?.customer_name || "Prajeeth Kumar";
               const reviewerRating = currentReview?.rating || 5;
               const reviewerTurf = currentReview?.turf_name || "Pitch 1 – Champions Arena";
-              const reviewerText = currentReview?.review_text || "Exceptional pitch quality! The floodlights are bright and non-glaring. The staff welcomed our squad warmly.";
+              const reviewerText =
+                currentReview?.review_text ||
+                "Exceptional pitch quality! The floodlights are bright and non-glaring. The staff welcomed our squad warmly.";
               const reviewerBooking = currentReview?.booking_reference || "FT-26-VERIFIED";
 
               return (
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 space-y-3">
-                  {/* Review Header */}
                   <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                     <div className="flex items-center space-x-2">
                       <div className="w-6 h-6 rounded-full bg-emerald-500/30 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
@@ -347,7 +370,6 @@ export const LoginPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Navigation buttons for multiple reviews */}
                     {reviews.length > 1 && (
                       <div className="flex items-center space-x-1">
                         <button
@@ -371,7 +393,6 @@ export const LoginPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Review Content */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
@@ -424,60 +445,31 @@ export const LoginPage: React.FC = () => {
 
         {/* Right Authentication Terminal (50%) */}
         <div className="lg:col-span-6 xl:col-span-6 p-6 sm:p-10 xl:p-14 flex flex-col justify-between bg-white">
-          {/* Mobile Top Brand Bar (Visible only on small screens) */}
+          {/* Mobile Top Brand Bar */}
           <div className="lg:hidden flex items-center justify-between pb-6 border-b border-slate-100 mb-6">
             <Link to="/" className="flex items-center space-x-3">
               <img src="/logo.png" alt="Friends Turf" className="w-10 h-10 object-contain" />
               <div>
-                <span className="font-black text-slate-900 text-sm tracking-tight block">FRIENDS TURF</span>
-                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider block">Player Portal</span>
+                <span className="text-lg font-black tracking-tight text-slate-900 block leading-none">
+                  FRIENDS<span className="text-[#059669]">TURF</span>
+                </span>
+                <span className="text-[9px] tracking-widest text-slate-400 font-bold uppercase">
+                  Arena & Sports Club
+                </span>
               </div>
             </Link>
           </div>
 
-
-          <div className="max-w-md w-full mx-auto space-y-6">
-            {/* Header */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-[#059669] uppercase tracking-wider block">
-                Welcome Back
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                Sign In to Friends Turf
+          <div className="max-w-md w-full mx-auto space-y-6 my-auto">
+            {/* Form Title & Context */}
+            <div className="space-y-2">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Welcome back, player
               </h2>
               <p className="text-xs sm:text-sm text-slate-500">
-                Access your match passes, scheduled sessions, and Turf Cash wallet.
+                Sign in to book pitches, manage squad passes, and continue matches.
               </p>
             </div>
-
-            {/* Pending Booking Continuation Banner */}
-            {(() => {
-              const pendingIntent = getBookingIntent();
-              const stateData = location.state as any;
-              if (!pendingIntent && !stateData?.hasPendingBooking) return null;
-              const turfName = pendingIntent?.turfName || stateData?.turfName || "Selected Turf";
-              const slotCount = pendingIntent?.slotIds?.length || stateData?.slotCount || 1;
-              const totalAmt = pendingIntent?.totalAmount || stateData?.totalAmount;
-
-              return (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-start space-x-3 text-xs text-emerald-900 shadow-sm animate-in fade-in">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-xs">
-                    <Zap className="w-4 h-4 text-white fill-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-bold text-slate-900">{turfName}</p>
-                      {totalAmt && (
-                        <span className="font-black text-[#059669] font-mono">₹{Number(totalAmt).toLocaleString("en-IN")}</span>
-                      )}
-                    </div>
-                    <p className="text-emerald-800 text-[11px] mt-0.5">
-                      Sign in to reserve {slotCount} selected match slot{slotCount > 1 ? "s" : ""} and continue directly to checkout.
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Error Message */}
             {error && (
@@ -495,55 +487,93 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {/* Google OAuth Section */}
-            {dynamicClientId ? (
-              <div className="space-y-3">
-                <div className="flex justify-center">
-                  <div ref={googleBtnRef} id="googleBtnContainer" className="w-full flex justify-center" />
-                </div>
+            {/* Primary Identifier Switcher Tabs (Mobile vs Email) */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200/80 text-xs font-bold text-slate-600">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod("PHONE");
+                  setError("");
+                }}
+                className={`flex items-center justify-center space-x-2 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  authMethod === "PHONE"
+                    ? "bg-white text-[#059669] shadow-sm font-extrabold"
+                    : "hover:text-slate-900"
+                }`}
+              >
+                <Phone className="w-4 h-4" />
+                <span>Mobile Number</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod("EMAIL");
+                  setError("");
+                }}
+                className={`flex items-center justify-center space-x-2 py-2.5 rounded-xl transition-all cursor-pointer ${
+                  authMethod === "EMAIL"
+                    ? "bg-white text-[#059669] shadow-sm font-extrabold"
+                    : "hover:text-slate-900"
+                }`}
+              >
+                <Mail className="w-4 h-4" />
+                <span>Email Address</span>
+              </button>
+            </div>
 
-                <div className="relative flex py-1 items-center">
-                  <div className="flex-grow border-t border-slate-200"></div>
-                  <span className="flex-shrink mx-4 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                    or continue with email
-                  </span>
-                  <div className="flex-grow border-t border-slate-200"></div>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Email + Password Form */}
-            <form onSubmit={handleEmailPasswordSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={handleEmailChange}
-                    placeholder="player@example.com"
-                    className="w-full pl-10 pr-10 py-2.5 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#059669] transition-colors"
-                  />
-                  {emailAvailability.checking && (
-                    <div className="absolute right-3.5 top-3.5">
-                      <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+            {/* LOGIN FORM */}
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              {authMethod === "PHONE" ? (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Mobile Phone Number
+                  </label>
+                  <div className="relative flex rounded-xl border border-slate-200 bg-[#F8FAFC] focus-within:bg-white focus-within:border-[#059669] transition-colors overflow-hidden">
+                    <div className="flex items-center space-x-1.5 px-3 bg-slate-100/90 border-r border-slate-200 text-xs font-bold text-slate-700 select-none">
+                      <span className="text-base leading-none">🇮🇳</span>
+                      <span>+91</span>
                     </div>
-                  )}
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={handlePhoneChange}
+                      placeholder="98765 43210"
+                      maxLength={10}
+                      className="w-full px-3.5 py-2.5 bg-transparent text-sm text-slate-900 font-semibold placeholder-slate-400 focus:outline-none tracking-wide"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-0.5 text-[11px]">
+                    <span className="text-slate-500">
+                      10-digit Indian mobile number
+                    </span>
+                    {phone.length === 10 && (
+                      <span className={isIndianMobileValid(phone) ? "text-emerald-600 font-bold" : "text-red-500 font-bold"}>
+                        {isIndianMobileValid(phone) ? "✓ Valid Number" : "Invalid Prefix (6-9 required)"}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {emailAvailability.exists === false && (
-                  <p className="text-[11px] text-amber-600 font-semibold flex items-center justify-between pt-0.5">
-                    <span>No account found with this email.</span>
-                    <Link to="/register" className="font-bold underline text-amber-700 hover:text-amber-900">
-                      Sign Up &rarr;
-                    </Link>
-                  </p>
-                )}
-              </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={handleEmailChange}
+                      placeholder="player@example.com"
+                      className="w-full pl-10 pr-10 py-2.5 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#059669] transition-colors"
+                    />
+                  </div>
+                </div>
+              )}
 
+              {/* Password Field */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
@@ -576,6 +606,7 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Keep me signed in */}
               <div className="flex items-center justify-between pt-1">
                 <label className="flex items-center space-x-2 text-xs text-slate-600 cursor-pointer">
                   <input
@@ -588,26 +619,52 @@ export const LoginPage: React.FC = () => {
                 </label>
               </div>
 
+              {/* Submit CTA Button */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={
+                  loading ||
+                  (authMethod === "PHONE" ? !isIndianMobileValid(phone) : !email) ||
+                  !password
+                }
                 className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-emerald-glow flex items-center justify-center space-x-2 transition-all disabled:opacity-50 cursor-pointer active:scale-[0.99]"
               >
                 {loading ? (
-                  <span>Authenticating...</span>
+                  <span>Signing In...</span>
                 ) : (
                   <>
-                    <span>Sign In to Dashboard</span>
+                    <span>Sign In to Friends Turf</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
 
+            {/* Google OAuth Section */}
+            {dynamicClientId ? (
+              <div className="space-y-3 pt-2">
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-slate-200"></div>
+                  <span className="flex-shrink mx-4 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                    or continue with
+                  </span>
+                  <div className="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <div className="flex justify-center">
+                  <div ref={googleBtnRef} id="googleBtnContainer" className="w-full flex justify-center" />
+                </div>
+              </div>
+            ) : null}
+
             {/* Sign Up Link */}
             <p className="text-center text-xs text-slate-600 pt-2">
               New to Friends Turf?{" "}
-              <Link to={`/register${location.search}`} state={location.state} className="text-[#059669] font-bold hover:underline">
+              <Link
+                to={`/register${location.search}`}
+                state={location.state}
+                className="text-[#059669] font-bold hover:underline"
+              >
                 Create Player Account
               </Link>
             </p>
@@ -617,7 +674,7 @@ export const LoginPage: React.FC = () => {
           <div className="pt-6 mt-6 border-t border-slate-100 text-center">
             <div className="flex items-center justify-center space-x-2 text-[11px] text-slate-400 font-semibold">
               <Shield className="w-3.5 h-3.5 text-[#059669]" />
-              <span>256-Bit SSL Encrypted • PCI-DSS Compliant Gateway</span>
+              <span>256-Bit SSL Encrypted • Official Friends Turf Platform</span>
             </div>
           </div>
         </div>
@@ -625,4 +682,3 @@ export const LoginPage: React.FC = () => {
     </div>
   );
 };
-

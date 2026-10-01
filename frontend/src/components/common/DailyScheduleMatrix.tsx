@@ -294,7 +294,7 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                         </span>
                       </div>
                       <Link
-                        to={`/turfs/${turf.id}`}
+                        to={`/?turf=${turf.id}`}
                         className="px-3.5 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs flex items-center space-x-1 transition-colors shadow-sm"
                       >
                         <span>View Pitch</span>
@@ -353,11 +353,11 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                                 date: selectedDate,
                                 slotIds: [String(slot.id)],
                                 totalAmount: Number(slot.price),
-                                returnUrl: `/turfs/${turf.id}?date=${selectedDate}&slot=${slot.id}`,
+                                returnUrl: `/?turf=${turf.id}&date=${selectedDate}&slot=${slot.id}`,
                               });
 
                               navigate(
-                                `/turfs/${turf.id}?date=${selectedDate}&slot=${slot.id}&time=${slot.start_time.slice(0, 5)}`
+                                `/?turf=${turf.id}&date=${selectedDate}&slot=${slot.id}`
                               );
                             }}
                             title={

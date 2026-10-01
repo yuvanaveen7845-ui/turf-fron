@@ -5,7 +5,9 @@ import { User, UserRole } from "../types";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (identifier: string, password: string) => Promise<User>;
+  requestLoginOtp: (identifier: string, email?: string) => Promise<any>;
+  loginWithOtp: (identifier: string, otp: string, email?: string) => Promise<User>;
   googleLogin: (credential: string) => Promise<User>;
   register: (data: any) => Promise<User>;
   logout: () => void;
@@ -61,8 +63,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<User> => {
-    const res = await api.post("/auth/login/", { email, password });
+  const login = async (identifier: string, password: string): Promise<User> => {
+    const res = await api.post("/auth/login/", { identifier, email: identifier, password });
+    const { user: userData, tokens } = res.data;
+    localStorage.setItem("ft_access_token", tokens.access);
+    localStorage.setItem("ft_refresh_token", tokens.refresh);
+    localStorage.setItem("ft_user", JSON.stringify(userData));
+    setUser(userData);
+    return userData;
+  };
+
+  const requestLoginOtp = async (identifier: string, email?: string): Promise<any> => {
+    const res = await api.post("/auth/login/request-otp/", { identifier, email });
+    return res.data;
+  };
+
+  const loginWithOtp = async (identifier: string, otp: string, email?: string): Promise<User> => {
+    const res = await api.post("/auth/login/verify-otp/", { identifier, otp, email });
     const { user: userData, tokens } = res.data;
     localStorage.setItem("ft_access_token", tokens.access);
     localStorage.setItem("ft_refresh_token", tokens.refresh);
@@ -109,6 +126,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         loading,
         login,
+        requestLoginOtp,
+        loginWithOtp,
         googleLogin,
         register,
         logout,

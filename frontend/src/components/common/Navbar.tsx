@@ -18,6 +18,7 @@ import {
   Compass,
   Layers,
   ArrowRight,
+  Zap,
 } from "lucide-react";
 import api from "../../services/api";
 import { useRealtime } from "../../context/RealtimeContext";
@@ -157,25 +158,14 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/"
-                  className={`px-2.5 xl:px-4 py-1.5 xl:py-2 rounded-full text-xs xl:text-[13px] font-bold transition-all flex items-center space-x-1.5 ${
+                  className={`px-3 xl:px-4 py-1.5 xl:py-2 rounded-full text-xs xl:text-[13px] font-bold transition-all flex items-center space-x-1.5 ${
                     isActive("/") && location.pathname === "/"
                       ? "bg-white text-slate-950 shadow-xs border border-slate-200/60 scale-[1.02]"
                       : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
                   }`}
                 >
-                  <Compass className="w-4 h-4 text-[#059669]" />
-                  <span>Explore</span>
-                </Link>
-                <Link
-                  to="/turfs"
-                  className={`px-2.5 xl:px-4 py-1.5 xl:py-2 rounded-full text-xs xl:text-[13px] font-bold transition-all flex items-center space-x-1.5 ${
-                    isActive("/turfs")
-                      ? "bg-white text-slate-950 shadow-xs border border-slate-200/60 scale-[1.02]"
-                      : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
-                  }`}
-                >
-                  <Layers className="w-4 h-4 text-[#059669]" />
-                  <span>Our Pitches</span>
+                  <Zap className="w-4 h-4 text-[#059669]" />
+                  <span>Book Pitch</span>
                 </Link>
                 {user && (
                   <>

@@ -7,6 +7,8 @@ export const ENDPOINTS = {
   // Authentication & User Management
   auth: {
     login: "/auth/login/",
+    requestLoginOtp: "/auth/login/request-otp/",
+    verifyLoginOtp: "/auth/login/verify-otp/",
     register: "/auth/register/",
     me: "/auth/me/",
     refresh: "/auth/refresh/",

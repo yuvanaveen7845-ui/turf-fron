@@ -114,9 +114,15 @@ export const initiateRazorpayCheckout = async (
   } catch (_) {}
 
   try {
-    const callbackUrl = `${window.location.origin}/api/payments/razorpay/callback/`;
-
     let rzpInstance: any = null;
+
+    // Derive the backend API base URL. In production (Cloudflare Pages), VITE_API_URL
+    // is set to the Render backend origin (e.g. https://turf-bac.onrender.com).
+    // In local dev, Vite proxies /api → localhost:8001, so we use window.location.origin.
+    const apiBase = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+    const isAbsoluteBackend = apiBase.startsWith("http");
+    const backendOrigin = isAbsoluteBackend ? apiBase : window.location.origin;
+    const callbackUrl = `${backendOrigin}/api/payments/razorpay/callback/`;
 
     const options: any = {
       key: orderData.key_id,
@@ -152,12 +158,16 @@ export const initiateRazorpayCheckout = async (
         backdropclose: false,
         confirm_close: false,
       },
-      // Authoritative redirect configuration:
-      // When redirect: true is configured with callback_url, Razorpay sends an HTTP POST
-      // directly to our backend callback handler upon payment completion (Cards, UPI, Netbanking, Wallets).
-      // This completely eliminates the 5-second frozen countdown and prevents blank screens at api.razorpay.com.
+      // Redirect mode: Razorpay POSTs payment result to callback_url on our BACKEND (Render).
+      // The backend verifies the signature, transitions the booking, and HTTP-302 redirects
+      // the browser to friendsturf.in/confirmation/{booking_id}.
+      // CRITICAL: callback_url MUST point to the backend server, NOT the static frontend.
+      // Cloudflare Pages (friendsturf.in) returns HTTP 405 on POST.
+      // Render (turf-bac.onrender.com) accepts POST and processes the payment.
       callback_url: callbackUrl,
       redirect: true,
+      // handler() fires in standard modal mode (non-redirect). Kept as a safety net
+      // in case Razorpay falls back to modal mode for certain payment methods.
       handler: function (response: {
         razorpay_payment_id: string;
         razorpay_order_id: string;
@@ -169,7 +179,6 @@ export const initiateRazorpayCheckout = async (
         } catch (_) {}
 
         // Programmatically close the checkout modal immediately upon payment success.
-        // This stops Razorpay's 5-second countdown timer inside the iframe from attempting top-window navigation.
         try {
           if (rzpInstance && typeof rzpInstance.close === "function") {
             rzpInstance.close();

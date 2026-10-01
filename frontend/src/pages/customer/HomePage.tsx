@@ -218,8 +218,23 @@ export const HomePage: React.FC = () => {
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="h-96 rounded-2xl bg-white border border-slate-200 animate-pulse"
-              />
+                className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden flex flex-col animate-pulse shadow-sm h-[440px]"
+              >
+                <div className="h-52 sm:h-56 bg-slate-200/70 w-full shrink-0" />
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="w-3/4 h-5 rounded bg-slate-200/80" />
+                    <div className="w-1/2 h-3.5 rounded bg-slate-200/60" />
+                  </div>
+                  <div className="space-y-2 py-1">
+                    <div className="w-full h-8 rounded-xl bg-slate-100" />
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <div className="w-20 h-5 rounded bg-slate-200/70" />
+                    <div className="w-24 h-9 rounded-xl bg-slate-200/80" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : (

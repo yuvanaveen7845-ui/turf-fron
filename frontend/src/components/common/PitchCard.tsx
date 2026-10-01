@@ -50,6 +50,9 @@ export const PitchCard: React.FC<PitchCardProps> = ({ turf, featured = false }) 
         <img
           src={displayImage}
           alt={turf.name}
+          width="400"
+          height="224"
+          decoding="async"
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
           loading="lazy"
           referrerPolicy="no-referrer"

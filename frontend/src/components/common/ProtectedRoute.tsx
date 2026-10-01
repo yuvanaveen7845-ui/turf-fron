@@ -23,11 +23,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { hasPermission, hasFeature, effectiveRole } = usePermission();
   const location = useLocation();
 
-  if (loading) {
+  // Only block render if loading AND we have zero cached user profile to evaluate against
+  if (loading && !user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 border-4 border-[#059669] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold text-slate-400">Verifying session...</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
+        <div className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin mb-3" />
+        <span className="text-xs font-semibold text-slate-400 tracking-wide">Loading workspace...</span>
       </div>
     );
   }

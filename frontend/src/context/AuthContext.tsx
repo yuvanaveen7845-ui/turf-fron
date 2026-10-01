@@ -22,10 +22,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem("ft_user");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem("ft_user") : null;
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [loading, setLoading] = useState<boolean>(true);
+
+  // Instant hydration: If we already have a cached user profile, never block initial render.
+  // Profile revalidation will run in the background without incurring any LCP penalty.
+  const [loading, setLoading] = useState<boolean>(() => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("ft_access_token") : null;
+      const saved = typeof window !== "undefined" ? localStorage.getItem("ft_user") : null;
+      return !!token && !saved;
+    } catch {
+      return false;
+    }
+  });
 
   const refreshProfile = async () => {
     try {

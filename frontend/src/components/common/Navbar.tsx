@@ -129,6 +129,8 @@ export const Navbar: React.FC = () => {
                 <img
                   src={company.logo_url || "/logo.png"}
                   alt={company.name}
+                  width="40"
+                  height="40"
                   className="w-full h-full object-contain drop-shadow-2xs"
                   onError={(e) => {
                     if (e.currentTarget.src !== window.location.origin + "/logo.png") {

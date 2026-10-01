@@ -116,10 +116,25 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
         {/* Spacious Responsive Pitch Deck */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {displayPitches.length === 0 ? (
-            <div className="col-span-full h-28 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 animate-pulse flex items-center justify-center space-x-2.5 text-slate-500 text-xs font-semibold shadow-xs">
-              <span className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-600 rounded-full animate-spin" />
-              <span>Loading arenas...</span>
-            </div>
+            [1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="p-4 sm:p-5 rounded-2xl border border-white/80 bg-white/45 backdrop-blur-xl animate-pulse flex flex-col justify-between space-y-3.5 h-[136px] sm:h-[148px]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-24 h-5 rounded-lg bg-slate-200/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-200/80" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="w-32 h-5 rounded-md bg-slate-200/80" />
+                  <div className="w-24 h-4 rounded bg-slate-200/60" />
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100/60">
+                  <div className="w-16 h-3 rounded bg-slate-200/60" />
+                  <div className="w-20 h-4 rounded bg-slate-200/80" />
+                </div>
+              </div>
+            ))
           ) : (
             displayPitches.map((pitch) => {
               const isSelected = pitch.id === currentActiveId;

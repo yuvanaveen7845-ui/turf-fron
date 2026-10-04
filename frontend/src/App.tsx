@@ -163,6 +163,7 @@ const AdminSettingsPage = lazyWithRetry(() =>
 import { FriendsTurfLoadingScreen } from "./components/common/FriendsTurfLoadingScreen";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import { QuickActionAnywhere } from "./components/common/QuickActionAnywhere";
+import { PwaInstallPrompt } from "./components/common/PwaInstallPrompt";
 
 /** Premium Athletic Stadium Loading Screen while lazy chunks load */
 const PageSuspenseFallback = () => <FriendsTurfLoadingScreen />;
@@ -443,6 +444,8 @@ export const App: React.FC = () => {
             </ChunkErrorBoundary>
             {/* Global Quick Action & Scanner FAB (Active for Staff & Admin throughout website) */}
             <QuickActionAnywhere />
+            {/* Global Installable Web App (PWA) Prompt */}
+            <PwaInstallPrompt />
           </RealtimeProvider>
         </PermissionProvider>
       </AuthProvider>

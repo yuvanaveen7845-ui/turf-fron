@@ -20,6 +20,9 @@ import {
   Eye,
   EyeOff,
   Calendar,
+  Compass,
+  Download,
+  Check,
 } from "lucide-react";
 import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
@@ -33,6 +36,7 @@ import { VerifiedReviewsSection } from "../../components/common/VerifiedReviewsS
 import { MatchDayFAQ } from "../../components/common/MatchDayFAQ";
 import { AmenityGrid } from "../../components/common/AmenityGrid";
 import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
+import { LocationModal } from "../../components/common/LocationModal";
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -83,6 +87,12 @@ export const HomePage: React.FC = () => {
     const saved = localStorage.getItem("ft_preferred_duration_minutes");
     return saved ? Number(saved) : 60;
   });
+
+  // Location Modal & PWA Trigger
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const triggerPwaInstall = () => {
+    window.dispatchEvent(new CustomEvent("ft-trigger-pwa-install"));
+  };
 
   // Active turf object
   const activeTurf = useMemo(() => {
@@ -340,7 +350,7 @@ export const HomePage: React.FC = () => {
 
     triggerHaptic("success");
 
-    // If unauthenticated, save booking intent and redirect to login
+    // If unauthenticated, save booking intent in background for persistence
     if (!user) {
       saveBookingIntent({
         turfId: String(activeTurf.id),
@@ -352,16 +362,6 @@ export const HomePage: React.FC = () => {
         totalAmount,
         returnUrl: `/?turf=${activeTurf.id}&date=${selectedDate}`,
       });
-      navigate(`/login?redirect=/checkout`, {
-        state: {
-          from: { pathname: "/", search: `?turf=${activeTurf.id}&date=${selectedDate}` },
-          hasPendingBooking: true,
-          turfName: activeTurf.name,
-          slotCount: selectedSlotIds.length,
-          totalAmount,
-        },
-      });
-      return;
     }
 
     setLockLoading(true);
@@ -431,6 +431,51 @@ export const HomePage: React.FC = () => {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-6 space-y-4 sm:space-y-6 pb-28 md:pb-16">
+        {/* Hero Photo Banner - Prominent Venue Showcase */}
+        <section className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 text-white min-h-[220px] sm:min-h-[280px] flex flex-col justify-end p-4 sm:p-7 group">
+          {/* Background Turf Venue Photo */}
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-105"
+            style={{
+              backgroundImage: `url('${resolveImageUrl(
+                company.banner_image_url || activeTurf?.images?.[0] || "https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=1600&q=80",
+                activeTurf?.sport_type
+              )}')`,
+            }}
+          />
+          {/* Gradient Dark Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/40 via-transparent to-transparent" />
+
+          {/* Banner Content */}
+          <div className="relative z-10 space-y-2">
+            <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
+              {company.banner_title || company.name || "Friends Turf Sports Complex"}
+            </h2>
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(true)}
+                className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 hover:bg-slate-900/80 active:scale-[0.98] border border-white/15 hover:border-emerald-400/40 text-xs text-slate-200 hover:text-white backdrop-blur-md shadow-sm transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                title="View venue directions & map"
+              >
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200 shrink-0">
+                  <MapPin className="w-3 h-3" />
+                </span>
+                <span className="font-medium text-slate-200 group-hover:text-white">
+                  {company.address?.split("(")[0]?.trim() || "Near Sirupooluvapatti, Kamatchepuram, Tiruppur"}
+                </span>
+                {(company.banner_landmark || company.address?.includes("RTO")) && (
+                  <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[10px] font-bold text-emerald-300 tracking-wide uppercase">
+                    {company.banner_landmark || "RTO Backside"}
+                  </span>
+                )}
+                <Navigation className="w-3 h-3 text-slate-400 group-hover:text-emerald-300 group-hover:translate-x-0.5 transition-all shrink-0 ml-0.5" />
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* 1. Header Banner (Compact & Streamlined) */}
         <section className="text-center max-w-3xl mx-auto space-y-1.5 sm:space-y-2.5">
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-white border border-emerald-200 text-[#059669] text-[11px] sm:text-xs font-bold shadow-2xs">
@@ -453,25 +498,25 @@ export const HomePage: React.FC = () => {
         {/* 2. Unified Slot Checking Console */}
         <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-pitch-card overflow-hidden">
           {/* Pitch Selector Segmented Tabs with Live Availability Indicators */}
-          <div className="border-b border-slate-200/80 bg-slate-50/80 p-2 sm:p-3">
-            <div className="flex items-center justify-between gap-2 mb-1.5 px-1">
-              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                1. Select Arena Pitch
-              </span>
-              {activeTurf && (
-                <span className="text-xs font-bold text-[#059669]">
-                  Base: ₹{Number(activeTurf.base_price).toLocaleString("en-IN")}/hr
+          <div className="border-b border-slate-200/80 bg-slate-50/60 p-2.5 sm:p-3.5">
+            <div className="flex items-center justify-between gap-2 mb-2 px-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-3.5 rounded-full bg-[#059669]" />
+                <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800">
+                  {turfs.length > 1 ? "Select Arena Pitch" : "Arena Pitch"}
                 </span>
-              )}
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500">
+                {turfs.length} {turfs.length === 1 ? "Pitch Available" : "Pitches Available"}
+              </span>
             </div>
 
             {loadingTurfs ? (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="h-11 rounded-xl bg-slate-200 animate-pulse" />
-                <div className="h-11 rounded-xl bg-slate-200 animate-pulse" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="h-16 rounded-xl bg-slate-200 animate-pulse" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2">
+              <div className={`grid gap-2.5 ${turfs.length > 1 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" : "grid-cols-1"}`}>
                 {turfs.map((turf) => {
                   const isSelected = activeTurf?.id === turf.id;
                   const openCount = pitchOpenCounts[String(turf.id)];
@@ -483,21 +528,21 @@ export const HomePage: React.FC = () => {
                       onClick={() => {
                         triggerHaptic("light");
                         setSelectedTurfId(turf.id);
-                        setSearchParams({ turf: String(turf.id), date: selectedDate });
+                        setSearchParams({ turf: String(turf.id), date: selectedDate }, { preventScrollReset: true });
                       }}
-                      className={`group p-2 sm:p-2.5 rounded-xl sm:rounded-2xl text-left transition-all duration-200 cursor-pointer flex items-center justify-between gap-2.5 sm:gap-3 border ${
+                      className={`group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-left transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 border ${
                         isSelected
-                          ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-600/20 scale-[1.01]"
-                          : "bg-white border-slate-200/90 text-slate-700 hover:border-emerald-300 hover:bg-slate-50"
+                          ? "bg-white border-[#059669] ring-2 ring-emerald-500/20 shadow-sm"
+                          : "bg-white border-slate-200/90 text-slate-700 hover:border-emerald-300 hover:shadow-xs"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                        {/* Turf Preview Image */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {/* Turf Preview Image with Sport Badge overlay */}
                         <div
-                          className={`relative w-11 h-11 sm:w-13 sm:h-13 rounded-lg sm:rounded-xl overflow-hidden shrink-0 transition-transform duration-300 group-hover:scale-105 ${
+                          className={`relative w-13 h-13 sm:w-15 sm:h-15 rounded-lg sm:rounded-xl overflow-hidden shrink-0 transition-transform duration-300 group-hover:scale-105 border ${
                             isSelected
-                              ? "ring-2 ring-white/40 shadow-xs"
-                              : "border border-slate-200/90 shadow-xs bg-slate-100"
+                              ? "border-emerald-500/40 ring-1 ring-emerald-500/30"
+                              : "border-slate-200/90 bg-slate-100"
                           }`}
                         >
                           <img
@@ -508,66 +553,53 @@ export const HomePage: React.FC = () => {
                             className="w-full h-full object-cover"
                             onError={(e) => handleImageError(e, turf.sport_type)}
                           />
+                          <span className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent pt-2 pb-0.5 text-center text-[8px] sm:text-[9px] font-black text-emerald-300 uppercase tracking-wider">
+                            {turf.sport_type}
+                          </span>
                         </div>
 
-                        <div className="min-w-0 flex-1 pr-1">
-                          <div className="flex items-center space-x-1.5">
-                            <span
-                              className={`text-[9px] sm:text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md ${
-                                isSelected ? "bg-white/20 text-white" : "bg-emerald-50 text-[#059669] border border-emerald-200/60"
-                              }`}
-                            >
-                              {turf.sport_type}
-                            </span>
-                            <span className="text-xs font-black truncate">{turf.name}</span>
-                          </div>
-                          <p
-                            className={`text-[10px] sm:text-[11px] mt-0.5 truncate ${
-                              isSelected ? "text-emerald-100" : "text-slate-500"
-                            }`}
-                          >
-                            {turf.dimensions || "Tournament Pitch"} • {turf.surface_spec?.split(" ")[0] || "50mm"} Turf
+                        {/* Pitch Details */}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-snug">
+                            {turf.name}
+                          </h3>
+                          <p className="text-[11px] sm:text-xs text-slate-500 flex items-center gap-1 font-medium mt-0.5 truncate">
+                            <span>{turf.dimensions || "Tournament Pitch"}</span>
+                            <span className="text-slate-300">•</span>
+                            <span>{turf.surface_spec?.split(" ")[0] || "50mm"} Turf</span>
                           </p>
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <span
-                          className={`text-xs font-black ${
-                            isSelected ? "text-white" : "text-slate-900"
-                          }`}
-                        >
+                      {/* Pricing & Availability Column */}
+                      <div className="text-right shrink-0 pl-1">
+                        <div className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
                           ₹{Number(turf.base_price).toLocaleString("en-IN")}
-                        </span>
+                          <span className="text-[10px] font-medium text-slate-500 ml-0.5">/hr</span>
+                        </div>
+
                         {openCount !== undefined ? (
-                          <span
-                            className={`inline-flex items-center text-[9px] font-extrabold uppercase mt-0.5 ${
-                              isSelected
-                                ? "text-emerald-100"
-                                : openCount > 0
-                                  ? "text-[#059669]"
-                                  : "text-slate-400"
-                            }`}
-                          >
+                          <div className="mt-0.5 flex items-center justify-end">
                             {openCount > 0 ? (
-                              <>
-                                <span className={`w-1.5 h-1.5 rounded-full inline-block mr-1 ${isSelected ? "bg-white" : "bg-emerald-500"}`} />
-                                <span>{openCount} Open</span>
-                              </>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-[#059669] border border-emerald-200/70">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                                {openCount} Open
+                              </span>
                             ) : (
-                              "Sold Out"
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-400">
+                                Sold Out
+                              </span>
                             )}
-                          </span>
-                        ) : (
-                          <span
-                            className={`block text-[9px] uppercase font-bold ${
-                              isSelected ? "text-emerald-200" : "text-slate-400"
-                            }`}
-                          >
-                            /hour
-                          </span>
-                        )}
+                          </div>
+                        ) : null}
                       </div>
+
+                      {/* Selected Indicator Checkmark */}
+                      {isSelected && (
+                        <div className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-[#059669] text-white flex items-center justify-center shadow-xs ring-2 ring-white">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </div>
+                      )}
                     </button>
                   );
                 })}
@@ -640,7 +672,7 @@ export const HomePage: React.FC = () => {
                         triggerHaptic("light");
                         setSelectedDate(opt.dateStr);
                         if (activeTurf?.id) {
-                          setSearchParams({ turf: String(activeTurf.id), date: opt.dateStr });
+                          setSearchParams({ turf: String(activeTurf.id), date: opt.dateStr }, { preventScrollReset: true });
                         }
                       }}
                       className={`px-2.5 py-1.5 sm:px-3.5 sm:py-2.5 rounded-xl sm:rounded-2xl text-center shrink-0 border transition-all cursor-pointer active:scale-95 min-w-[62px] sm:min-w-[76px] ${
@@ -771,61 +803,87 @@ export const HomePage: React.FC = () => {
             )}
 
             {/* Step 4: High-Density Interactive Time Slots Grid */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    3. Select Time Slot
-                  </span>
-                  <span className="text-[11px] sm:text-xs font-bold text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    {availableSlotsCount} Open
-                  </span>
-                </div>
+            <div className="space-y-2.5 pt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                {/* Step 3 Title & Live Available Counter */}
+                <div className="flex items-center justify-between sm:justify-start gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap">
+                      3. Select Time Slot
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80 whitespace-nowrap shrink-0">
+                      {availableSlotsCount} Open
+                    </span>
+                  </div>
 
-                <div className="flex items-center space-x-2 text-[10px] sm:text-[11px] font-semibold text-slate-500">
-                  {/* Past slots toggle button for today */}
+                  {/* Mobile Ended Slots Toggle */}
                   {isToday && pastSlotsCount > 0 && (
                     <button
                       type="button"
                       onClick={() => setShowPastSlots(!showPastSlots)}
-                      className="inline-flex items-center space-x-1 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md transition cursor-pointer font-bold"
+                      className="sm:hidden inline-flex items-center space-x-1 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md transition cursor-pointer text-[10px] font-bold shrink-0"
+                    >
+                      {showPastSlots ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showPastSlots ? "Hide" : `${pastSlotsCount} Ended`}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Legend Bar & Desktop Ended Slots Toggle */}
+                <div className="flex items-center justify-between sm:justify-end gap-2 text-[10px] sm:text-[11px] font-semibold text-slate-500 overflow-x-auto scrollbar-none py-0.5">
+                  <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+                    <span className="flex items-center space-x-1 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-[#059669]" />
+                      <span>Available</span>
+                    </span>
+                    <span className="flex items-center space-x-1 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-rose-500" />
+                      <span>Booked</span>
+                    </span>
+                    <span className="flex items-center space-x-1 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-slate-700" />
+                      <span>Blocked</span>
+                    </span>
+                    <span className="flex items-center space-x-1 shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span>Held (5m)</span>
+                    </span>
+                  </div>
+
+                  {/* Desktop Ended Slots Toggle */}
+                  {isToday && pastSlotsCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPastSlots(!showPastSlots)}
+                      className="hidden sm:inline-flex items-center space-x-1 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md transition cursor-pointer font-bold shrink-0 ml-2"
                     >
                       {showPastSlots ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                       <span>{showPastSlots ? "Hide Ended" : `${pastSlotsCount} Ended`}</span>
                     </button>
                   )}
-
-                  <div className="hidden sm:flex items-center space-x-3">
-                    <span className="flex items-center space-x-1">
-                      <span className="w-2 h-2 rounded-full bg-[#059669]" />
-                      <span>Open</span>
-                    </span>
-                    <span className="flex items-center space-x-1">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      <span>Held (5m)</span>
-                    </span>
-                    <span className="flex items-center space-x-1">
-                      <span className="w-2 h-2 rounded-full bg-slate-300" />
-                      <span>Booked</span>
-                    </span>
-                  </div>
                 </div>
               </div>
 
               {loadingSlots ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-                  {[...Array(6)].map((_, i) => (
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
+                  {[...Array(8)].map((_, i) => (
                     <div key={i} className="h-12 rounded-xl bg-slate-100 animate-pulse" />
                   ))}
                 </div>
               ) : visibleSlots.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
                   {visibleSlots.map((slot) => {
                     const isSelected = selectedSlotIds.includes(slot.id);
-                    const isAvail = slot.is_available;
+                    const isCustomerBooked = slot.status === "BOOKED" || slot.schedule_state === "BOOKED";
+                    const isAdminBlocked =
+                      slot.status === "MAINTENANCE" ||
+                      slot.status === "BLOCKED" ||
+                      slot.schedule_state === "BLOCKED" ||
+                      slot.slot_state === "MAINTENANCE";
+                    const isHeld = slot.status === "LOCKED" || slot.schedule_state === "LOCKED";
+                    const isAvail = slot.is_available && !isCustomerBooked && !isAdminBlocked && !isHeld;
                     const isOngoing = slot.is_ongoing || slot.slot_state === "ONGOING";
                     const isPast = slot.is_past || slot.slot_state === "PAST" || slot.slot_state === "COMPLETED";
-                    const isHeld = slot.status === "LOCKED";
                     const isNight = slot.start_time >= "18:00:00";
 
                     return (
@@ -837,78 +895,107 @@ export const HomePage: React.FC = () => {
                         onClick={() => toggleSlotSelection(slot)}
                         title={
                           isAvail
-                            ? `Select ${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)} (₹${Number(slot.price)})`
-                            : isOngoing
-                              ? `Match in session (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
-                              : isPast
-                                ? `Slot time ended (${formatSlotTime(slot.start_time)})`
-                                : slot.status
+                            ? `Click to select ${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)} (₹${Number(slot.price)})`
+                            : isCustomerBooked
+                              ? `Booked by customer (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
+                              : isAdminBlocked
+                                ? `Slot reserved / blocked by business management`
+                                : isOngoing
+                                  ? `Match in session (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
+                                  : isHeld
+                                    ? `Temporarily held in checkout (${formatSlotTime(slot.start_time)})`
+                                    : isPast
+                                      ? `Slot time ended (${formatSlotTime(slot.start_time)})`
+                                      : slot.status
                         }
-                        className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all duration-150 active:scale-95 select-none cursor-pointer flex flex-col justify-between ${
+                        className={`p-1.5 sm:p-2.5 rounded-xl border text-left transition-all duration-150 active:scale-95 select-none flex flex-col justify-between ${
                           isSelected
-                            ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/25 scale-[1.02] ring-2 ring-emerald-500/30"
+                            ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/25 scale-[1.02] ring-2 ring-emerald-500/30 cursor-pointer"
                             : isAvail
-                              ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900"
-                              : isOngoing
-                                ? "bg-amber-50/90 border-amber-300 text-amber-950 cursor-not-allowed shadow-2xs"
-                                : isHeld
-                                  ? "bg-amber-50/70 border-amber-200 text-amber-900 cursor-not-allowed opacity-90"
-                                  : "bg-slate-100/70 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed line-through"
+                              ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900 cursor-pointer shadow-2xs"
+                              : isCustomerBooked
+                                ? "bg-rose-50 border-rose-300 text-rose-900 cursor-not-allowed shadow-2xs"
+                                : isAdminBlocked
+                                  ? "bg-slate-700 border-slate-800 text-white cursor-not-allowed shadow-2xs"
+                                  : isHeld
+                                    ? "bg-amber-50/90 border-amber-300 text-amber-950 cursor-not-allowed opacity-95"
+                                    : isOngoing
+                                      ? "bg-amber-50/90 border-amber-300 text-amber-950 cursor-not-allowed shadow-2xs"
+                                      : "bg-slate-100/70 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed line-through"
                         }`}
                       >
-                        {/* Top Line: Start Time & Sun/Lock Icons */}
-                        <div className="flex items-center justify-between w-full">
-                          <span className="text-[11px] sm:text-xs font-black flex items-center truncate">
+                        {/* Top Line: Start Time & Sun/Lock/Indicator Icons */}
+                        <div className="flex items-center justify-between gap-1 w-full">
+                          <span className="text-[10.5px] sm:text-xs font-black flex items-center truncate">
                             {isOngoing && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1 inline-block" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1 inline-block shrink-0" />
                             )}
-                            <span>{formatSlotTime(slot.start_time)}</span>
+                            {isCustomerBooked && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1 inline-block shrink-0" />
+                            )}
+                            {isAdminBlocked && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mr-1 inline-block shrink-0" />
+                            )}
+                            <span className="truncate">{formatSlotTime(slot.start_time)}</span>
                           </span>
                           {isNight && isAvail && (
-                            <Sun className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${isSelected ? "text-amber-200" : "text-amber-500"}`} />
+                            <Sun className={`w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 ${isSelected ? "text-amber-200" : "text-amber-500"}`} />
                           )}
-                          {isHeld && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-600" />}
+                          {isHeld && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 text-amber-600" />}
+                          {isAdminBlocked && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 text-slate-300" />}
                         </div>
 
-                        {/* Bottom Line: Price & Status */}
-                        <div className="mt-1 flex items-center justify-between w-full">
+                        {/* Bottom Line: Price & 4-State Status Indicator */}
+                        <div className="mt-1 flex items-center justify-between gap-1 w-full">
                           <span
-                            className={`text-[10px] sm:text-xs font-black ${
+                            className={`text-[9.5px] sm:text-xs font-black shrink-0 ${
                               isSelected
                                 ? "text-white"
-                                : isHeld
-                                  ? "text-amber-950"
-                                  : isPast
-                                    ? "text-slate-400 line-through"
-                                    : "text-slate-900"
+                                : isAdminBlocked
+                                  ? "text-slate-200"
+                                  : isCustomerBooked
+                                    ? "text-rose-800"
+                                    : isHeld
+                                      ? "text-amber-950"
+                                      : isPast
+                                        ? "text-slate-400 line-through"
+                                        : "text-slate-900"
                             }`}
                           >
                             ₹{Number(slot.price).toLocaleString("en-IN")}
                           </span>
                           <span
-                            className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tight ${
+                            className={`text-[8px] sm:text-[9.5px] font-extrabold uppercase tracking-tight truncate ${
                               isSelected
                                 ? "text-emerald-100"
                                 : isAvail
                                   ? "text-[#059669]"
-                                  : isOngoing
-                                    ? "text-amber-700"
-                                    : isHeld
-                                      ? "text-amber-700"
-                                      : "text-slate-400"
+                                  : isCustomerBooked
+                                    ? "text-rose-600 font-extrabold"
+                                    : isAdminBlocked
+                                      ? "text-slate-300 font-bold"
+                                      : isOngoing
+                                        ? "text-amber-700"
+                                        : isHeld
+                                          ? "text-amber-700"
+                                          : "text-slate-400"
                             }`}
                           >
                             {isSelected
-                              ? "Pick"
+                              ? "Selected"
                               : isAvail
-                                ? "Open"
-                                : isOngoing
-                                  ? "Live"
-                                  : isHeld
-                                    ? "Held"
-                                    : isPast
-                                      ? "Ended"
-                                      : slot.status.toLowerCase()}
+                                ? "Available"
+                                : isCustomerBooked
+                                  ? "Booked"
+                                  : isAdminBlocked
+                                    ? "Blocked"
+                                    : isHeld
+                                      ? "Held"
+                                      : isOngoing
+                                        ? "Live"
+                                        : isPast
+                                          ? "Ended"
+                                          : slot.status.toLowerCase()}
                           </span>
                         </div>
                       </button>
@@ -1181,6 +1268,11 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Location Directions & Helpdesk Modal */}
+      <LocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+      />
     </div>
   );
 };

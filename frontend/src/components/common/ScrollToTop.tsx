@@ -9,7 +9,7 @@ export const ScrollToTop: React.FC = () => {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
-    // Reset window scroll to top
+    // Reset window scroll to top only on actual route navigation
     try {
       window.scrollTo({
         top: 0,
@@ -20,7 +20,7 @@ export const ScrollToTop: React.FC = () => {
       // Fallback for older browsers
       window.scrollTo(0, 0);
     }
-  }, [pathname, search]);
+  }, [pathname]);
 
   return null;
 };

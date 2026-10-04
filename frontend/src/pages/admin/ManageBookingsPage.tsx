@@ -15,6 +15,8 @@ import {
   RefreshCw,
   PlusCircle,
   DollarSign,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import api from "../../services/api";
 import { Booking } from "../../types";
@@ -59,6 +61,30 @@ export const ManageBookingsPage: React.FC = () => {
   const handleOpenPayment = (bookingId: string | number) => {
     setPaymentBookingId(bookingId);
     setIsOfflinePaymentOpen(true);
+  };
+
+  const [exportingFollowup, setExportingFollowup] = useState(false);
+
+  const handleExportFollowup = async (filter: "this_week" | "all" = "this_week") => {
+    setExportingFollowup(true);
+    try {
+      const res = await api.get(`/reports/export-csv/?type=followup&filter=${filter}`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `friends_turf_customer_followup_${filter}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to export followup list", err);
+    } finally {
+      setExportingFollowup(false);
+    }
   };
 
   const filteredBookings = bookings.filter((b) => {
@@ -197,7 +223,18 @@ export const ManageBookingsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => handleExportFollowup("this_week")}
+            isLoading={exportingFollowup}
+            leftIcon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+            title="Export strictly 4 columns: Date, Time, Who/Customer, Name"
+          >
+            Export Follow-Up (This Week)
+          </Button>
+
           <Button
             variant="outline"
             size="md"

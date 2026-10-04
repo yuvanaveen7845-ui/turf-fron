@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
   Clock,
@@ -8,6 +8,7 @@ import {
   Wallet,
   QrCode,
   CheckCircle2,
+  Check,
   AlertCircle,
   ArrowRight,
   Info,
@@ -17,6 +18,7 @@ import {
   Lock,
   RefreshCw,
   Sparkles,
+  User,
 } from "lucide-react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -71,14 +73,69 @@ export const BookingCheckoutPage: React.FC = () => {
   const [priceBreakdown, setPriceBreakdown] = useState<any>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
 
-  // Payment configuration (Full vs 50% Partial)
+  // Payment configuration (Full vs Minimum Advance)
   const [paymentType, setPaymentType] = useState<"FULL" | "PARTIAL">("FULL");
+  const [customAdvanceInput, setCustomAdvanceInput] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "WALLET">(
     "RAZORPAY"
   );
   const [notes, setNotes] = useState("");
 
+  // Guest checkout state (for visitors booking without signing in)
+  const [guestName, setGuestName] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestTouched, setGuestTouched] = useState({ name: false, phone: false, email: false });
+
+  // Guest validation rules
+  const cleanGuestPhone = guestPhone.replace(/\D/g, "").slice(0, 10);
+  const isGuestPhoneValid = /^[6-9]\d{9}$/.test(cleanGuestPhone);
+  const isGuestNameValid = guestName.trim().length >= 2;
+  const isGuestEmailValid = !guestEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
+
+  const guestPhoneError =
+    guestTouched.phone && !isGuestPhoneValid
+      ? !cleanGuestPhone
+        ? "Mobile number is required"
+        : cleanGuestPhone.length < 10
+        ? `Enter 10 digits (${cleanGuestPhone.length}/10 entered)`
+        : !/^[6-9]/.test(cleanGuestPhone)
+        ? "Indian mobile numbers must start with 6, 7, 8, or 9"
+        : "Invalid mobile number"
+      : "";
+
+  const guestNameError =
+    guestTouched.name && !isGuestNameValid
+      ? !guestName.trim()
+        ? "Player or team name is required"
+        : "Name must be at least 2 characters"
+      : "";
+
+  const guestEmailError =
+    guestTouched.email && !isGuestEmailValid
+      ? "Please enter a valid email address (e.g. name@domain.com)"
+      : "";
+
   const onlinePaymentsEnabled = featureFlags?.ONLINE_PAYMENTS !== false;
+
+  // Duration in hours (supports 1h, 2h, 3h, 3.5h, etc.)
+  const bookingDurationHours = useMemo(() => {
+    if (state?.selectedSlots && state.selectedSlots.length > 0) {
+      let totalMins = 0;
+      for (const s of state.selectedSlots) {
+        if (s.start_time && s.end_time) {
+          const [sh, sm] = s.start_time.split(":").map(Number);
+          const [eh, em] = s.end_time.split(":").map(Number);
+          const diff = (eh * 60 + em) - (sh * 60 + sm);
+          totalMins += diff > 0 ? diff : 60;
+        } else {
+          totalMins += 60;
+        }
+      }
+      return totalMins / 60;
+    }
+    return actualSlotIds.length > 0 ? actualSlotIds.length : 1;
+  }, [state?.selectedSlots, actualSlotIds.length]);
 
   useEffect(() => {
     if (!onlinePaymentsEnabled && paymentMethod === "RAZORPAY") {
@@ -96,24 +153,17 @@ export const BookingCheckoutPage: React.FC = () => {
   useEffect(() => {
     if (authLoading) return;
 
-    // If not authenticated, redirect to login with intent preserved
-    if (!user) {
-      if (state?.turf && actualSlotIds.length > 0) {
-        saveBookingIntent({
-          turfId: String(state.turf.id),
-          turfName: state.turf.name,
-          date: actualDate,
-          slotIds: actualSlotIds,
-          turf: state.turf,
-          selectedSlots: state.selectedSlots,
-          returnUrl: "/checkout",
-        });
-      }
-      navigate("/login?redirect=/checkout", {
-        replace: true,
-        state: { from: location, hasPendingBooking: true },
+    // If not authenticated, preserve booking intent without redirecting away (Express Guest Checkout)
+    if (!user && state?.turf && actualSlotIds.length > 0) {
+      saveBookingIntent({
+        turfId: String(state.turf.id),
+        turfName: state.turf.name,
+        date: actualDate,
+        slotIds: actualSlotIds,
+        turf: state.turf,
+        selectedSlots: state.selectedSlots,
+        returnUrl: "/checkout",
       });
-      return;
     }
 
     if (!state?.turf || !actualSlotIds || actualSlotIds.length === 0) {
@@ -277,6 +327,32 @@ export const BookingCheckoutPage: React.FC = () => {
       return;
     }
 
+    // Validate guest contact details if unauthenticated
+    if (!user) {
+      setGuestTouched({ name: true, phone: true, email: true });
+      if (!isGuestNameValid) {
+        setErrorMessage("Please enter a valid player or team name (minimum 2 characters).");
+        setProcessing(false);
+        return;
+      }
+      if (!isGuestPhoneValid) {
+        if (!cleanGuestPhone) {
+          setErrorMessage("Please enter your 10-digit mobile number for match pass delivery.");
+        } else if (cleanGuestPhone.length < 10) {
+          setErrorMessage(`Mobile number must be exactly 10 digits (${cleanGuestPhone.length}/10 entered).`);
+        } else {
+          setErrorMessage("Indian mobile numbers must start with 6, 7, 8, or 9.");
+        }
+        setProcessing(false);
+        return;
+      }
+      if (!isGuestEmailValid) {
+        setErrorMessage("Please enter a valid email address or leave it blank.");
+        setProcessing(false);
+        return;
+      }
+    }
+
     // Flow B: Razorpay Universal Payment Gateway
     setStatusMessage("Creating secure Razorpay order…");
     try {
@@ -287,7 +363,11 @@ export const BookingCheckoutPage: React.FC = () => {
         slot_ids: actualSlotIds,
         coupon_code: appliedCoupon ? appliedCoupon.code : "",
         payment_type: effectivePaymentType,
+        advance_amount: effectivePaymentType === "PARTIAL" ? amountToCharge : undefined,
         notes,
+        customer_name: user ? (user.full_name || user.first_name) : guestName.trim(),
+        customer_phone: user ? user.phone : guestPhone.trim(),
+        customer_email: user ? user.email : guestEmail.trim(),
       });
 
       const orderData = orderRes.data;
@@ -303,9 +383,9 @@ export const BookingCheckoutPage: React.FC = () => {
           description: `Pitch Booking (${orderData.booking_id})`,
         },
         user: {
-          full_name: user?.full_name || user?.first_name || "Player",
-          email: user?.email || "",
-          phone: user?.phone || "",
+          full_name: user ? (user.full_name || user.first_name || "Player") : (guestName.trim() || "Guest Player"),
+          email: user ? (user.email || "") : (guestEmail.trim() || ""),
+          phone: user ? (user.phone || "") : (guestPhone.trim() || ""),
         },
         onStatusChange: (statusText) => setStatusMessage(statusText),
         onSuccess: async (response) => {
@@ -328,6 +408,22 @@ export const BookingCheckoutPage: React.FC = () => {
           const confirmedBookingId =
             verifyRes.data?.booking?.booking_id || orderData.booking_id;
           if (confirmedBookingId) {
+            try {
+              const existing = JSON.parse(localStorage.getItem("ft_guest_bookings") || "[]");
+              const filtered = existing.filter((b: any) => b.booking_id !== confirmedBookingId);
+              filtered.unshift({
+                booking_id: confirmedBookingId,
+                turf_name: state?.turf?.name || "Friends Turf",
+                turf_location: state?.turf?.location || "Arena Ground",
+                date: actualDate,
+                start_time: state?.selectedSlots?.[0]?.start_time || "",
+                end_time: state?.selectedSlots?.[state?.selectedSlots?.length - 1]?.end_time || "",
+                amount_paid: amountToCharge,
+                created_at: new Date().toISOString(),
+              });
+              localStorage.setItem("ft_guest_bookings", JSON.stringify(filtered.slice(0, 10)));
+            } catch (_) {}
+
             navigate(`/confirmation/${confirmedBookingId}`, {
               replace: true,
               state: {
@@ -520,13 +616,21 @@ export const BookingCheckoutPage: React.FC = () => {
 
   const walletBal = Number(user?.customer_profile?.wallet_balance || 0);
   const finalPayable = priceBreakdown ? Number(priceBreakdown.final_amount) : 0;
-  const advanceDepositPercent = paymentSettings?.advanceDepositPercent ?? 50;
-  const advancePayable = Math.round(finalPayable * (advanceDepositPercent / 100));
+
+  const hourlyAdvanceRate = paymentSettings?.hourlyAdvanceRate ?? 100;
+  const rawMinAdvance = Math.round(bookingDurationHours * hourlyAdvanceRate);
+  const minimumAdvance = finalPayable > 0 ? Math.min(rawMinAdvance, finalPayable) : rawMinAdvance;
+  const parsedCustomAdvance = customAdvanceInput ? Number(customAdvanceInput) : null;
+  const effectiveAdvanceAmount =
+    parsedCustomAdvance !== null && !isNaN(parsedCustomAdvance) && parsedCustomAdvance >= minimumAdvance
+      ? Math.min(parsedCustomAdvance, finalPayable)
+      : (finalPayable > 0 ? Math.min(minimumAdvance, finalPayable) : minimumAdvance);
+
   const canPartialPay =
     paymentSettings?.enableSplitDeposit !== false &&
     featureFlags?.PARTIAL_PAYMENTS !== false;
   const effectivePaymentType = !canPartialPay && paymentType === "PARTIAL" ? "FULL" : paymentType;
-  const amountToCharge = effectivePaymentType === "FULL" ? finalPayable : advancePayable;
+  const amountToCharge = effectivePaymentType === "FULL" ? finalPayable : effectiveAdvanceAmount;
   const couponsEnabled = featureFlags?.COUPONS !== false;
 
 
@@ -675,7 +779,7 @@ export const BookingCheckoutPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Match & Payment Details */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-3.5 sm:space-y-6">
           {/* Match Details Card */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-4">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
@@ -736,76 +840,288 @@ export const BookingCheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Payment Option Switcher (Full vs 50% Partial) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          {/* Express Guest Contact Form (If unauthenticated) */}
+          {!user && (
+            <div className="bg-white rounded-2xl border border-emerald-200 shadow-pitch-card p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#059669] flex items-center justify-center font-bold">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900">
+                      Express Guest Contact
+                    </h2>
+                    <p className="text-[11px] text-slate-500">
+                      No sign-in or password needed. Match pass will be delivered to this number.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to={`/login?redirect=/checkout`}
+                  state={{ from: location, hasPendingBooking: true }}
+                  className="text-xs font-bold text-[#059669] hover:underline hidden sm:inline"
+                >
+                  Have an account? Sign In
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 text-xs">
+                {/* Player / Team Name */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold text-slate-700">
+                      Player / Team Name <span className="text-rose-500">*</span>
+                    </label>
+                    {guestTouched.name && isGuestNameValid && (
+                      <span className="text-[11px] font-bold text-[#059669] flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Valid
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    maxLength={50}
+                    placeholder="e.g. Vignesh (Thunder FC)"
+                    value={guestName}
+                    onChange={(e) => {
+                      setGuestName(e.target.value);
+                      setGuestTouched((prev) => ({ ...prev, name: true }));
+                    }}
+                    onBlur={() => setGuestTouched((prev) => ({ ...prev, name: true }))}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all focus:outline-none ${
+                      guestNameError
+                        ? "border-rose-400 bg-rose-50/30 text-rose-900 focus:ring-2 focus:ring-rose-400"
+                        : "border-slate-200 focus:ring-2 focus:ring-[#059669]"
+                    }`}
+                  />
+                  {guestNameError && (
+                    <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {guestNameError}
+                    </p>
+                  )}
+                </div>
+
+                {/* Mobile Number with +91 Country Badge and Digit Counter */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold text-slate-700">
+                      Mobile Number <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="text-[11px] font-mono">
+                      {isGuestPhoneValid ? (
+                        <span className="font-bold text-[#059669] flex items-center gap-1">
+                          <Check className="w-3 h-3" /> 10 digits
+                        </span>
+                      ) : (
+                        <span className={cleanGuestPhone.length > 0 ? "text-amber-600 font-semibold" : "text-slate-400"}>
+                          {cleanGuestPhone.length}/10 digits
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`flex rounded-xl border transition-all overflow-hidden ${
+                    guestPhoneError
+                      ? "border-rose-400 focus-within:ring-2 focus-within:ring-rose-400"
+                      : "border-slate-200 focus-within:ring-2 focus-within:ring-[#059669]"
+                  }`}>
+                    <div className="flex items-center px-3 bg-slate-50 border-r border-slate-200 text-xs font-bold text-slate-600 select-none">
+                      +91
+                    </div>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      required
+                      placeholder="98422 12345"
+                      value={guestPhone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setGuestPhone(digits);
+                        setGuestTouched((prev) => ({ ...prev, phone: true }));
+                      }}
+                      onBlur={() => setGuestTouched((prev) => ({ ...prev, phone: true }))}
+                      className="w-full px-3.5 py-2.5 text-xs font-mono font-medium focus:outline-none bg-transparent"
+                    />
+                  </div>
+                  {guestPhoneError && (
+                    <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {guestPhoneError}
+                    </p>
+                  )}
+                </div>
+
+                {/* Email Address */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-semibold text-slate-600">
+                      Email Address <span className="text-slate-400 font-normal">(Optional, for digital receipt copy)</span>
+                    </label>
+                    {guestEmail.trim() && isGuestEmailValid && (
+                      <span className="text-[11px] font-bold text-[#059669] flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Valid Email
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="e.g. vignesh@gmail.com"
+                    value={guestEmail}
+                    onChange={(e) => {
+                      setGuestEmail(e.target.value);
+                      if (e.target.value.trim()) {
+                        setGuestTouched((prev) => ({ ...prev, email: true }));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (guestEmail.trim()) {
+                        setGuestTouched((prev) => ({ ...prev, email: true }));
+                      }
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all focus:outline-none ${
+                      guestEmailError
+                        ? "border-rose-400 bg-rose-50/30 text-rose-900 focus:ring-2 focus:ring-rose-400"
+                        : "border-slate-200 focus:ring-2 focus:ring-[#059669]"
+                    }`}
+                  />
+                  {guestEmailError && (
+                    <p className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      {guestEmailError}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:hidden pt-1">
+                <Link
+                  to={`/login?redirect=/checkout`}
+                  state={{ from: location, hasPendingBooking: true }}
+                  className="text-xs font-bold text-[#059669] hover:underline"
+                >
+                  Have an account? Sign In to use Turf Cash Wallet
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Option Switcher (Full vs Advance) */}
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-pitch-card p-3 sm:p-6 space-y-2.5 sm:space-y-4">
+            <h2 className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
               Choose Payment Option
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setPaymentType("FULL")}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer ${
                   effectivePaymentType === "FULL"
                     ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
                     : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#059669]">
+                <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#059669]">
                     100% Full Payment
                   </span>
                   <CheckCircle2
-                    className={`w-4 h-4 ${effectivePaymentType === "FULL" ? "text-[#059669]" : "text-slate-400"}`}
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${effectivePaymentType === "FULL" ? "text-[#059669]" : "text-slate-400"}`}
                   />
                 </div>
-                <p className="text-base font-black text-slate-900">Pay Full Amount</p>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-sm sm:text-base font-black text-slate-900">Pay Full Amount</p>
+                <p className="text-[10.5px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 line-clamp-1 sm:line-clamp-none">
                   Zero balance due at venue. Instant QR pass activation.
                 </p>
               </button>
 
               {canPartialPay && (
-                <button
-                  type="button"
-                  onClick={() => setPaymentType("PARTIAL")}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                <div
+                  className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border transition-all ${
                     effectivePaymentType === "PARTIAL"
                       ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
                       : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#F59E0B]">
-                      {advanceDepositPercent}% Partial Advance
-                    </span>
-                    <CheckCircle2
-                      className={`w-4 h-4 ${effectivePaymentType === "PARTIAL" ? "text-[#059669]" : "text-slate-400"}`}
-                    />
-                  </div>
-                  <p className="text-base font-black text-slate-900">
-                    Pay ₹{advancePayable} Deposit
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Pay remaining ₹{finalPayable - advancePayable} balance at venue reception.
-                  </p>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentType("PARTIAL")}
+                    className="w-full text-left cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#059669]">
+                        Pay Advance (Min ₹{minimumAdvance})
+                      </span>
+                      <CheckCircle2
+                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${effectivePaymentType === "PARTIAL" ? "text-[#059669]" : "text-slate-400"}`}
+                      />
+                    </div>
+                    <p className="text-sm sm:text-base font-black text-slate-900">
+                      Pay ₹{amountToCharge} Advance
+                    </p>
+                    <p className="text-[10.5px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 line-clamp-1 sm:line-clamp-none">
+                      {bookingDurationHours}h × ₹{hourlyAdvanceRate}/hr = ₹{minimumAdvance} minimum advance. Settle remaining ₹{Math.max(0, finalPayable - amountToCharge)} balance at venue reception.
+                    </p>
+                  </button>
+
+                  {/* Customer Option to Pay More Than Minimum Advance */}
+                  {effectivePaymentType === "PARTIAL" && (
+                    <div className="mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t border-emerald-200/60 space-y-1.5 sm:space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700 text-[11px] sm:text-xs">Want to pay more advance?</span>
+                        <span className="text-[10px] text-slate-500">Min: ₹{minimumAdvance} | Max: ₹{finalPayable}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min={minimumAdvance}
+                            max={finalPayable}
+                            step={50}
+                            placeholder={String(minimumAdvance)}
+                            value={customAdvanceInput}
+                            onChange={(e) => setCustomAdvanceInput(e.target.value)}
+                            className="w-full pl-7 pr-3 py-1 sm:py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 outline-none focus:border-[#059669]"
+                          />
+                        </div>
+                        {customAdvanceInput && (
+                          <button
+                            type="button"
+                            onClick={() => setCustomAdvanceInput("")}
+                            className="text-[10px] font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      {parsedCustomAdvance !== null && parsedCustomAdvance < minimumAdvance && (
+                        <p className="text-[10px] text-red-600 font-semibold">
+                          Advance cannot be less than minimum ₹{minimumAdvance} (₹{hourlyAdvanceRate}/hr).
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
           {/* Payment Method Switcher (Razorpay vs Turf Cash Wallet) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-pitch-card p-3 sm:p-6 space-y-2.5 sm:space-y-4">
+            <h2 className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
               <span>Payment Method</span>
-              <span className="flex items-center space-x-1 text-[#059669] text-[11px]">
-                <Lock className="w-3.5 h-3.5" />
+              <span className="flex items-center space-x-1 text-[#059669] text-[10px] sm:text-[11px]">
+                <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span>256-Bit SSL Encrypted</span>
               </span>
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               {/* Option 1: Razorpay */}
               <button
                 type="button"
@@ -813,7 +1129,7 @@ export const BookingCheckoutPage: React.FC = () => {
                   if (onlinePaymentsEnabled) setPaymentMethod("RAZORPAY");
                 }}
                 disabled={!onlinePaymentsEnabled}
-                className={`p-4 rounded-2xl border text-left transition-all ${
+                className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all min-w-0 overflow-hidden ${
                   !onlinePaymentsEnabled
                     ? "bg-slate-100/60 border-slate-200 opacity-60 cursor-not-allowed"
                     : paymentMethod === "RAZORPAY"
@@ -821,60 +1137,90 @@ export const BookingCheckoutPage: React.FC = () => {
                     : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100 cursor-pointer"
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-blue-600 text-xs shadow-xs">
-                    ₹
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <div className="flex items-center space-x-2 sm:space-x-0">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-blue-600 text-[11px] sm:text-xs shadow-xs shrink-0">
+                      ₹
+                    </div>
+                    <span className="sm:hidden text-xs font-black text-slate-900">
+                      Razorpay Gateway
+                    </span>
                   </div>
                   {onlinePaymentsEnabled ? (
                     <CheckCircle2
-                      className={`w-4 h-4 ${
+                      className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
                         paymentMethod === "RAZORPAY" ? "text-[#059669]" : "text-slate-400"
                       }`}
                     />
                   ) : (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-1.5 py-0.5 sm:px-2 rounded-full border border-amber-300">
                       Disabled
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-black text-slate-900">Razorpay Gateway</p>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="hidden sm:block text-sm font-black text-slate-900">Razorpay Gateway</p>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 line-clamp-1 sm:line-clamp-none sm:whitespace-normal break-words">
                   {onlinePaymentsEnabled
                     ? "UPI (GPay/PhonePe), Cards, NetBanking, & Wallets"
                     : "Online payments temporarily paused by administrator."}
                 </p>
               </button>
 
-              {/* Option 2: Turf Cash Wallet */}
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("WALLET")}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  paymentMethod === "WALLET"
-                    ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
-                    : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-[#059669] text-xs shadow-xs">
-                    <Wallet className="w-4 h-4 text-[#059669]" />
+              {/* Option 2: Turf Cash Wallet (Members Only) */}
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("WALLET")}
+                  className={`p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all cursor-pointer min-w-0 overflow-hidden ${
+                    paymentMethod === "WALLET"
+                      ? "bg-[#ECFDF5] border-[#059669] ring-2 ring-emerald-500/30"
+                      : "bg-[#F8FAFC] border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1 sm:mb-2">
+                    <div className="flex items-center space-x-2 sm:space-x-0">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-[#059669] text-xs shadow-xs shrink-0">
+                        <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#059669]" />
+                      </div>
+                      <span className="sm:hidden text-xs font-black text-slate-900">
+                        Turf Cash Wallet
+                      </span>
+                    </div>
+                    <CheckCircle2
+                      className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
+                        paymentMethod === "WALLET" ? "text-[#059669]" : "text-slate-400"
+                      }`}
+                    />
                   </div>
-                  <CheckCircle2
-                    className={`w-4 h-4 ${
-                      paymentMethod === "WALLET" ? "text-[#059669]" : "text-slate-400"
-                    }`}
-                  />
+                  <p className="hidden sm:block text-sm font-black text-slate-900">Turf Cash Wallet</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 line-clamp-1 sm:line-clamp-none sm:whitespace-normal break-words">
+                    Balance: <strong className="text-[#059669]">₹{walletBal.toLocaleString("en-IN")}</strong>
+                    {walletBal < amountToCharge && (
+                      <span className="text-red-500 block sm:inline sm:ml-1"> (Insufficient)</span>
+                    )}
+                  </p>
+                </button>
+              ) : (
+                <div className="p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 text-left min-w-0 overflow-hidden">
+                  <div className="flex items-center justify-between mb-1 sm:mb-2">
+                    <div className="flex items-center space-x-2 sm:space-x-0">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-200 flex items-center justify-center font-black text-slate-500 text-xs shrink-0">
+                        <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
+                      </div>
+                      <span className="sm:hidden text-xs font-bold text-slate-700">
+                        Turf Cash Wallet
+                      </span>
+                    </div>
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400">Members Only</span>
+                  </div>
+                  <p className="hidden sm:block text-sm font-bold text-slate-700">Turf Cash Wallet</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 line-clamp-1 sm:line-clamp-none sm:whitespace-normal break-words">
+                    <Link to="/login?redirect=/checkout" className="text-[#059669] font-bold hover:underline">
+                      Sign in
+                    </Link> to pay with your wallet credits.
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-black text-slate-900">Turf Cash Wallet</p>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Balance: <strong className="text-[#059669]">₹{walletBal.toLocaleString("en-IN")}</strong>
-                  {walletBal < amountToCharge && (
-                    <span className="text-red-500 block"> (Insufficient balance)</span>
-                  )}
-                </p>
-              </button>
+              )}
             </div>
           </div>
         </div>
@@ -998,15 +1344,15 @@ export const BookingCheckoutPage: React.FC = () => {
                   </span>
                 </div>
 
-                {paymentType === "PARTIAL" && (
+                {effectivePaymentType === "PARTIAL" && (
                   <div className="p-3 bg-[#F0FDF4] border border-emerald-200 rounded-xl space-y-1">
                     <div className="flex justify-between font-bold text-emerald-900 text-xs">
-                      <span>Deposit Payable Now (50%)</span>
-                      <span>₹{advancePayable}</span>
+                      <span>Advance Payable Now</span>
+                      <span>₹{amountToCharge}</span>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-600">
-                      <span>Balance Due at Venue (50%)</span>
-                      <span>₹{priceBreakdown.final_amount - advancePayable}</span>
+                      <span>Balance Due at Venue Reception</span>
+                      <span>₹{Math.max(0, finalPayable - amountToCharge)}</span>
                     </div>
                   </div>
                 )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Building2,
   Calendar,
@@ -13,11 +13,16 @@ import {
   Mail,
   Sliders,
   Loader2,
+  MapPin,
+  Navigation,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import api from "../../services/api";
 import { useToast } from "../../context/ToastContext";
 import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 import { usePermission } from "../../context/PermissionContext";
+import { resolveImageUrl } from "../../utils/imageUrl";
 
 export const AdminSettingsPage: React.FC = () => {
   const toast = useToast();
@@ -60,7 +65,49 @@ export const AdminSettingsPage: React.FC = () => {
     instagram: "@friendsturf_tiruppur",
     whatsapp: "+91 93639 89494",
     gstin: "33ABCDE1234F1Z5",
+    banner_title: "Friends Turf Sports Complex",
+    banner_landmark: "RTO Backside",
+    banner_image_url: "",
   });
+
+  const [availableTurfs, setAvailableTurfs] = useState<any[]>([]);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File Too Large", "Banner image cannot exceed 10MB");
+      return;
+    }
+
+    setUploadingBanner(true);
+    try {
+      const formData = new FormData();
+      formData.append("images", file);
+      const res = await api.post("/turfs/upload-image/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const url = res.data?.urls?.[0] || res.data?.url;
+      if (url) {
+        setCompanySettings((prev) => ({ ...prev, banner_image_url: url }));
+        toast.success("Banner Image Uploaded", "Hero banner background updated successfully");
+      } else {
+        throw new Error("No URL returned from server");
+      }
+    } catch (err: any) {
+      console.error("Banner upload failed:", err);
+      toast.error(
+        "Upload Failed",
+        err?.response?.data?.error || "Could not upload image. Please try again."
+      );
+    } finally {
+      setUploadingBanner(false);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   const [bookingRules, setBookingRules] = useState({
     advanceBookingDays: 14,
@@ -89,6 +136,7 @@ export const AdminSettingsPage: React.FC = () => {
     keySecret: "••••••••••••••••••••",
     upiId: "friendsturf@okhdfcbank",
     enableSplitDeposit: true,
+    hourlyAdvanceRate: 100,
     advanceDepositPercent: 50,
     taxPercentage: 18,
     isTaxIncluded: true,
@@ -112,9 +160,12 @@ export const AdminSettingsPage: React.FC = () => {
     Promise.all([
       api.get("/auth/settings/"),
       api.get("/auth/features/"),
+      api.get("/turfs/").catch(() => ({ data: [] })),
     ])
-      .then(([settingsRes, featuresRes]) => {
-        if (settingsRes.data.company) setCompanySettings(settingsRes.data.company);
+      .then(([settingsRes, featuresRes, turfsRes]) => {
+        if (settingsRes.data.company) {
+          setCompanySettings((prev) => ({ ...prev, ...settingsRes.data.company }));
+        }
         if (settingsRes.data.booking) setBookingRules(settingsRes.data.booking);
         if (settingsRes.data.hours) setOperatingHours(settingsRes.data.hours);
         if (settingsRes.data.payments) setPaymentSettings(settingsRes.data.payments);
@@ -123,6 +174,9 @@ export const AdminSettingsPage: React.FC = () => {
           setAuthSettings({ google_client_id: settingsRes.data.auth.google_client_id });
         }
         if (featuresRes.data) setFeatureFlags((prev) => ({ ...prev, ...featuresRes.data }));
+
+        const tList = Array.isArray(turfsRes?.data) ? turfsRes.data : turfsRes?.data?.results || [];
+        setAvailableTurfs(tList);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -528,6 +582,255 @@ export const AdminSettingsPage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* 4. Customer Hero Banner Studio & Live Preview */}
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
+                      4. Customer Hero Banner Studio &amp; Live Preview
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                    Public Hero Landing Banner
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Customize the hero photo, headline, and landmark badge with instant real-time visual preview.
+                  </p>
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-emerald-50 text-[#059669] border border-emerald-200/80 self-start sm:self-auto flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                  Live Preview
+                </span>
+              </div>
+
+              {/* REAL-TIME LIVE BANNER PREVIEW CARD */}
+              <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl border border-slate-800 bg-slate-950 text-white min-h-[200px] sm:min-h-[240px] flex flex-col justify-end p-4 sm:p-7 group">
+                {/* Background Turf Venue Photo */}
+                <div
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-105"
+                  style={{
+                    backgroundImage: `url('${resolveImageUrl(
+                      companySettings.banner_image_url || availableTurfs?.[0]?.images?.[0] || "https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=1600&q=80"
+                    )}')`,
+                  }}
+                />
+                {/* Dark Gradients */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-black/30" />
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/40 via-transparent to-transparent" />
+
+                {/* Live Preview Watermark Badge */}
+                <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-[10px] font-bold text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                  <span>Customer View Preview</span>
+                </div>
+
+                {/* Banner Content Preview */}
+                <div className="relative z-10 space-y-2">
+                  <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
+                    {companySettings.banner_title || companySettings.name || "Friends Turf Sports Complex"}
+                  </h2>
+                  <div className="flex items-center">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 border border-white/15 text-xs text-slate-200 backdrop-blur-md shadow-sm">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
+                        <MapPin className="w-3 h-3" />
+                      </span>
+                      <span className="font-medium text-slate-200">
+                        {companySettings.address?.split("(")[0]?.trim() || "Near Sirupooluvapatti, Kamatchepuram, Tiruppur"}
+                      </span>
+                      {companySettings.banner_landmark && (
+                        <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[10px] font-bold text-emerald-300 tracking-wide uppercase">
+                          {companySettings.banner_landmark}
+                        </span>
+                      )}
+                      <Navigation className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Banner Input Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-slate-200/90">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Banner Headline
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.banner_title || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, banner_title: e.target.value })
+                    }
+                    placeholder="Friends Turf Sports Complex"
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Large headline displayed directly on the hero banner
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Landmark Tag (Pill Badge)
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.banner_landmark || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, banner_landmark: e.target.value })
+                    }
+                    placeholder="RTO Backside"
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                  <span className="text-[10px] text-slate-500">
+                    Highlighted landmark pill shown inside the location badge
+                  </span>
+                </div>
+
+                <div className="sm:col-span-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Hero Banner Background Photo
+                    </label>
+                    {companySettings.banner_image_url && (
+                      <span className="text-[10px] font-bold text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Custom Image Active
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Hidden File Input for Native File Browser */}
+                  <input
+                    ref={bannerFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/jpg"
+                    className="hidden"
+                    onChange={handleBannerFileUpload}
+                  />
+
+                  {/* Interactive Upload Dropzone */}
+                  <div
+                    onClick={() => !uploadingBanner && bannerFileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 text-center transition-all cursor-pointer ${
+                      uploadingBanner
+                        ? "border-emerald-400 bg-emerald-50/50 pointer-events-none"
+                        : "border-slate-300 hover:border-[#059669] bg-white hover:bg-slate-50/60"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#059669] flex items-center justify-center shadow-xs">
+                        {uploadingBanner ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Upload className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">
+                          {uploadingBanner
+                            ? "Uploading banner photo to server..."
+                            : "Click to upload banner photo from your device"}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Supports PNG, JPG, or WebP up to 10MB (recommended 1600x900)
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={uploadingBanner}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          bannerFileInputRef.current?.click();
+                        }}
+                        className="mt-1 px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {uploadingBanner ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Select Image File</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Or Manual URL Input */}
+                  <div className="pt-1">
+                    <span className="text-[11px] font-semibold text-slate-500 block mb-1">
+                      Or paste an image URL directly:
+                    </span>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={companySettings.banner_image_url || ""}
+                        onChange={(e) =>
+                          setCompanySettings({ ...companySettings, banner_image_url: e.target.value })
+                        }
+                        placeholder="https://... or leave blank to use primary pitch photo"
+                        className="flex-1 p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                      />
+                      {companySettings.banner_image_url && (
+                        <button
+                          type="button"
+                          onClick={() => setCompanySettings({ ...companySettings, banner_image_url: "" })}
+                          className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer shrink-0 transition"
+                        >
+                          Reset to Pitch Photo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Pitch Photo Picker if Turfs have photos */}
+                {availableTurfs.length > 0 && availableTurfs.some((t: any) => t.images && t.images.length > 0) && (
+                  <div className="sm:col-span-2 pt-2 border-t border-slate-200/60">
+                    <span className="text-[11px] font-bold text-slate-700 block mb-2">
+                      Quick select from your uploaded arena photos:
+                    </span>
+                    <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                      {availableTurfs.flatMap((t: any) =>
+                        (t.images || []).map((imgUrl: string, idx: number) => {
+                          const isSelectedImg = companySettings.banner_image_url === imgUrl;
+                          return (
+                            <button
+                              key={`${t.id}-${idx}`}
+                              type="button"
+                              onClick={() =>
+                                setCompanySettings({ ...companySettings, banner_image_url: imgUrl })
+                              }
+                              className={`group relative w-20 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                                isSelectedImg
+                                  ? "border-[#059669] ring-2 ring-emerald-500/30 scale-105 shadow-sm"
+                                  : "border-slate-300 hover:border-emerald-400 opacity-75 hover:opacity-100"
+                              }`}
+                              title={`Set ${t.name} photo as hero banner`}
+                            >
+                              <img
+                                src={resolveImageUrl(imgUrl, t.sport_type)}
+                                alt={t.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/60 text-[8px] font-bold text-white text-center truncate px-1 py-0.5">
+                                {t.name}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -858,13 +1161,41 @@ export const AdminSettingsPage: React.FC = () => {
                 />
                 <div>
                   <div className="text-xs font-bold text-slate-900">
-                    Enable Split Deposit / Partial Booking Advance
+                    Enable Minimum Advance Booking (Hourly Rate)
                   </div>
                   <div className="text-[10px] text-slate-500">
-                    When enabled, customer checkout gives the option to pay {paymentSettings.advanceDepositPercent ?? 50}% advance and settle remainder at the venue
+                    When enabled, customers can pay a duration-based advance (e.g. ₹{paymentSettings.hourlyAdvanceRate ?? 100}/hr) and settle the remaining balance at the venue reception
                   </div>
                 </div>
               </label>
+
+              {paymentSettings.enableSplitDeposit && (
+                <div className="mt-3 pl-7 space-y-1">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Minimum Advance Rate per Hour (₹/hour)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-black text-slate-500">₹</span>
+                    <input
+                      type="number"
+                      min={10}
+                      step={10}
+                      value={paymentSettings.hourlyAdvanceRate ?? 100}
+                      onChange={(e) =>
+                        setPaymentSettings({
+                          ...paymentSettings,
+                          hourlyAdvanceRate: Number(e.target.value),
+                        })
+                      }
+                      className="w-48 p-2.5 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-[#059669]"
+                    />
+                    <span className="text-xs font-semibold text-slate-500">/ booked hour</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 block">
+                    Formula: Minimum Advance = Duration (hours) × ₹{paymentSettings.hourlyAdvanceRate ?? 100}/hr. (1h = ₹{paymentSettings.hourlyAdvanceRate ?? 100}, 2h = ₹{(paymentSettings.hourlyAdvanceRate ?? 100) * 2}, etc.)
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* GST Tax & Operational Limits */}

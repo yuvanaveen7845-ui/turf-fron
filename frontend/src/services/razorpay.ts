@@ -122,7 +122,9 @@ export const initiateRazorpayCheckout = async (
     const apiBase = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
     const isAbsoluteBackend = apiBase.startsWith("http");
     const backendOrigin = isAbsoluteBackend ? apiBase : window.location.origin;
-    const callbackUrl = `${backendOrigin}/api/payments/razorpay/callback/`;
+    const defaultCallbackUrl = `${backendOrigin}/api/payments/razorpay/callback/`;
+    // Consume authoritative callback_url from backend order creation, or fallback to default
+    const callbackUrl = (orderData as any).callback_url || defaultCallbackUrl;
 
     const options: any = {
       key: orderData.key_id,

@@ -16,6 +16,7 @@ import api from "../../services/api";
 import { Turf } from "../../types";
 import { Button, Skeleton } from "../../components/ui";
 import { NewBookingWizardModal } from "../../components/admin/NewBookingWizardModal";
+import { DirectAdminBookingModal } from "../../components/admin/DirectAdminBookingModal";
 import { ContextualBookingDrawer } from "../../components/admin/ContextualBookingDrawer";
 import { QuickBlockSlotModal } from "../../components/admin/QuickBlockSlotModal";
 import { QuickPriceChangeModal } from "../../components/admin/QuickPriceChangeModal";
@@ -58,6 +59,11 @@ export const AdminSchedulePage: React.FC = () => {
 
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [preselectedTurfId, setPreselectedTurfId] = useState<number | undefined>();
+
+  // Quick Direct Admin Booking Modal
+  const [isQuickBookingOpen, setIsQuickBookingOpen] = useState(false);
+  const [quickBookingTurf, setQuickBookingTurf] = useState<Turf | null>(null);
+  const [quickBookingSlot, setQuickBookingSlot] = useState<SlotGridItem | null>(null);
 
   const [isBlockSlotOpen, setIsBlockSlotOpen] = useState(false);
   const [isPriceChangeOpen, setIsPriceChangeOpen] = useState(false);
@@ -197,8 +203,10 @@ export const AdminSchedulePage: React.FC = () => {
       }
       setIsDrawerOpen(true);
     } else if (slot.status === "AVAILABLE") {
+      setQuickBookingTurf(turf);
+      setQuickBookingSlot(slot);
       setPreselectedTurfId(Number(turf.id));
-      setIsNewBookingOpen(true);
+      setIsQuickBookingOpen(true);
     }
   };
 
@@ -215,7 +223,7 @@ export const AdminSchedulePage: React.FC = () => {
         return "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100";
       case "MAINTENANCE":
       case "BLOCKED":
-        return "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed";
+        return "bg-slate-700 text-white border-slate-800 cursor-not-allowed shadow-2xs font-semibold";
       default:
         return "bg-slate-50 text-slate-400 border-slate-200";
     }
@@ -339,16 +347,20 @@ export const AdminSchedulePage: React.FC = () => {
           <span>Available (Click to book)</span>
         </div>
         <div className="flex items-center space-x-1.5">
-          <span className="w-3 h-3 rounded-md bg-rose-100 border border-rose-300" />
-          <span>Booked Match (Click to manage)</span>
+          <span className="w-3 h-3 rounded-md bg-rose-100 border border-rose-400" />
+          <span>Customer Booked (Red)</span>
+        </div>
+        <div className="flex items-center space-x-1.5">
+          <span className="w-3 h-3 rounded-md bg-slate-700 border border-slate-800" />
+          <span>Admin / Business Blocked</span>
+        </div>
+        <div className="flex items-center space-x-1.5">
+          <span className="w-3 h-3 rounded-md bg-amber-100 border border-amber-300" />
+          <span>Held in Checkout (5m)</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-3 h-3 rounded-md bg-indigo-100 border-2 border-indigo-500" />
           <span>Next Upcoming Match</span>
-        </div>
-        <div className="flex items-center space-x-1.5">
-          <span className="w-3 h-3 rounded-md bg-slate-200 border border-slate-300" />
-          <span>Maintenance / Blocked</span>
         </div>
       </div>
 
@@ -521,6 +533,23 @@ export const AdminSchedulePage: React.FC = () => {
       </div>
 
       {/* Modals & Drawer */}
+      <DirectAdminBookingModal
+        isOpen={isQuickBookingOpen}
+        onClose={() => setIsQuickBookingOpen(false)}
+        turf={quickBookingTurf}
+        slot={quickBookingSlot}
+        date={selectedDate}
+        onSuccess={fetchSchedule}
+        onOpenAdvancedWizard={() => {
+          setIsQuickBookingOpen(false);
+          setIsNewBookingOpen(true);
+        }}
+        onBlockSlot={() => {
+          setIsQuickBookingOpen(false);
+          setIsBlockSlotOpen(true);
+        }}
+      />
+
       <NewBookingWizardModal
         isOpen={isNewBookingOpen}
         onClose={() => setIsNewBookingOpen(false)}

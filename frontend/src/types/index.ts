@@ -118,14 +118,15 @@ export interface TimeSlot {
   date: string;
   start_time: string;
   end_time: string;
-  status: "AVAILABLE" | "LOCKED" | "BOOKED" | "MAINTENANCE";
+  status: "AVAILABLE" | "LOCKED" | "BOOKED" | "MAINTENANCE" | "BLOCKED";
+  schedule_state?: "AVAILABLE" | "BOOKED" | "BLOCKED" | "LOCKED";
   price: number;
   base_price?: number;
   applied_rules?: { name: string; type: string; amount: number }[];
   is_available: boolean;
   is_past?: boolean;
   is_ongoing?: boolean;
-  slot_state?: "AVAILABLE" | "LOCKED" | "BOOKED" | "MAINTENANCE" | "ONGOING" | "PAST" | "COMPLETED";
+  slot_state?: "AVAILABLE" | "LOCKED" | "BOOKED" | "MAINTENANCE" | "BLOCKED" | "ONGOING" | "PAST" | "COMPLETED";
   locked_until?: string | null;
   booking_id?: string;
 }

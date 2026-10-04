@@ -167,7 +167,7 @@ export const Navbar: React.FC = () => {
                   <Zap className="w-4 h-4 text-[#059669]" />
                   <span>Book Pitch</span>
                 </Link>
-                {user && (
+                {user ? (
                   <>
                     <Link
                       to="/my-bookings"
@@ -192,6 +192,18 @@ export const Navbar: React.FC = () => {
                       <span>Passes</span>
                     </Link>
                   </>
+                ) : (
+                  <Link
+                    to="/my-bookings"
+                    className={`px-3 xl:px-4 py-1.5 xl:py-2 rounded-full text-xs xl:text-[13px] font-bold transition-all flex items-center space-x-1.5 ${
+                      isActive("/my-bookings")
+                        ? "bg-white text-slate-950 shadow-xs border border-slate-200/60 scale-[1.02]"
+                        : "text-slate-600 hover:text-slate-950 hover:bg-white/50"
+                    }`}
+                  >
+                    <Ticket className="w-4 h-4 text-[#059669]" />
+                    <span>Find Match Pass</span>
+                  </Link>
                 )}
               </>
             )}
@@ -671,21 +683,35 @@ export const Navbar: React.FC = () => {
                     </button>
                   </>
                 ) : (
-                  <div className="pt-2 border-t border-slate-200/50 flex gap-2">
+                  <div className="pt-2 border-t border-slate-200/50 space-y-2">
                     <Link
-                      to="/login"
+                      to="/my-bookings"
                       onClick={() => setShowMobileMenu(false)}
-                      className="flex-1 py-2 text-center rounded-xl bg-white/60 hover:bg-white/90 border border-white/80 text-xs font-bold text-slate-800 shadow-2xs transition-all"
+                      className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+                        isActive("/my-bookings")
+                          ? "bg-emerald-500/12 text-[#059669] border border-emerald-500/25 shadow-[0_2px_8px_rgba(5,150,105,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xs font-black"
+                          : "text-slate-700 hover:bg-white/60 hover:text-slate-950 border border-transparent hover:border-white/60"
+                      }`}
                     >
-                      Log In
+                      <Ticket className="w-4 h-4 text-[#059669]" />
+                      <span>Find My Match Pass</span>
                     </Link>
-                    <Link
-                      to="/register"
-                      onClick={() => setShowMobileMenu(false)}
-                      className="flex-1 py-2 text-center rounded-xl bg-[#059669] hover:bg-[#047857] text-xs font-bold text-white shadow-sm shadow-emerald-600/30 transition-all"
-                    >
-                      Join Squad
-                    </Link>
+                    <div className="flex gap-2 pt-1">
+                      <Link
+                        to="/login"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="flex-1 py-2 text-center rounded-xl bg-white/60 hover:bg-white/90 border border-white/80 text-xs font-bold text-slate-800 shadow-2xs transition-all"
+                      >
+                        Log In
+                      </Link>
+                      <Link
+                        to="/register"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="flex-1 py-2 text-center rounded-xl bg-[#059669] hover:bg-[#047857] text-xs font-bold text-white shadow-sm shadow-emerald-600/30 transition-all"
+                      >
+                        Join Squad
+                      </Link>
+                    </div>
                   </div>
                 )}
 

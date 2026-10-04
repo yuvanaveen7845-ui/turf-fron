@@ -16,6 +16,9 @@ import {
   ChevronRight,
   Receipt,
   CreditCard,
+  Search,
+  Ticket,
+  ArrowRight,
 } from "lucide-react";
 import api from "../../services/api";
 import { Booking } from "../../types";
@@ -67,6 +70,39 @@ export const MyBookingsPage: React.FC = () => {
     suggestions: "",
   });
   const [reviewLoading, setReviewLoading] = useState(false);
+  // Guest lookup state (for players viewing passes without signing in)
+  const [lookupQuery, setLookupQuery] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupResults, setLookupResults] = useState<any[] | null>(null);
+  const [lookupError, setLookupError] = useState("");
+  const [deviceGuestBookings] = useState<any[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("ft_guest_bookings") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const handleLookupGuestPass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupQuery.trim()) return;
+    setLookupLoading(true);
+    setLookupError("");
+    setLookupResults(null);
+    try {
+      const res = await api.post("/bookings/lookup/", { query: lookupQuery.trim() });
+      if (res.data.results && res.data.results.length > 0) {
+        setLookupResults(res.data.results);
+      } else {
+        setLookupError(res.data.message || "No match passes found matching your query.");
+      }
+    } catch (err: any) {
+      setLookupError(err.response?.data?.error || "Failed to search for match pass. Please verify details.");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
   const [balancePayingId, setBalancePayingId] = useState<string | null>(null);
 
   const handlePayRemainingBalance = async (booking: Booking) => {
@@ -257,31 +293,202 @@ export const MyBookingsPage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-6 animate-in fade-in">
-        <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center mx-auto shadow-sm">
-          <CalendarCheck className="w-8 h-8" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            My Match Passes
-          </h2>
-          <p className="text-sm text-slate-600">
-            Sign in to view your scheduled turf bookings, match QR passes, gate check-in status, and digital receipts.
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 animate-in fade-in">
+        {/* Hero Header */}
+        <div className="text-center space-y-2 max-w-xl mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#059669] flex items-center justify-center mx-auto shadow-sm">
+            <Ticket className="w-7 h-7" />
+          </div>
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#059669] bg-[#ECFDF5] px-3 py-1 rounded-full inline-block">
+            Express Player Access
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Find Your Match Pass
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Booked without signing in? Enter your <strong className="text-slate-900">Booking Reference</strong> (e.g. <span className="font-mono text-[#059669]">FT-26-...</span>) or your <strong className="text-slate-900">10-digit Mobile Number</strong> to view your digital ticket, entry QR, and invoice.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-          <Link
-            to="/login"
-            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-sm font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95"
-          >
-            <span>Sign In / Register</span>
-          </Link>
-          <Link
-            to="/turfs"
-            className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all"
-          >
-            <span>Book a Pitch</span>
-          </Link>
+
+        {/* Quick Search Card */}
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-pitch-card p-5 sm:p-7 max-w-2xl mx-auto space-y-4">
+          <form onSubmit={handleLookupGuestPass} className="space-y-3">
+            <label className="block text-xs font-bold text-slate-700">
+              Booking Reference or 10-Digit Mobile Number
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. FT-26-824629 or 98422 12345"
+                  value={lookupQuery}
+                  onChange={(e) => {
+                    setLookupQuery(e.target.value);
+                    if (lookupError) setLookupError("");
+                  }}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-xs sm:text-sm font-medium focus:ring-2 focus:ring-[#059669] focus:outline-none transition"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={lookupLoading || !lookupQuery.trim()}
+                className="px-6 py-3 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center space-x-2 shrink-0"
+              >
+                {lookupLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Find My Pass</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {lookupError && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{lookupError}</span>
+            </div>
+          )}
+
+          {/* Search Results */}
+          {lookupResults && lookupResults.length > 0 && (
+            <div className="space-y-3 pt-3 border-t border-slate-100">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                Found {lookupResults.length} Match {lookupResults.length === 1 ? "Pass" : "Passes"}:
+              </p>
+              <div className="space-y-3">
+                {lookupResults.map((result) => (
+                  <div
+                    key={result.booking_id}
+                    className="p-4 rounded-2xl border border-emerald-200 bg-[#F0FDF4]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition hover:shadow-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono font-black text-xs text-[#059669]">
+                          {result.booking_id}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                            result.status === "CONFIRMED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : result.status === "CHECKED_IN"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {result.status}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900">{result.turf_name}</h4>
+                      <p className="text-xs text-slate-600 flex items-center space-x-2">
+                        <span>📅 {result.date}</span>
+                        <span>⏰ {result.start_time} - {result.end_time}</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Paid: <strong className="text-slate-800">₹{result.amount_paid}</strong>
+                        {result.balance_due > 0 && (
+                          <span className="text-amber-700 ml-2 font-bold">
+                            (₹{result.balance_due} Due at Desk)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                      <Link
+                        to={result.pass_url}
+                        className="px-4 py-2 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold shadow-xs transition cursor-pointer flex items-center space-x-1"
+                      >
+                        <Ticket className="w-3.5 h-3.5" />
+                        <span>View Pass</span>
+                      </Link>
+                      <Link
+                        to={`/print/pass/${result.booking_id}?autoprint=true`}
+                        className="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition cursor-pointer"
+                        title="Print Match Pass"
+                      >
+                        Print
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Passes from this Device (Guest LocalStorage) */}
+        {deviceGuestBookings.length > 0 && (
+          <div className="max-w-2xl mx-auto space-y-3">
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-[#059669]" />
+              <span>Recent Passes Booked on this Device</span>
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {deviceGuestBookings.map((b: any) => (
+                <div
+                  key={b.booking_id}
+                  className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-black text-[#059669]">
+                        {b.booking_id}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        {b.date}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900 truncate">{b.turf_name}</p>
+                    {b.start_time && (
+                      <p className="text-[11px] text-slate-500">
+                        ⏰ {b.start_time.slice(0, 5)} - {b.end_time?.slice(0, 5)}
+                      </p>
+                    )}
+                  </div>
+                  <Link
+                    to={`/confirmation/${b.booking_id}`}
+                    className="w-full text-center py-2 rounded-xl bg-[#ECFDF5] hover:bg-emerald-100 text-[#059669] text-xs font-bold transition flex items-center justify-center space-x-1"
+                  >
+                    <span>Open Match Pass</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Member Account Benefits Card */}
+        <div className="max-w-2xl mx-auto p-5 sm:p-6 rounded-3xl bg-slate-100/80 border border-slate-200 text-center space-y-3">
+          <h3 className="text-sm font-bold text-slate-800">
+            Want to keep all your match passes and Turf Cash in one place?
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Signing in unlocks the Turf Cash Wallet, promotional coupon discounts, match rescheduling, and your complete booking history.
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <Link
+              to="/login"
+              className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-xs transition"
+            >
+              Sign In to Existing Account
+            </Link>
+            <Link
+              to="/register"
+              className="px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold shadow-xs transition"
+            >
+              Create Account
+            </Link>
+          </div>
         </div>
       </div>
     );

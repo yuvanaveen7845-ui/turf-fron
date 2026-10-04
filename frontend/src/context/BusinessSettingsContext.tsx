@@ -15,6 +15,9 @@ export interface CompanySettings {
   currency?: string;
   gstin?: string;
   logo_url?: string;
+  banner_title?: string;
+  banner_landmark?: string;
+  banner_image_url?: string;
 }
 
 export interface BookingRules {
@@ -42,6 +45,7 @@ export interface PaymentSettings {
   mode: string;
   upiId?: string;
   enableSplitDeposit: boolean;
+  hourlyAdvanceRate?: number;
   advanceDepositPercent: number;
   taxPercentage: number;
   isTaxIncluded: boolean;
@@ -95,6 +99,9 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettingsState, "loading" | "refreshS
     currency: "INR",
     gstin: "33ABCDE1234F1Z5",
     logo_url: "/logo.png",
+    banner_title: "Friends Turf Sports Complex",
+    banner_landmark: "RTO Backside",
+    banner_image_url: "",
   },
   booking: {
     advanceBookingDays: 14,
@@ -119,6 +126,7 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettingsState, "loading" | "refreshS
     mode: "TEST",
     upiId: "friendsturf@okhdfcbank",
     enableSplitDeposit: true,
+    hourlyAdvanceRate: 100,
     advanceDepositPercent: 50,
     taxPercentage: 18,
     isTaxIncluded: true,

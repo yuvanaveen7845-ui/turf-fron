@@ -49,24 +49,23 @@ export const RegisterPage: React.FC = () => {
     emailAvailability.check(val);
   };
 
-  // Indian phone number sanitizer & formatter
+  // Indian phone number sanitizer (strict 10-digit mobile)
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let raw = e.target.value;
-    // Strip non-digit characters
     let digits = raw.replace(/\D/g, "");
+    
+    // Normalize pasted numbers with country code or leading zero
     if (digits.startsWith("91") && digits.length > 10) {
       digits = digits.slice(2);
+    } else if (digits.startsWith("0") && digits.length === 11) {
+      digits = digits.slice(1);
     }
-    // Limit to 10 digits
+    
+    // Limit strictly to 10 digits
     digits = digits.slice(0, 10);
 
-    let formatted = "";
-    if (digits.length > 0) {
-      formatted = "+91 " + digits.slice(0, 5) + (digits.length > 5 ? " " + digits.slice(5) : "");
-    }
-
-    setFormData((prev) => ({ ...prev, phone: formatted }));
-    phoneAvailability.check(formatted);
+    setFormData((prev) => ({ ...prev, phone: digits }));
+    phoneAvailability.check(digits);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,8 +89,7 @@ export const RegisterPage: React.FC = () => {
     passwordChecks.hasNumber &&
     passwordChecks.hasSpecial;
 
-  const phoneDigits = formData.phone.replace(/\D/g, "");
-  const isPhoneValid = phoneDigits.length === 12 || phoneDigits.length === 10; // +91XXXXXXXXXX or 10 digits
+  const isPhoneValid = /^[6-9]\d{9}$/.test(formData.phone);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,11 +116,12 @@ export const RegisterPage: React.FC = () => {
     setError("");
     setLoading(true);
     try {
+      const cleanPhone = formData.phone.replace(/\D/g, "");
       await register({
         first_name: formData.first_name,
         last_name: formData.last_name,
         email: formData.email,
-        phone: formData.phone,
+        phone: cleanPhone.startsWith("91") && cleanPhone.length === 12 ? `+${cleanPhone}` : `+91${cleanPhone}`,
         password: formData.password,
       });
 
@@ -463,34 +462,62 @@ export const RegisterPage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-700">
-                    Indian Mobile Number
+                    Indian Mobile Number <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] text-slate-400 font-mono">10-Digit Mobile</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {formData.phone.length}/10 Digits
+                  </span>
                 </div>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
-                  <input
-                    type="tel"
-                    required
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handlePhoneChange}
-                    placeholder="+91 98765 43210"
-                    className={`w-full pl-10 pr-10 py-2.5 bg-[#F8FAFC] border rounded-xl text-sm text-slate-900 placeholder-slate-400 font-mono focus:outline-none focus:bg-white transition-colors ${
+                  <div
+                    className={`flex rounded-xl border bg-[#F8FAFC] focus-within:bg-white transition-colors overflow-hidden ${
                       phoneAvailability.exists
-                        ? "border-amber-400 focus:border-amber-500"
-                        : "border-slate-200 focus:border-[#059669]"
+                        ? "border-amber-400 focus-within:border-amber-500"
+                        : isPhoneValid
+                        ? "border-emerald-500 focus-within:border-[#059669]"
+                        : "border-slate-200 focus-within:border-[#059669]"
                     }`}
-                  />
-                  {phoneAvailability.checking && (
-                    <div className="absolute right-3.5 top-3.5">
-                      <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                  >
+                    <div className="flex items-center space-x-1.5 px-3 bg-slate-100/90 border-r border-slate-200 text-xs font-bold text-slate-700 select-none">
+                      <span className="text-base leading-none">🇮🇳</span>
+                      <span>+91</span>
                     </div>
-                  )}
-                  {!phoneAvailability.checking && phoneAvailability.exists === false && (
-                    <div className="absolute right-3.5 top-3 text-emerald-600">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      required
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handlePhoneChange}
+                      placeholder="98765 43210"
+                      className="w-full px-3.5 py-2.5 bg-transparent text-sm text-slate-900 font-semibold placeholder-slate-400 focus:outline-none tracking-wide"
+                    />
+                    {phoneAvailability.checking && (
+                      <div className="flex items-center pr-3">
+                        <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {!phoneAvailability.checking && phoneAvailability.exists === false && isPhoneValid && (
+                      <div className="flex items-center pr-3 text-emerald-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[11px] pt-0.5">
+                  {phoneAvailability.exists ? (
+                    <span className="text-amber-600 font-bold">
+                      Account with this mobile already exists.{" "}
+                      <Link to="/login" className="underline font-black">Sign in</Link>
+                    </span>
+                  ) : formData.phone.length === 10 ? (
+                    <span className={isPhoneValid ? "text-emerald-600 font-bold" : "text-rose-500 font-bold"}>
+                      {isPhoneValid ? "✓ Valid 10-digit Indian mobile number" : "Invalid prefix (must start with 6, 7, 8, or 9)"}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">10-digit Indian mobile number</span>
                   )}
                 </div>
               </div>

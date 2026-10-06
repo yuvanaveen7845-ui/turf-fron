@@ -16,7 +16,6 @@ import {
   X,
   Ticket,
   Compass,
-  Layers,
   ArrowRight,
   Zap,
 } from "lucide-react";
@@ -601,18 +600,7 @@ export const Navbar: React.FC = () => {
                   <Compass className="w-4 h-4 text-[#059669]" />
                   <span>Explore Pitches</span>
                 </Link>
-                <Link
-                  to="/turfs"
-                  onClick={() => setShowMobileMenu(false)}
-                  className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
-                    isActive("/turfs")
-                      ? "bg-emerald-500/12 text-[#059669] border border-emerald-500/25 shadow-[0_2px_8px_rgba(5,150,105,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xs font-black"
-                      : "text-slate-700 hover:bg-white/60 hover:text-slate-950 border border-transparent hover:border-white/60"
-                  }`}
-                >
-                  <Layers className="w-4 h-4 text-[#059669]" />
-                  <span>All Arenas & Rates</span>
-                </Link>
+
                 {user ? (
                   <>
                     <Link

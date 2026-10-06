@@ -134,7 +134,7 @@ export const OffersPage: React.FC = () => {
           </div>
           <div className="pt-2">
             <Link
-              to="/turfs"
+              to="/"
               className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-md transition-all cursor-pointer"
             >
               <Compass className="w-4 h-4" />

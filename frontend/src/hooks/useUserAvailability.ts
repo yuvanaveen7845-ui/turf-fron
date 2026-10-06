@@ -39,7 +39,7 @@ export function useUserAvailability(
       }
 
       // If value is too short or empty, reset
-      if (!trimmed || (field === "email" && !trimmed.includes("@")) || (field === "phone" && trimmed.replace(/\D/g, "").length < 10)) {
+      if (!trimmed) {
         setResult({
           checking: false,
           exists: null,
@@ -47,6 +47,37 @@ export function useUserAvailability(
           field,
         });
         return;
+      }
+
+      let sanitizedQueryVal = trimmed;
+
+      if (field === "email") {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+          setResult({
+            checking: false,
+            exists: null,
+            message: null,
+            field,
+          });
+          return;
+        }
+      } else if (field === "phone") {
+        let phoneDigits = trimmed.replace(/\D/g, "");
+        if (phoneDigits.startsWith("91") && phoneDigits.length > 10) {
+          phoneDigits = phoneDigits.slice(2);
+        } else if (phoneDigits.startsWith("0") && phoneDigits.length > 10) {
+          phoneDigits = phoneDigits.slice(1);
+        }
+        if (phoneDigits.length !== 10 || !/^[6-9]\d{9}$/.test(phoneDigits)) {
+          setResult({
+            checking: false,
+            exists: null,
+            message: null,
+            field,
+          });
+          return;
+        }
+        sanitizedQueryVal = phoneDigits;
       }
 
       setResult((prev) => ({ ...prev, checking: true }));
@@ -57,11 +88,21 @@ export function useUserAvailability(
 
         try {
           const res = await api.get("/auth/check-availability/", {
-            params: { field, value: trimmed },
+            params: { field, value: sanitizedQueryVal },
             signal: controller.signal,
           });
 
           const data = res.data;
+          if (data.status === "INCOMPLETE") {
+            setResult({
+              checking: false,
+              exists: null,
+              message: null,
+              field,
+            });
+            return;
+          }
+
           setResult({
             checking: false,
             exists: data.exists ?? false,

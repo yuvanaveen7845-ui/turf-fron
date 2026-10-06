@@ -301,7 +301,7 @@ export const SquadSplitWidget: React.FC<SquadSplitWidgetProps> = ({
 
             {/* Direct Booking Link to Specific Turf */}
             <Link
-              to={activeTurf ? `/turfs/${activeTurf.id}` : "/turfs"}
+              to={activeTurf ? `/?turf=${activeTurf.id}` : "/"}
               className="w-full py-3.5 px-6 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-extrabold text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/50 transition-all cursor-pointer"
             >
               <span>Book {activeTurf?.name || "Pitch"} for ₹{perPlayerCost}/Player</span>

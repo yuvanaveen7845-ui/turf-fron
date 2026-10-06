@@ -246,7 +246,7 @@ export const WalletPage: React.FC = () => {
             <span>Sign In / Register</span>
           </Link>
           <Link
-            to="/turfs"
+            to="/"
             className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all"
           >
             <span>Explore Grounds</span>
@@ -421,7 +421,7 @@ export const WalletPage: React.FC = () => {
                 <span>Add Cash to Wallet</span>
               </button>
               <button
-                onClick={() => navigate("/turfs")}
+                onClick={() => navigate("/")}
                 className="px-4 py-3 rounded-xl bg-emerald-800/60 hover:bg-emerald-800 text-emerald-100 border border-emerald-400/30 font-bold text-xs flex items-center space-x-1.5 backdrop-blur-md transition-all cursor-pointer"
               >
                 <span>Book Pitch</span>
@@ -997,7 +997,7 @@ export const WalletPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setTopUpSuccessPayload(null);
-                  navigate("/turfs");
+                  navigate("/");
                 }}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-emerald-glow transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >

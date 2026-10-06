@@ -70,7 +70,7 @@ export const ProfilePage: React.FC = () => {
             <span>Sign In / Register</span>
           </Link>
           <Link
-            to="/turfs"
+            to="/"
             className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition-all"
           >
             <Shield className="w-4 h-4 text-[#059669]" />

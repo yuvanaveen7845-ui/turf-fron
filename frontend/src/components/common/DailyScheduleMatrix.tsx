@@ -415,7 +415,7 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
           <span>Direct booking with guaranteed 5-minute checkout lock</span>
         </span>
         <Link
-          to="/turfs"
+          to="/"
           className="font-bold text-[#059669] hover:underline flex items-center space-x-1"
         >
           <span>See all pitches & detailed specs</span>

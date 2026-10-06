@@ -227,7 +227,7 @@ export const PaymentCallbackPage: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                to="/turfs"
+                to="/"
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center cursor-pointer"
               >
                 Return to Pitches

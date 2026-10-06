@@ -39,9 +39,6 @@ const UnauthorizedPage = lazyWithRetry(() =>
 import { HomePage } from "./pages/customer/HomePage";
 
 // Route-level code-split with automatic deployment reload recovery
-const TurfListingPage = lazyWithRetry(() =>
-  import("./pages/customer/TurfListingPage").then((m) => ({ default: m.TurfListingPage }))
-);
 const TurfDetailPage = lazyWithRetry(() =>
   import("./pages/customer/TurfDetailPage").then((m) => ({ default: m.TurfDetailPage }))
 );
@@ -231,7 +228,7 @@ export const App: React.FC = () => {
                 {/* Customer Facing Routes */}
                 <Route element={<CustomerLayout />}>
                   <Route path="/" element={<HomePage />} />
-                  <Route path="/turfs" element={<TurfListingPage />} />
+                  <Route path="/turfs" element={<Navigate to="/" replace />} />
                   <Route path="/turfs/:id" element={<TurfDetailPage />} />
                   <Route path="/checkout" element={<BookingCheckoutPage />} />
                   <Route path="/confirmation/:bookingId" element={<BookingConfirmationPage />} />

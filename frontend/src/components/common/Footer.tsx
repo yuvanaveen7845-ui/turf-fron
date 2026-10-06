@@ -59,7 +59,7 @@ export const Footer: React.FC = () => {
             </h3>
             <ul className="space-y-2.5 text-sm font-medium">
               <li>
-                <Link to="/turfs" className="hover:text-emerald-400 transition-colors">
+                <Link to="/" className="hover:text-emerald-400 transition-colors">
                   Our Pitches & Arenas
                 </Link>
               </li>

@@ -65,7 +65,7 @@ export const BookingConfirmationPage: React.FC = () => {
       <div className="max-w-md mx-auto px-4 py-20 text-center space-y-4">
         <p className="text-slate-600 font-semibold">No active match pass session found.</p>
         <Link
-          to="/turfs"
+          to="/"
           className="px-5 py-2.5 rounded-xl bg-[#059669] text-white font-bold text-xs inline-flex items-center space-x-1.5 shadow-sm"
         >
           <span>Browse Turf Grounds</span>
@@ -176,7 +176,7 @@ export const BookingConfirmationPage: React.FC = () => {
       {/* Post-Booking Navigation Links */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 max-w-2xl mx-auto print:hidden">
         <Link
-          to="/turfs"
+          to="/"
           className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-600 hover:text-[#059669] transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

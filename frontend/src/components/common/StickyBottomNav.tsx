@@ -25,7 +25,7 @@ export const StickyBottomNav: React.FC = () => {
     if (user?.role === "ADMIN" || user?.is_superuser) {
       return [
         { label: "Explore", to: "/", icon: Compass },
-        { label: "Grounds", to: "/turfs", icon: Shield },
+        { label: "Grounds", to: "/admin/turfs", icon: Shield },
         { label: "Operations", to: "/admin", icon: LayoutDashboard },
         { label: "Bookings", to: "/admin/bookings", icon: CalendarCheck },
         { label: "Profile", to: "/profile", icon: User },
@@ -34,7 +34,7 @@ export const StickyBottomNav: React.FC = () => {
     if (user?.role === "STAFF") {
       return [
         { label: "Explore", to: "/", icon: Compass },
-        { label: "Grounds", to: "/turfs", icon: Shield },
+        { label: "Grounds", to: "/admin/turfs", icon: Shield },
         { label: "Shift", to: "/staff", icon: LayoutDashboard },
         { label: "Scanner", to: "/staff/scanner", icon: QrCode },
         { label: "Profile", to: "/profile", icon: User },

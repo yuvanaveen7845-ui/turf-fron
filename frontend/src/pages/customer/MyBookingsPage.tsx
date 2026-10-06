@@ -160,6 +160,11 @@ export const MyBookingsPage: React.FC = () => {
   };
 
   const fetchBookings = () => {
+    if (!user) {
+      setLoading(false);
+      setBookings([]);
+      return;
+    }
     setLoading(true);
     api
       .get(`/bookings/?tab=${activeTab}`)
@@ -173,15 +178,22 @@ export const MyBookingsPage: React.FC = () => {
         setBookings(list);
       })
       .catch((err) => {
-        console.error(err);
+        if (err.response?.status !== 401) {
+          console.error(err);
+        }
         setBookings([]);
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    fetchBookings();
-  }, [activeTab]);
+    if (user) {
+      fetchBookings();
+    } else {
+      setLoading(false);
+      setBookings([]);
+    }
+  }, [activeTab, user]);
 
   // Load slots when opening reschedule modal or changing date
   const loadRescheduleSlots = async (turfId: string, date: string) => {
@@ -568,7 +580,7 @@ export const MyBookingsPage: React.FC = () => {
               : "No past match history found."}
           </p>
           <Link
-            to="/turfs"
+            to="/"
             className="inline-block px-6 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-emerald-glow transition-all"
           >
             Book a Ground Now

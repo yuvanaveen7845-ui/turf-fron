@@ -173,7 +173,7 @@ export const BookingCheckoutPage: React.FC = () => {
         navigate(`/turfs/${intent.turfId}?date=${intent.date}`, { replace: true });
         return;
       }
-      navigate("/turfs");
+      navigate("/");
       return;
     }
 
@@ -598,10 +598,10 @@ export const BookingCheckoutPage: React.FC = () => {
         </div>
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
-            onClick={() => navigate("/turfs")}
+            onClick={() => navigate("/")}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-md transition-all cursor-pointer"
           >
-            <span>Explore All Turfs</span>
+            <span>Explore Pitches & Slots</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

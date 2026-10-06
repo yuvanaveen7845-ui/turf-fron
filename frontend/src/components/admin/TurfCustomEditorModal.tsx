@@ -502,18 +502,74 @@ export const TurfCustomEditorModal: React.FC<TurfCustomEditorModalProps> = ({
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-800">Base Slot Duration</label>
-                  <select
-                    value={formData.slot_duration_minutes}
-                    onChange={(e) => setFormData({ ...formData, slot_duration_minutes: parseInt(e.target.value) })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#059669] focus:outline-hidden cursor-pointer"
-                  >
-                    <option value={30}>30 Minutes</option>
-                    <option value={60}>60 Minutes (Standard)</option>
-                    <option value={90}>90 Minutes (Match & Half)</option>
-                    <option value={120}>120 Minutes (Full Tournament)</option>
-                  </select>
+                <div className="space-y-1 sm:col-span-3">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Slot Interval Granularity & Duration Rules
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, slot_duration_minutes: 30 })}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        formData.slot_duration_minutes === 30
+                          ? "bg-emerald-50/80 border-[#059669] ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                          <span>⚡ 30-Minute Flexible Mode</span>
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-[#059669] text-white uppercase">
+                            Recommended
+                          </span>
+                        </span>
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            formData.slot_duration_minutes === 30
+                              ? "border-[#059669] bg-[#059669]"
+                              : "border-slate-300 bg-white"
+                          }`}
+                        >
+                          {formData.slot_duration_minutes === 30 && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-2 font-medium">
+                        Generates 30-minute base slots. Allows players to book <strong>1h</strong>, <strong>1.5h (90m)</strong>, <strong>2h</strong>, <strong>2.5h</strong>, or <strong>3h</strong> matches with a 60-minute minimum rule.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, slot_duration_minutes: 60 })}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        formData.slot_duration_minutes === 60
+                          ? "bg-emerald-50/80 border-[#059669] ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-slate-900">
+                          ⏱️ 60-Minute Standard Mode
+                        </span>
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            formData.slot_duration_minutes === 60
+                              ? "border-[#059669] bg-[#059669]"
+                              : "border-slate-300 bg-white"
+                          }`}
+                        >
+                          {formData.slot_duration_minutes === 60 && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-2 font-medium">
+                        Generates strict 1-hour slots. Bookings are strictly in full-hour increments (<strong>1h</strong>, <strong>2h</strong>, <strong>3h</strong>, <strong>4h</strong>).
+                      </p>
+                    </button>
+                  </div>
                 </div>
               </div>
 

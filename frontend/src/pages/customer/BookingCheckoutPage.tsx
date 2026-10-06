@@ -824,16 +824,23 @@ export const BookingCheckoutPage: React.FC = () => {
 
             {/* Selected slots chips */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <p className="text-xs font-semibold text-slate-600">
-                Reserved 1-Hour Time Slots:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {state.selectedSlots?.map((slot) => (
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-600">
+                  Reserved Match Slots:
+                </p>
+                <span className="text-[11px] font-black text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {bookingDurationHours * 60} Mins ({state.selectedSlots?.length || 0} Slots)
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {state.selectedSlots?.map((slot, idx) => (
                   <span
                     key={slot.id}
-                    className="px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-emerald-200 text-xs font-bold text-[#059669]"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-emerald-200 text-xs font-bold text-[#059669]"
                   >
-                    {slot.start_time.slice(0, 5)} – {slot.end_time.slice(0, 5)} (₹{Number(slot.price)})
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                    <span>{slot.start_time.slice(0, 5)} – {slot.end_time.slice(0, 5)}</span>
+                    <span className="text-emerald-800/80 font-mono">(₹{Number(slot.price)})</span>
                   </span>
                 ))}
               </div>

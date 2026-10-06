@@ -215,7 +215,7 @@ export const HomePage: React.FC = () => {
   // Filter slots by session (Morning / Afternoon / Night)
   const filteredSlots = useMemo(() => {
     if (selectedSession === "MORNING") {
-      return slots.filter((s) => s.start_time >= "06:00:00" && s.start_time < "12:00:00");
+      return slots.filter((s) => s.start_time < "12:00:00");
     }
     if (selectedSession === "AFTERNOON") {
       return slots.filter((s) => s.start_time >= "12:00:00" && s.start_time < "17:00:00");
@@ -244,15 +244,46 @@ export const HomePage: React.FC = () => {
     return { visibleSlots: filteredSlots, pastSlotsCount: pastCount };
   }, [filteredSlots, isToday, showPastSlots]);
 
-  // Slot availability counts
+  // Slot availability counts (matching exact session boundaries)
   const sessionCounts = useMemo(() => {
     return {
       all: slots.filter((s) => s.is_available).length,
-      morning: slots.filter((s) => s.is_available && s.start_time >= "06:00:00" && s.start_time < "12:00:00").length,
+      morning: slots.filter((s) => s.is_available && s.start_time < "12:00:00").length,
       afternoon: slots.filter((s) => s.is_available && s.start_time >= "12:00:00" && s.start_time < "17:00:00").length,
       night: slots.filter((s) => s.is_available && s.start_time >= "17:00:00").length,
     };
   }, [slots]);
+
+  // Compute slot granularity (30m vs 60m)
+  const slotStepMinutes = useMemo(() => {
+    if (slots.length > 0 && slots[0].start_time && slots[0].end_time) {
+      const [sh, sm] = slots[0].start_time.split(":").map(Number);
+      const [eh, em] = slots[0].end_time.split(":").map(Number);
+      let diff = (eh * 60 + em) - (sh * 60 + sm);
+      if (diff < 0) diff += 24 * 60;
+      if (diff > 0) return diff;
+    }
+    return activeTurf?.slot_duration_minutes || 60;
+  }, [slots, activeTurf]);
+
+  // Dynamic duration options matching arena granularity
+  const durationOptions = useMemo(() => {
+    if (slotStepMinutes === 30) {
+      return [
+        { mins: 60, label: "1h", sublabel: "60m", isHalf: false },
+        { mins: 90, label: "1.5h", sublabel: "90m", isHalf: true },
+        { mins: 120, label: "2h", sublabel: "120m", isHalf: false },
+        { mins: 150, label: "2.5h", sublabel: "150m", isHalf: true },
+        { mins: 180, label: "3h", sublabel: "180m", isHalf: false },
+      ];
+    }
+    return [
+      { mins: 60, label: "1h", sublabel: "60m", isHalf: false },
+      { mins: 120, label: "2h", sublabel: "120m", isHalf: false },
+      { mins: 180, label: "3h", sublabel: "180m", isHalf: false },
+      { mins: 240, label: "4h", sublabel: "240m", isHalf: false },
+    ];
+  }, [slotStepMinutes]);
 
   // Selected slots data and calculated total
   const selectedSlotsData = useMemo(() => {
@@ -264,6 +295,25 @@ export const HomePage: React.FC = () => {
   const totalAmount = useMemo(() => {
     return selectedSlotsData.reduce((sum, s) => sum + Number(s.price), 0);
   }, [selectedSlotsData]);
+
+  // Reusable: calculate minutes from a start_time/end_time pair
+  const calcSlotMinutes = (startTime: string, endTime: string): number => {
+    if (!startTime || !endTime) return 60;
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60;
+    return diff > 0 ? diff : 60;
+  };
+
+  // Dynamic booking duration in minutes calculated from exact slot start/end times
+  const durationMinutes = useMemo(() => {
+    if (selectedSlotsData.length === 0) return 0;
+    return selectedSlotsData.reduce((acc, s) => acc + calcSlotMinutes(s.start_time, s.end_time), 0);
+  }, [selectedSlotsData]);
+
+  // Determine active duration in minutes (actual selected duration takes precedence over preferred)
+  const activeDurationMins = durationMinutes > 0 ? durationMinutes : preferredDuration;
 
   // Format 24-hr time into clean 12-hr AM/PM
   const formatSlotTime = (timeStr: string) => {
@@ -283,9 +333,9 @@ export const HomePage: React.FC = () => {
     const lastSlot = selectedSlotsData[selectedSlotsData.length - 1];
     const timeText = `${formatSlotTime(firstSlot.start_time)} - ${formatSlotTime(lastSlot.end_time)}`;
     const link = `${window.location.origin}/?turf=${activeTurf.id}&date=${selectedDate}&slot=${selectedSlotIds[0]}`;
-    const text = `*Match Alert* | Friends Turf Tiruppur: ${activeTurf.name} is open on ${selectedDate} from ${timeText} (₹${totalAmount.toLocaleString("en-IN")}). Confirm quick so I can lock our slot:\n${link}`;
+    const text = `*Match Alert* | Friends Turf Tiruppur: ${activeTurf.name} is open on ${selectedDate} from ${timeText} (${durationMinutes} Mins, ₹${totalAmount.toLocaleString("en-IN")}). Confirm quick so I can lock our slot:\n${link}`;
     return `https://wa.me/?text=${encodeURIComponent(text)}`;
-  }, [activeTurf, selectedSlotIds, selectedSlotsData, selectedDate, totalAmount]);
+  }, [activeTurf, selectedSlotIds, selectedSlotsData, selectedDate, totalAmount, durationMinutes]);
 
   // Quick Preset Handlers
   const handleQuickPick = (preset: "TONIGHT" | "TOMORROW" | "WEEKEND") => {
@@ -306,23 +356,105 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Toggle slot selection (enforcing continuous hours)
+  // Helper: collect consecutive available slots starting from a kickoff slot up to targetMins
+  const collectConsecutiveSlots = (kickoffSlot: TimeSlot, targetMins: number): { ids: string[]; totalMins: number } => {
+    const ids = [kickoffSlot.id];
+    let totalMins = calcSlotMinutes(kickoffSlot.start_time, kickoffSlot.end_time);
+    let nextEndTime = kickoffSlot.end_time;
+
+    while (totalMins < targetMins) {
+      const nextSlot = slots.find(
+        (s) => s.is_available && s.status === "AVAILABLE" && s.start_time === nextEndTime
+      );
+      if (!nextSlot) break;
+      ids.push(nextSlot.id);
+      totalMins += calcSlotMinutes(nextSlot.start_time, nextSlot.end_time);
+      nextEndTime = nextSlot.end_time;
+    }
+    return { ids, totalMins };
+  };
+
+  // Helper: compute total duration of remaining slots after a deselection
+  const computeRemainingDuration = (remainingSlots: TimeSlot[]): number => {
+    return remainingSlots.reduce((acc, s) => acc + calcSlotMinutes(s.start_time, s.end_time), 0);
+  };
+
+  // Toggle slot selection (enforcing continuous slots & 60m min rule)
   const toggleSlotSelection = (slot: TimeSlot) => {
     if (!slot.is_available || slot.status !== "AVAILABLE") return;
     triggerHaptic("light");
     setLockError("");
 
+    const minBookingMins = bookingRules?.minDurationMinutes || 60;
+
     if (selectedSlotIds.includes(slot.id)) {
-      const remaining = selectedSlotIds.filter((sId) => sId !== slot.id);
-      setSelectedSlotIds(remaining);
+      // === DESELECTION BRANCH ===
+      const currentSelected = slots
+        .filter((s) => selectedSlotIds.includes(s.id))
+        .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+      // If only 1 slot selected, toggle off cleanly
+      if (currentSelected.length <= 1) {
+        setSelectedSlotIds([]);
+        return;
+      }
+
+      let remaining: TimeSlot[] = [];
+
+      if (currentSelected[0].id === slot.id) {
+        // Shrink from start: remove kickoff slot
+        remaining = currentSelected.slice(1);
+      } else if (currentSelected[currentSelected.length - 1].id === slot.id) {
+        // Shrink from end: remove finish slot
+        remaining = currentSelected.slice(0, -1);
+      } else {
+        // Clicked intermediate slot: truncate contiguous range up to that slot
+        const clickedIdx = currentSelected.findIndex((s) => s.id === slot.id);
+        if (clickedIdx > 0) {
+          remaining = currentSelected.slice(0, clickedIdx);
+        } else {
+          setSelectedSlotIds([]);
+          return;
+        }
+      }
+
+      // Check if remaining selection meets minimum duration
+      const remainingDuration = computeRemainingDuration(remaining);
+      if (remainingDuration < minBookingMins) {
+        // On 30-min pitches, a single 30-min slot is an invalid dead state — auto-clear
+        if (remaining.length <= 1 && slotStepMinutes === 30) {
+          setSelectedSlotIds([]);
+          setLockError("Cleared selection — minimum match duration is 60 minutes. Tap a slot to start a new selection.");
+          return;
+        }
+        setLockError(`Minimum match duration is ${minBookingMins} minutes. Please select adjacent slots to complete the minimum.`);
+      }
+      setSelectedSlotIds(remaining.map((s) => s.id));
       return;
     }
 
+    // === SELECTION BRANCH ===
+    const slotDiff = calcSlotMinutes(slot.start_time, slot.end_time);
+
     if (selectedSlotIds.length === 0) {
+      // Fresh selection: smart 1-click auto-extend to reach target duration
+      const targetDuration = Math.max(preferredDuration || 60, minBookingMins);
+
+      if (slotDiff < targetDuration) {
+        const { ids, totalMins } = collectConsecutiveSlots(slot, targetDuration);
+        setSelectedSlotIds(ids);
+        if (totalMins < minBookingMins) {
+          setLockError(`Minimum match duration is ${minBookingMins} minutes. Please select adjacent slots to complete the minimum.`);
+        }
+        return;
+      }
+
+      // Single slot already meets target (e.g., 60-min pitch with 60m preferred)
       setSelectedSlotIds([slot.id]);
       return;
     }
 
+    // Existing selection: try contiguous extend or restart
     const currentSelected = slots
       .filter((s) => selectedSlotIds.includes(s.id))
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
@@ -330,13 +462,39 @@ export const HomePage: React.FC = () => {
     const earliest = currentSelected[0];
     const latest = currentSelected[currentSelected.length - 1];
 
-    if (slot.end_time === earliest.start_time || slot.start_time === latest.end_time) {
+    if (slot.end_time === earliest.start_time) {
+      // Contiguous prepending before kickoff
+      setSelectedSlotIds([slot.id, ...selectedSlotIds]);
+    } else if (slot.start_time === latest.end_time) {
+      // Contiguous appending after finish
       setSelectedSlotIds([...selectedSlotIds, slot.id]);
     } else {
-      setSelectedSlotIds([slot.id]);
-      setLockError(
-        `Selected ${formatSlotTime(slot.start_time)}. Multi-slot reservations require consecutive match hours.`
-      );
+      // Disjoint click: restart contiguous range from this slot with preferred duration
+      const targetDuration = Math.max(preferredDuration || 60, minBookingMins);
+      const { ids, totalMins } = collectConsecutiveSlots(slot, targetDuration);
+      setSelectedSlotIds(ids);
+      if (totalMins < minBookingMins) {
+        setLockError(`Minimum match duration is ${minBookingMins} minutes. Please select adjacent slots to complete the minimum.`);
+      }
+    }
+  };
+
+  // Adjust duration on active selection when clicking duration chips
+  const handleDurationChange = (newDurationMins: number) => {
+    triggerHaptic("light");
+    setPreferredDuration(newDurationMins);
+    localStorage.setItem("ft_preferred_duration_minutes", String(newDurationMins));
+
+    if (selectedSlotsData.length > 0) {
+      const kickoffSlot = selectedSlotsData[0];
+      const { ids, totalMins } = collectConsecutiveSlots(kickoffSlot, newDurationMins);
+
+      setSelectedSlotIds(ids);
+      if (totalMins < newDurationMins) {
+        setLockError(`Only ${totalMins} mins contiguous available starting from ${formatSlotTime(kickoffSlot.start_time)}.`);
+      } else {
+        setLockError("");
+      }
     }
   };
 
@@ -345,6 +503,15 @@ export const HomePage: React.FC = () => {
     if (!activeTurf) return;
     if (selectedSlotIds.length === 0) {
       setLockError("Please select at least 1 open time slot.");
+      return;
+    }
+
+    const minAllowedMins = bookingRules?.minDurationMinutes || 60;
+    if (durationMinutes < minAllowedMins) {
+      setLockError(
+        `Minimum match duration is ${minAllowedMins} minutes (1 hour). Please select at least two consecutive 30-minute slots.`
+      );
+      triggerHaptic("error");
       return;
     }
 
@@ -374,7 +541,6 @@ export const HomePage: React.FC = () => {
         slot_ids: selectedSlotIds,
       });
 
-      const durationMinutes = selectedSlotIds.length * 60;
       localStorage.setItem("ft_preferred_duration_minutes", String(durationMinutes));
 
       const lockPayload = res.data.data || res.data;
@@ -765,32 +931,82 @@ export const HomePage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Match Duration Selector */}
-              <div className="flex items-center justify-between sm:justify-end space-x-2 text-xs">
-                <span className="text-slate-500 font-semibold flex items-center space-x-1 text-[11px] sm:text-xs">
-                  <Clock className="w-3 h-3 text-[#059669]" />
-                  <span>Duration:</span>
-                </span>
-                <div className="flex items-center space-x-1">
-                  {[60, 90, 120].map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic("light");
-                        setPreferredDuration(mins);
-                        localStorage.setItem("ft_preferred_duration_minutes", String(mins));
-                      }}
-                      className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[11px] sm:text-xs font-bold transition cursor-pointer ${
-                        preferredDuration === mins
-                          ? "bg-[#059669] text-white shadow-2xs"
-                          : "bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200"
-                      }`}
-                    >
-                      {mins}m
-                    </button>
-                  ))}
+              {/* Match Duration Selector — Dedicated Row */}
+              <div className="pt-2.5 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#059669]" />
+                    <span>Match Duration</span>
+                  </span>
+                  {activeDurationMins > 0 && (
+                    <span className="text-[11px] sm:text-xs font-bold text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                      {activeDurationMins >= 60 ? `${activeDurationMins / 60}h` : `${activeDurationMins}m`} selected
+                    </span>
+                  )}
                 </div>
+
+                <div className={`grid gap-2 ${durationOptions.length <= 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+                  {durationOptions.map((opt) => {
+                    const isActive = durationMinutes > 0 ? activeDurationMins === opt.mins : preferredDuration === opt.mins;
+                    return (
+                      <button
+                        key={opt.mins}
+                        type="button"
+                        onClick={() => handleDurationChange(opt.mins)}
+                        className={`relative flex flex-col items-center justify-center py-2.5 sm:py-3 rounded-xl sm:rounded-2xl transition-all duration-200 cursor-pointer active:scale-95 border-2 min-h-[52px] sm:min-h-[60px] ${
+                          isActive
+                            ? "bg-[#059669] border-[#059669] text-white shadow-lg shadow-emerald-500/25 scale-[1.03] ring-2 ring-emerald-400/30"
+                            : opt.isHalf
+                              ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 hover:bg-emerald-100 hover:border-emerald-400 hover:shadow-sm"
+                              : "bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm"
+                        }`}
+                        title={`${opt.mins} Minutes Match (${opt.label})`}
+                      >
+                        {/* Primary Label */}
+                        <span className={`text-base sm:text-lg font-black leading-none tracking-tight ${
+                          isActive ? "text-white" : "text-slate-900"
+                        }`}>
+                          {opt.label}
+                        </span>
+
+                        {/* Sublabel */}
+                        <span className={`text-[10px] sm:text-[11px] font-semibold mt-0.5 leading-none ${
+                          isActive ? "text-emerald-100" : "text-slate-500"
+                        }`}>
+                          {opt.sublabel}
+                        </span>
+
+                        {/* Half-hour badge */}
+                        {opt.isHalf && (
+                          <span className={`absolute -top-1.5 -right-1.5 text-[8px] px-1.5 py-0.5 rounded-full font-black ${
+                            isActive
+                              ? "bg-emerald-800 text-emerald-100 ring-2 ring-white"
+                              : "bg-emerald-200 text-emerald-900 ring-1 ring-emerald-300"
+                          }`}>
+                            +½h
+                          </span>
+                        )}
+
+                        {/* Active checkmark */}
+                        {isActive && (
+                          <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-white text-[#059669] flex items-center justify-center shadow-sm ring-2 ring-[#059669]">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Dynamic Custom duration indicator if durationMinutes is outside standard options */}
+                {!durationOptions.some((o) => o.mins === activeDurationMins) && activeDurationMins > 0 && (
+                  <div className="flex items-center justify-center">
+                    <span className="px-4 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-[#059669] text-white shadow-md inline-flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      {activeDurationMins >= 60 ? `${(activeDurationMins / 60).toFixed(1)}h` : `${activeDurationMins}m`} Custom Duration
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -802,7 +1018,54 @@ export const HomePage: React.FC = () => {
               </div>
             )}
 
-            {/* Step 4: High-Density Interactive Time Slots Grid */}
+            {/* Connected Range Visual Indicator (if slots are selected) */}
+            {selectedSlotsData.length > 0 && (
+              <div className="p-3 sm:p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#059669] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                    ⚽
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                      Match Session Range
+                    </span>
+                    <p className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                      <span className="text-[#059669] font-mono font-black">{formatSlotTime(selectedSlotsData[0].start_time)}</span>
+                      <span className="text-slate-400">⟶</span>
+                      <span className="text-[#059669] font-mono font-black">{formatSlotTime(selectedSlotsData[selectedSlotsData.length - 1].end_time)}</span>
+                      <span className="text-slate-400">•</span>
+                      <span className="text-slate-700 font-bold">{durationMinutes} Mins ({durationMinutes >= 60 ? `${durationMinutes / 60}h` : `${durationMinutes}m`})</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 self-end sm:self-center">
+                  {durationMinutes < (bookingRules?.minDurationMinutes || 60) ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                      <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>Select +30m to reach 60m min</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      <Check className="w-3 h-3 text-[#059669] stroke-[3]" />
+                      <span>Valid Match Duration ({durationMinutes}m)</span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSlotIds([]);
+                      setLockError("");
+                    }}
+                    className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800 text-[10px] font-bold transition cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: High-Density Interactive Time Slots Grid with Connected Ribbon */}
             <div className="space-y-2.5 pt-1">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 {/* Step 3 Title & Live Available Counter */}
@@ -886,6 +1149,17 @@ export const HomePage: React.FC = () => {
                     const isPast = slot.is_past || slot.slot_state === "PAST" || slot.slot_state === "COMPLETED";
                     const isNight = slot.start_time >= "18:00:00";
 
+                    // Slot duration in minutes (uses shared helper)
+                    const slotMins = calcSlotMinutes(slot.start_time, slot.end_time);
+
+                    // Determine relative index in contiguous selection ribbon
+                    const isFirstInSelection = selectedSlotsData.length > 1 && selectedSlotsData[0]?.id === slot.id;
+                    const isLastInSelection =
+                      selectedSlotsData.length > 1 && selectedSlotsData[selectedSlotsData.length - 1]?.id === slot.id;
+                    const isMiddleInSelection =
+                      selectedSlotsData.length > 2 && isSelected && !isFirstInSelection && !isLastInSelection;
+                    const isSingleSelection = selectedSlotsData.length === 1 && isSelected;
+
                     return (
                       <button
                         key={slot.id}
@@ -895,7 +1169,7 @@ export const HomePage: React.FC = () => {
                         onClick={() => toggleSlotSelection(slot)}
                         title={
                           isAvail
-                            ? `Click to select ${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)} (₹${Number(slot.price)})`
+                            ? `Click to select ${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)} (${slotMins}m, ₹${Number(slot.price)})`
                             : isCustomerBooked
                               ? `Booked by customer (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
                               : isAdminBlocked
@@ -908,11 +1182,15 @@ export const HomePage: React.FC = () => {
                                       ? `Slot time ended (${formatSlotTime(slot.start_time)})`
                                       : slot.status
                         }
-                        className={`p-1.5 sm:p-2.5 rounded-xl border text-left transition-all duration-150 active:scale-95 select-none flex flex-col justify-between ${
+                        className={`relative p-1.5 sm:p-2.5 rounded-xl border text-left transition-all duration-150 active:scale-95 select-none flex flex-col justify-between ${
                           isSelected
-                            ? "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/25 scale-[1.02] ring-2 ring-emerald-500/30 cursor-pointer"
+                            ? isSingleSelection && slotMins < 60
+                              ? "bg-[#059669] border-amber-400 text-white shadow-md shadow-emerald-500/25 ring-2 ring-amber-400/50 cursor-pointer"
+                              : "bg-[#059669] border-[#059669] text-white shadow-md shadow-emerald-500/25 scale-[1.02] ring-2 ring-emerald-500/30 cursor-pointer"
                             : isAvail
-                              ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900 cursor-pointer shadow-2xs"
+                              ? isNight
+                                ? "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900 cursor-pointer shadow-2xs"
+                                : "bg-white border-slate-200 hover:border-[#059669] hover:bg-[#ECFDF5] text-slate-900 cursor-pointer shadow-2xs"
                               : isCustomerBooked
                                 ? "bg-rose-50 border-rose-300 text-rose-900 cursor-not-allowed shadow-2xs"
                                 : isAdminBlocked
@@ -924,7 +1202,7 @@ export const HomePage: React.FC = () => {
                                       : "bg-slate-100/70 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed line-through"
                         }`}
                       >
-                        {/* Top Line: Start Time & Sun/Lock/Indicator Icons */}
+                        {/* Top Line: Start Time & Ribbon Tag */}
                         <div className="flex items-center justify-between gap-1 w-full">
                           <span className="text-[10.5px] sm:text-xs font-black flex items-center truncate">
                             {isOngoing && (
@@ -938,8 +1216,32 @@ export const HomePage: React.FC = () => {
                             )}
                             <span className="truncate">{formatSlotTime(slot.start_time)}</span>
                           </span>
-                          {isNight && isAvail && (
-                            <Sun className={`w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 ${isSelected ? "text-amber-200" : "text-amber-500"}`} />
+
+                          {/* Top Status & Floodlight Badges */}
+                          {isSingleSelection && slotMins < 60 && (
+                            <span className="px-1 py-0.2 rounded text-[7.5px] font-black bg-amber-400 text-amber-950 uppercase tracking-tighter shrink-0 animate-pulse">
+                              +30m req
+                            </span>
+                          )}
+                          {isFirstInSelection && (
+                            <span className="px-1 py-0.2 rounded text-[8px] font-black bg-emerald-800 text-emerald-100 uppercase tracking-tighter shrink-0">
+                              Kickoff
+                            </span>
+                          )}
+                          {isMiddleInSelection && (
+                            <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-emerald-700/80 text-emerald-200 uppercase tracking-tighter shrink-0">
+                              +{slotMins}m
+                            </span>
+                          )}
+                          {isLastInSelection && (
+                            <span className="px-1 py-0.2 rounded text-[8px] font-black bg-emerald-900 text-white uppercase tracking-tighter shrink-0">
+                              → {formatSlotTime(slot.end_time)}
+                            </span>
+                          )}
+                          {!isSelected && isNight && isAvail && (
+                            <span className="flex items-center text-amber-500" title="Prime Floodlight Hours">
+                              <Sun className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+                            </span>
                           )}
                           {isHeld && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 text-amber-600" />}
                           {isAdminBlocked && <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 text-slate-300" />}
@@ -967,7 +1269,13 @@ export const HomePage: React.FC = () => {
                           <span
                             className={`text-[8px] sm:text-[9.5px] font-extrabold uppercase tracking-tight truncate ${
                               isSelected
-                                ? "text-emerald-100"
+                                ? isSingleSelection && slotMins < 60
+                                  ? "text-amber-200 font-black"
+                                  : isFirstInSelection
+                                    ? "text-emerald-100"
+                                    : isLastInSelection
+                                      ? "text-emerald-200 font-black"
+                                      : "text-emerald-100"
                                 : isAvail
                                   ? "text-[#059669]"
                                   : isCustomerBooked
@@ -982,20 +1290,28 @@ export const HomePage: React.FC = () => {
                             }`}
                           >
                             {isSelected
-                              ? "Selected"
+                              ? isSingleSelection && slotMins < 60
+                                ? "Need 60m"
+                                : isFirstInSelection
+                                  ? "Start"
+                                  : isLastInSelection
+                                    ? "Finish"
+                                    : "Selected"
                               : isAvail
-                                ? "Available"
-                                : isCustomerBooked
-                                  ? "Booked"
-                                  : isAdminBlocked
-                                    ? "Blocked"
-                                    : isHeld
-                                      ? "Held"
-                                      : isOngoing
-                                        ? "Live"
-                                        : isPast
-                                          ? "Ended"
-                                          : slot.status.toLowerCase()}
+                                ? isNight
+                                  ? "Prime"
+                                  : "Available"
+                              : isCustomerBooked
+                                ? "Booked"
+                                : isAdminBlocked
+                                  ? "Blocked"
+                                  : isHeld
+                                    ? "Held"
+                                    : isOngoing
+                                      ? "Live"
+                                      : isPast
+                                        ? "Ended"
+                                        : slot.status.toLowerCase()}
                           </span>
                         </div>
                       </button>
@@ -1055,8 +1371,14 @@ export const HomePage: React.FC = () => {
                     Selected Match Reservation
                   </span>
                   {selectedSlotIds.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#059669] text-[10px] sm:text-xs font-black">
-                      {selectedSlotIds.length} Slot(s) ({selectedSlotIds.length * 60} Mins)
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black ${
+                        durationMinutes < (bookingRules?.minDurationMinutes || 60)
+                          ? "bg-amber-100 text-amber-800 border border-amber-300"
+                          : "bg-emerald-100 text-[#059669]"
+                      }`}
+                    >
+                      {selectedSlotIds.length} Slot(s) ({durationMinutes} Mins)
                     </span>
                   )}
                 </div>
@@ -1073,12 +1395,21 @@ export const HomePage: React.FC = () => {
                   )}
                 </div>
 
-                <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center space-x-1">
-                  <Lock className="w-3 h-3 text-[#059669]" />
-                  <span>
-                    Guaranteed {bookingRules.slotHoldMinutes}-minute lock on pitch reservation during checkout.
-                  </span>
-                </p>
+                {durationMinutes > 0 && durationMinutes < (bookingRules?.minDurationMinutes || 60) ? (
+                  <p className="text-[10px] sm:text-[11px] text-amber-700 font-bold flex items-center space-x-1">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>
+                      Minimum booking is {bookingRules?.minDurationMinutes || 60} mins (1 hr). Please select at least two consecutive 30-min slots.
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 flex items-center space-x-1">
+                    <Lock className="w-3 h-3 text-[#059669]" />
+                    <span>
+                      Guaranteed {bookingRules.slotHoldMinutes}-minute lock on pitch reservation during checkout.
+                    </span>
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -1100,7 +1431,7 @@ export const HomePage: React.FC = () => {
 
                 <button
                   type="button"
-                  disabled={selectedSlotIds.length === 0 || lockLoading}
+                  disabled={selectedSlotIds.length === 0 || lockLoading || durationMinutes < (bookingRules?.minDurationMinutes || 60)}
                   onClick={handleProceedToLock}
                   className="w-full md:w-auto px-5 py-3 sm:px-7 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#059669] hover:bg-[#047857] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-emerald-glow transition-all active:scale-95 cursor-pointer"
                 >
@@ -1109,6 +1440,8 @@ export const HomePage: React.FC = () => {
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       <span>Reserving Slot Lock...</span>
                     </span>
+                  ) : durationMinutes > 0 && durationMinutes < (bookingRules?.minDurationMinutes || 60) ? (
+                    <span>Min 1 Hr Required</span>
                   ) : !user ? (
                     <>
                       <span>Sign In & Book ({selectedSlotIds.length > 0 ? `₹${totalAmount}` : "Select Slot"})</span>
@@ -1223,15 +1556,21 @@ export const HomePage: React.FC = () => {
                 <span className="text-base font-black font-mono text-emerald-400">
                   ₹{totalAmount.toLocaleString("en-IN")}
                 </span>
-                <span className="text-[10px] text-slate-400 font-bold">
-                  • {selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""}
+                <span className={`text-[10px] font-bold ${durationMinutes < (bookingRules?.minDurationMinutes || 60) ? "text-amber-400" : "text-slate-400"}`}>
+                  • {selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""} ({durationMinutes}m)
                 </span>
               </div>
               <p className="text-[10px] text-slate-300 truncate mt-0.5">
-                {selectedSlotsData[0] ? formatSlotTime(selectedSlotsData[0].start_time) : ""} -{" "}
-                {selectedSlotsData[selectedSlotsData.length - 1]
-                  ? formatSlotTime(selectedSlotsData[selectedSlotsData.length - 1].end_time)
-                  : ""}
+                {durationMinutes < (bookingRules?.minDurationMinutes || 60) ? (
+                  <span className="text-amber-300 font-bold">Min 60m required</span>
+                ) : (
+                  <>
+                    {selectedSlotsData[0] ? formatSlotTime(selectedSlotsData[0].start_time) : ""} -{" "}
+                    {selectedSlotsData[selectedSlotsData.length - 1]
+                      ? formatSlotTime(selectedSlotsData[selectedSlotsData.length - 1].end_time)
+                      : ""}
+                  </>
+                )}
               </p>
             </div>
 
@@ -1251,12 +1590,14 @@ export const HomePage: React.FC = () => {
 
               <button
                 type="button"
-                disabled={lockLoading}
+                disabled={lockLoading || durationMinutes < (bookingRules?.minDurationMinutes || 60)}
                 onClick={handleProceedToLock}
-                className="px-3.5 py-2 rounded-lg bg-[#059669] hover:bg-[#047857] text-white font-black text-xs flex items-center space-x-1.5 shadow-md shadow-emerald-600/40 active:scale-95 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-[#059669] hover:bg-[#047857] disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-black text-xs flex items-center space-x-1.5 shadow-md shadow-emerald-600/40 active:scale-95 transition-all cursor-pointer"
               >
                 {lockLoading ? (
                   <span>Locking...</span>
+                ) : durationMinutes > 0 && durationMinutes < (bookingRules?.minDurationMinutes || 60) ? (
+                  <span>Min 1 Hr</span>
                 ) : (
                   <>
                     <span>Reserve & Pay</span>

@@ -100,7 +100,8 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
 
   const handleSelectBooking = (booking: any) => {
     setSelectedBooking(booking);
-    setAmount(String(booking.balance_due || booking.final_amount || "0"));
+    const bal = Number(booking.balance_due ?? (booking.amount_paid ? 0 : booking.final_amount));
+    setAmount(bal > 0 ? String(bal) : "0");
     setSearchResults([]);
   };
 
@@ -110,9 +111,21 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
       setErrorMsg("Please select a booking to record payment for.");
       return;
     }
+
+    const balDue = Number(selectedBooking.balance_due ?? (selectedBooking.amount_paid ? 0 : selectedBooking.final_amount));
+    if (balDue <= 0) {
+      setErrorMsg("This booking is already fully paid. No further balance collection is allowed.");
+      return;
+    }
+
     const payAmount = parseFloat(amount);
     if (!payAmount || payAmount <= 0) {
       setErrorMsg("Please enter a valid positive payment amount.");
+      return;
+    }
+
+    if (payAmount > balDue) {
+      setErrorMsg(`Payment amount ₹${payAmount} cannot exceed the remaining balance due of ₹${balDue}.`);
       return;
     }
 
@@ -314,16 +327,37 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">
                       Amount Due
                     </span>
-                    <span className="text-base font-black text-amber-600 font-mono">
-                      ₹{Number(selectedBooking.balance_due || selectedBooking.final_amount || 0).toLocaleString("en-IN")}
-                    </span>
+                    {Number(selectedBooking.balance_due ?? (selectedBooking.amount_paid ? 0 : selectedBooking.final_amount)) > 0 ? (
+                      <span className="text-base font-black text-amber-600 font-mono">
+                        ₹{Number(selectedBooking.balance_due ?? selectedBooking.final_amount).toLocaleString("en-IN")}
+                      </span>
+                    ) : (
+                      <span className="inline-block mt-0.5 text-[11px] font-black text-[#059669] bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                        ✓ Fully Paid
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
             {/* Step 2: Payment Method */}
-            {selectedBooking && (
+            {selectedBooking && Number(selectedBooking.balance_due ?? (selectedBooking.amount_paid ? 0 : selectedBooking.final_amount)) <= 0 ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2">
+                <CheckCircle className="w-6 h-6 text-[#059669] mx-auto" />
+                <p className="font-bold text-slate-900 text-xs">
+                  This booking is already 100% settled.
+                </p>
+                <p className="text-slate-500 text-[11px]">
+                  Total paid: ₹{Number(selectedBooking.amount_paid || selectedBooking.final_amount).toLocaleString("en-IN")} • No remaining balance due.
+                </p>
+                <div className="pt-2">
+                  <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                    Close Window
+                  </Button>
+                </div>
+              </div>
+            ) : selectedBooking && (
               <>
                 <div className="space-y-1.5">
                   <label className="block font-bold text-slate-700">
@@ -385,13 +419,13 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
                     onClick={() =>
                       setAmount(
                         String(
-                          selectedBooking.balance_due || selectedBooking.final_amount || 0
+                          selectedBooking.balance_due ?? selectedBooking.final_amount ?? 0
                         )
                       )
                     }
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-bold text-slate-700"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-bold text-slate-700 cursor-pointer"
                   >
-                    Full Balance (₹{selectedBooking.balance_due || selectedBooking.final_amount || 0})
+                    Full Balance (₹{selectedBooking.balance_due ?? selectedBooking.final_amount ?? 0})
                   </button>
                   <button
                     type="button"
@@ -400,13 +434,13 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
                         String(
                           Math.round(
                             Number(
-                              selectedBooking.balance_due || selectedBooking.final_amount || 0
+                              selectedBooking.balance_due ?? selectedBooking.final_amount ?? 0
                             ) / 2
                           )
                         )
                       )
                     }
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-bold text-slate-700"
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-bold text-slate-700 cursor-pointer"
                   >
                     50% Advance
                   </button>

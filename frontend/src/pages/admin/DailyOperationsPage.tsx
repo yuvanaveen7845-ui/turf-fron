@@ -97,7 +97,7 @@ export const DailyOperationsPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [autoRefresh, fetchOperations]);
 
-  // Action: Release expired holds
+  // Action: Release expired holds (single or all)
   const handleReleaseHold = async (slotId?: number) => {
     setActionLoading(true);
     try {
@@ -107,6 +107,19 @@ export const DailyOperationsPage: React.FC = () => {
       fetchOperations(true);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to release hold.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReleaseAllHolds = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.post("/reports/operations/release-hold/");
+      toast.success(res.data.message || "All expired holds released successfully.");
+      fetchOperations(true);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to release holds.");
     } finally {
       setActionLoading(false);
     }
@@ -127,19 +140,57 @@ export const DailyOperationsPage: React.FC = () => {
     }
   };
 
-  // Action: Resolve Anomaly / Reconcile
-  const handleResolveAnomaly = async (anomalyId: string) => {
+  // Action: Resolve Anomaly / Reconcile Single
+  const handleResolveAnomaly = async (issue: any) => {
     setActionLoading(true);
     try {
-      const res = await api.post("/payments/reconciliation/resolve/", {
-        anomaly_id: anomalyId,
+      const payload: any = {
         resolution_notes: "Resolved via Operations Control Center",
-      });
+      };
+      if (typeof issue === "string") {
+        payload.anomaly_id = issue;
+      } else {
+        payload.anomaly_id = issue.id;
+        payload.anomaly_type = issue.type;
+        payload.booking_id = issue.booking_id;
+        payload.payment_id = issue.payment_id;
+      }
+
+      const res = await api.post("/payments/reconciliation/resolve/", payload);
       toast.success(res.data.message || "Payment anomaly resolved.");
       setSelectedIssue(null);
       fetchOperations(true);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to resolve anomaly.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Action: 1-Click Batch Auto-Reconciliation of all balance discrepancies
+  const handleBatchReconcile = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.post("/payments/reconciliation/batch-resolve/");
+      toast.success(res.data.message || "All balance discrepancies reconciled successfully.");
+      fetchOperations(true);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to batch reconcile balances.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Action: Release conflict slots for cancelled booking
+  const handleReleaseConflict = async (bookingId: string) => {
+    setActionLoading(true);
+    try {
+      const res = await api.post("/reports/operations/release-conflict/", { booking_id: bookingId });
+      toast.success(res.data.message || `Stuck slots for booking ${bookingId} released.`);
+      setSelectedIssue(null);
+      fetchOperations(true);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to release conflict.");
     } finally {
       setActionLoading(false);
     }
@@ -273,7 +324,7 @@ export const DailyOperationsPage: React.FC = () => {
                 : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
             }`}
           >
-            <Zap className={`w-3.5 h-3.5 ${autoRefresh ? "text-[#059669]" : "text-slate-400"}`} />
+            <Clock className={`w-3.5 h-3.5 ${autoRefresh ? "text-[#059669]" : "text-slate-400"}`} />
             <span>Auto-refresh: {autoRefresh ? "ON (25s)" : "OFF"}</span>
           </button>
 
@@ -517,14 +568,28 @@ export const DailyOperationsPage: React.FC = () => {
       {/* 5. 🔴 CRITICAL SECTION */}
       {(activeTab === "ALL" || activeTab === "CRITICAL") && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
               <h2 className="text-lg font-black text-slate-900 tracking-tight">
                 Critical Exceptions ({summary.critical_count})
               </h2>
             </div>
-            <span className="text-xs text-slate-500 font-semibold">Immediate staff resolution required</span>
+            <div className="flex items-center gap-2.5">
+              {filteredCritical.mismatches.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  isLoading={actionLoading}
+                  onClick={handleBatchReconcile}
+                  leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                  className="bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold"
+                >
+                  Auto-Resolve All ({filteredCritical.mismatches.length}) Mismatches
+                </Button>
+              )}
+              <span className="text-xs text-slate-500 font-semibold hidden md:inline">Immediate staff resolution required</span>
+            </div>
           </div>
 
           {summary.critical_count === 0 ? (
@@ -656,14 +721,28 @@ export const DailyOperationsPage: React.FC = () => {
       {/* 6. 🟠 ATTENTION SECTION */}
       {(activeTab === "ALL" || activeTab === "ATTENTION") && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
               <h2 className="text-lg font-black text-slate-900 tracking-tight">
                 Attention Required ({summary.attention_count})
               </h2>
             </div>
-            <span className="text-xs text-slate-500 font-semibold">Expired holds, balance due, gate scan alerts</span>
+            <div className="flex items-center gap-2.5">
+              {filteredAttention.holds.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  isLoading={actionLoading}
+                  onClick={handleReleaseAllHolds}
+                  leftIcon={<Lock className="w-3.5 h-3.5 text-amber-600" />}
+                  className="text-xs border-amber-300 text-amber-900 hover:bg-amber-50 font-bold"
+                >
+                  Release All Expired Holds ({filteredAttention.holds.length})
+                </Button>
+              )}
+              <span className="text-xs text-slate-500 font-semibold hidden md:inline">Expired holds, balance due, gate scan alerts</span>
+            </div>
           </div>
 
           {summary.attention_count === 0 ? (
@@ -1019,9 +1098,33 @@ export const DailyOperationsPage: React.FC = () => {
                   variant="primary"
                   size="sm"
                   isLoading={actionLoading}
-                  onClick={() => handleResolveAnomaly(selectedIssue.id)}
+                  onClick={() => handleResolveAnomaly(selectedIssue)}
                 >
                   Reconcile Payment
+                </Button>
+              )}
+
+              {selectedIssue.category === "CONFLICT" && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={actionLoading}
+                  onClick={() => handleReleaseConflict(selectedIssue.booking_id)}
+                >
+                  Release Stuck Slots
+                </Button>
+              )}
+
+              {selectedIssue.category === "REFUND_ERROR" && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedIssue(null);
+                    navigate("/admin/refunds");
+                  }}
+                >
+                  Manage Refunds
                 </Button>
               )}
 

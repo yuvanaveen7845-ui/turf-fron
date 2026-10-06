@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   UserPlus,
   Calendar,
@@ -60,6 +60,10 @@ export const StaffWalkInPage: React.FC = () => {
     e.preventDefault();
     if (selectedSlotIds.length === 0) {
       toast.warning("Please select at least one open time slot.");
+      return;
+    }
+    if (totalDurationMins < 60) {
+      toast.warning("Minimum match duration is 60 minutes (1 hour). Please select at least two consecutive 30-minute slots.");
       return;
     }
     setLoading(true);
@@ -137,8 +141,97 @@ export const StaffWalkInPage: React.FC = () => {
     }
   };
 
+  const [preferredDuration, setPreferredDuration] = useState<number>(60);
+
+  const calcSlotMinutes = (slot: TimeSlot): number => {
+    if (!slot?.start_time || !slot?.end_time) return 60;
+    const [sh, sm] = slot.start_time.split(":").map(Number);
+    const [eh, em] = slot.end_time.split(":").map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60;
+    return diff > 0 ? diff : 60;
+  };
+
   const selectedSlotsObjects = todaySlots.filter((s) => selectedSlotIds.includes(s.id));
   const totalAmount = selectedSlotsObjects.reduce((acc, s) => acc + Number(s.price), 0);
+  const totalDurationMins = useMemo(() => {
+    if (selectedSlotsObjects.length === 0) return 0;
+    return selectedSlotsObjects.reduce((acc, s) => acc + calcSlotMinutes(s), 0);
+  }, [selectedSlotsObjects]);
+
+  const is30MinPitch = useMemo(() => {
+    if (!todaySlots || todaySlots.length === 0) return false;
+    return todaySlots.some((s) => calcSlotMinutes(s) === 30);
+  }, [todaySlots]);
+
+  const durationPresets = useMemo(() => {
+    if (is30MinPitch) {
+      return [
+        { mins: 60, label: "60 mins", sub: "1.0 hr" },
+        { mins: 90, label: "90 mins", sub: "1.5 hrs", badge: "+½h" },
+        { mins: 120, label: "120 mins", sub: "2.0 hrs" },
+        { mins: 150, label: "150 mins", sub: "2.5 hrs", badge: "+½h" },
+        { mins: 180, label: "180 mins", sub: "3.0 hrs" },
+        { mins: 240, label: "240 mins", sub: "4.0 hrs" },
+      ];
+    }
+    return [
+      { mins: 60, label: "60 mins", sub: "1.0 hr" },
+      { mins: 120, label: "120 mins", sub: "2.0 hrs" },
+      { mins: 180, label: "180 mins", sub: "3.0 hrs" },
+      { mins: 240, label: "240 mins", sub: "4.0 hrs" },
+    ];
+  }, [is30MinPitch]);
+
+  const activeDurationMins = totalDurationMins > 0 ? totalDurationMins : preferredDuration;
+
+  const handleDurationPresetClick = (mins: number) => {
+    setPreferredDuration(mins);
+    if (selectedSlotIds.length > 0) {
+      const firstSelected = todaySlots.find((s) => s.id === selectedSlotIds[0]);
+      if (firstSelected) {
+        const newIds: string[] = [firstSelected.id];
+        let accumulatedMins = calcSlotMinutes(firstSelected);
+        let nextEndTime = firstSelected.end_time;
+        while (accumulatedMins < mins) {
+          const nextSlot = todaySlots.find(
+            (s) => s.is_available && s.start_time === nextEndTime
+          );
+          if (!nextSlot) break;
+          newIds.push(nextSlot.id);
+          accumulatedMins += calcSlotMinutes(nextSlot);
+          nextEndTime = nextSlot.end_time;
+        }
+        setSelectedSlotIds(newIds);
+      }
+    }
+  };
+
+  const handleSlotClick = (slot: TimeSlot) => {
+    if (!slot.is_available) return;
+
+    if (selectedSlotIds.includes(slot.id)) {
+      setSelectedSlotIds((prev) => prev.filter((id) => id !== slot.id));
+      return;
+    }
+
+    const targetMins = preferredDuration || 60;
+    const newIds: string[] = [slot.id];
+    let accumulatedMins = calcSlotMinutes(slot);
+    let nextEndTime = slot.end_time;
+
+    while (accumulatedMins < targetMins) {
+      const nextSlot = todaySlots.find(
+        (s) => s.is_available && s.start_time === nextEndTime
+      );
+      if (!nextSlot) break;
+      newIds.push(nextSlot.id);
+      accumulatedMins += calcSlotMinutes(nextSlot);
+      nextEndTime = nextSlot.end_time;
+    }
+
+    setSelectedSlotIds(newIds);
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-200">
@@ -196,10 +289,58 @@ export const StaffWalkInPage: React.FC = () => {
         </div>
 
         {/* Step 2: Select Today's Slots */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold text-slate-700">
-            2. Choose Today's Time Slots ({new Date().toLocaleDateString()})
-          </label>
+        <div className="space-y-3">
+          {/* Match Duration Selector */}
+          <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
+            <div className="flex items-center justify-between">
+              <label className="block font-bold text-slate-800 text-xs">
+                Target Match Duration
+              </label>
+              <span className="text-[10px] font-semibold text-slate-500">
+                {is30MinPitch ? "30-min intervals (90m, 150m supported)" : "60-min intervals"}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+              {durationPresets.map((p) => {
+                const isSelected = activeDurationMins === p.mins;
+                return (
+                  <button
+                    key={p.mins}
+                    type="button"
+                    onClick={() => handleDurationPresetClick(p.mins)}
+                    className={`py-2 px-1.5 rounded-xl text-center border font-bold transition-all cursor-pointer relative ${
+                      isSelected
+                        ? "bg-[#059669] text-white border-[#059669] shadow-xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {p.badge && (
+                      <span className={`absolute -top-1 -right-1 text-[8px] font-black px-1 rounded-full border ${
+                        isSelected ? "bg-amber-400 text-slate-950 border-amber-300" : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                      }`}>
+                        {p.badge}
+                      </span>
+                    )}
+                    <div className="text-xs leading-none">{p.mins}m</div>
+                    <div className={`text-[9px] mt-0.5 ${isSelected ? "text-emerald-100" : "text-slate-400"}`}>
+                      {p.sub}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold text-slate-700">
+              2. Choose Match Time Slots ({new Date().toLocaleDateString()})
+            </label>
+            {totalDurationMins > 0 && (
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${totalDurationMins < 60 ? "bg-amber-50 text-amber-800 border-amber-300" : "bg-emerald-50 text-[#059669] border-emerald-200"}`}>
+                {totalDurationMins} Mins ({totalDurationMins / 60} hrs • {selectedSlotIds.length} Slots)
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-1 bg-[#F8FAFC] border border-slate-200 rounded-2xl">
             {todaySlots.map((slot) => {
@@ -212,13 +353,7 @@ export const StaffWalkInPage: React.FC = () => {
                   key={slot.id}
                   type="button"
                   disabled={!isAvailable}
-                  onClick={() => {
-                    if (isSelected)
-                      setSelectedSlotIds(
-                        selectedSlotIds.filter((id) => id !== slot.id)
-                      );
-                    else setSelectedSlotIds([...selectedSlotIds, slot.id]);
-                  }}
+                  onClick={() => handleSlotClick(slot)}
                   className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
                     isSelected
                       ? "bg-[#059669] border-[#059669] text-white font-bold shadow-sm cursor-pointer"
@@ -319,9 +454,13 @@ export const StaffWalkInPage: React.FC = () => {
             variant="primary"
             className="w-full py-3.5"
             isLoading={loading}
-            disabled={selectedSlotIds.length === 0 || !customerName.trim()}
+            disabled={selectedSlotIds.length === 0 || !customerName.trim() || totalDurationMins < 60}
           >
-            {loading ? "Processing..." : `Confirm Walk-In Booking (Collect ₹${totalAmount})`}
+            {loading
+              ? "Processing..."
+              : totalDurationMins > 0 && totalDurationMins < 60
+              ? "Min 1 Hr Required (Select 2+ Slots)"
+              : `Confirm Walk-In Booking (${totalDurationMins} Mins • Collect ₹${totalAmount})`}
           </Button>
         </div>
       </form>

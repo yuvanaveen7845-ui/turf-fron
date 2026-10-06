@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
   Clock,
@@ -152,10 +152,108 @@ export const NewBookingWizardModal: React.FC<NewBookingWizardModalProps> = ({
     }
   }, [selectedTurf, date, selectedSlotIds]);
 
+  // Helper: calculate exact minutes of a slot
+  const calcSlotMinutes = (slot: any): number => {
+    if (!slot?.start_time || !slot?.end_time) return 60;
+    const [sh, sm] = slot.start_time.split(":").map(Number);
+    const [eh, em] = slot.end_time.split(":").map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60;
+    return diff > 0 ? diff : 60;
+  };
+
+  const is30MinPitch = useMemo(() => {
+    if (!availableSlots || availableSlots.length === 0) return false;
+    return availableSlots.some((s) => calcSlotMinutes(s) === 30);
+  }, [availableSlots]);
+
+  const [preferredDuration, setPreferredDuration] = useState<number>(60);
+
+  const durationPresets = useMemo(() => {
+    if (is30MinPitch) {
+      return [
+        { mins: 60, label: "60 mins", sub: "1.0 hr" },
+        { mins: 90, label: "90 mins", sub: "1.5 hrs", badge: "+½h" },
+        { mins: 120, label: "120 mins", sub: "2.0 hrs" },
+        { mins: 150, label: "150 mins", sub: "2.5 hrs", badge: "+½h" },
+        { mins: 180, label: "180 mins", sub: "3.0 hrs" },
+        { mins: 240, label: "240 mins", sub: "4.0 hrs" },
+      ];
+    }
+    return [
+      { mins: 60, label: "60 mins", sub: "1.0 hr" },
+      { mins: 120, label: "120 mins", sub: "2.0 hrs" },
+      { mins: 180, label: "180 mins", sub: "3.0 hrs" },
+      { mins: 240, label: "240 mins", sub: "4.0 hrs" },
+    ];
+  }, [is30MinPitch]);
+
+  const totalDurationMins = useMemo(() => {
+    return selectedSlotIds.reduce((acc, id) => {
+      const slot = availableSlots.find((s) => s.id === id);
+      return acc + (slot ? calcSlotMinutes(slot) : 60);
+    }, 0);
+  }, [selectedSlotIds, availableSlots]);
+
+  const activeDurationMins = totalDurationMins > 0 ? totalDurationMins : preferredDuration;
+
+  const handleDurationPresetClick = (mins: number) => {
+    setPreferredDuration(mins);
+    if (selectedSlotIds.length > 0) {
+      const firstSelectedSlot = availableSlots.find((s) => s.id === selectedSlotIds[0]);
+      if (firstSelectedSlot) {
+        const newIds: number[] = [firstSelectedSlot.id];
+        let accumulatedMins = calcSlotMinutes(firstSelectedSlot);
+        let nextEndTime = firstSelectedSlot.end_time;
+        while (accumulatedMins < mins) {
+          const nextSlot = availableSlots.find(
+            (s) => s.is_available && s.start_time === nextEndTime
+          );
+          if (!nextSlot) break;
+          newIds.push(nextSlot.id);
+          accumulatedMins += calcSlotMinutes(nextSlot);
+          nextEndTime = nextSlot.end_time;
+        }
+        setSelectedSlotIds(newIds);
+      }
+    }
+  };
+
+  const handleSlotClick = (slot: any) => {
+    if (!slot.is_available) return;
+
+    if (selectedSlotIds.includes(slot.id)) {
+      setSelectedSlotIds((prev) => prev.filter((id) => id !== slot.id));
+      return;
+    }
+
+    const targetMins = preferredDuration || 60;
+    const newIds: number[] = [slot.id];
+    let accumulatedMins = calcSlotMinutes(slot);
+    let nextEndTime = slot.end_time;
+
+    while (accumulatedMins < targetMins) {
+      const nextSlot = availableSlots.find(
+        (s) => s.is_available && s.start_time === nextEndTime
+      );
+      if (!nextSlot) break;
+      newIds.push(nextSlot.id);
+      accumulatedMins += calcSlotMinutes(nextSlot);
+      nextEndTime = nextSlot.end_time;
+    }
+
+    setSelectedSlotIds(newIds);
+  };
+
   const toggleSlot = (id: number) => {
-    setSelectedSlotIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
+    const slot = availableSlots.find((s) => s.id === id);
+    if (slot) {
+      handleSlotClick(slot);
+    } else {
+      setSelectedSlotIds((prev) =>
+        prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+      );
+    }
   };
 
   const handleCreateBooking = async () => {
@@ -508,10 +606,61 @@ export const NewBookingWizardModal: React.FC<NewBookingWizardModalProps> = ({
                   </div>
                 </div>
 
+                {/* Match Duration Selector */}
+                <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-slate-800 text-xs">
+                      Target Match Duration
+                    </label>
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      {is30MinPitch ? "30-min intervals (90m, 150m supported)" : "60-min intervals"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                    {durationPresets.map((p) => {
+                      const isSelected = activeDurationMins === p.mins;
+                      return (
+                        <button
+                          key={p.mins}
+                          type="button"
+                          onClick={() => handleDurationPresetClick(p.mins)}
+                          className={`py-2 px-1.5 rounded-xl text-center border font-bold transition-all cursor-pointer relative ${
+                            isSelected
+                              ? "bg-[#059669] text-white border-[#059669] shadow-xs"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {p.badge && (
+                            <span className={`absolute -top-1 -right-1 text-[8px] font-black px-1 rounded-full border ${
+                              isSelected ? "bg-amber-400 text-slate-950 border-amber-300" : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                            }`}>
+                              {p.badge}
+                            </span>
+                          )}
+                          <div className="text-xs leading-none">{p.mins}m</div>
+                          <div className={`text-[9px] mt-0.5 ${isSelected ? "text-emerald-100" : "text-slate-400"}`}>
+                            {p.sub}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    💡 Select a duration above, then click any open slot below to auto-fill consecutive intervals.
+                  </p>
+                </div>
+
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">
-                    Available Time Slots ({availableSlots.filter((s) => s.is_available).length} Open)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block font-bold text-slate-700">
+                      Available Time Slots ({availableSlots.filter((s) => s.is_available).length} Open)
+                    </label>
+                    {totalDurationMins > 0 && (
+                      <span className="text-[11px] font-bold text-[#059669] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        {totalDurationMins} Mins ({totalDurationMins / 60} hrs • {selectedSlotIds.length} slots)
+                      </span>
+                    )}
+                  </div>
                   {slotsLoading ? (
                     <div className="p-8 text-center text-slate-400 animate-pulse">Loading slots...</div>
                   ) : (
@@ -555,9 +704,14 @@ export const NewBookingWizardModal: React.FC<NewBookingWizardModalProps> = ({
                         ₹{Number(priceData.final_amount).toLocaleString("en-IN")}
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-slate-600">
-                      {selectedSlotIds.length} Slot(s) Selected
-                    </span>
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-slate-700 block">
+                        {totalDurationMins} Mins ({totalDurationMins / 60} hrs)
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {selectedSlotIds.length} Selected Slot{selectedSlotIds.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -613,7 +767,7 @@ export const NewBookingWizardModal: React.FC<NewBookingWizardModalProps> = ({
                     <div>Player: <strong>{selectedCustomer?.full_name || newCustomerName}</strong></div>
                     <div>Pitch: <strong>{selectedTurf?.name}</strong></div>
                     <div>Date: <strong>{date}</strong></div>
-                    <div>Slots: <strong>{selectedSlotIds.length} hour(s)</strong></div>
+                    <div>Duration: <strong>{totalDurationMins} mins ({totalDurationMins / 60} hrs • {selectedSlotIds.length} slots)</strong></div>
                   </div>
                   <div className="pt-2 flex justify-between items-center border-t border-slate-200">
                     <span className="font-bold text-slate-700">Total Booking Price:</span>

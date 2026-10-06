@@ -92,8 +92,18 @@ export const AdminDashboardPage: React.FC = () => {
     fetchDashboardData();
   });
 
-  const openBookingDrawer = (booking: any) => {
-    setSelectedBooking(booking);
+  const openBookingDrawer = async (booking: any) => {
+    if (!booking) return;
+    if (booking.id) {
+      try {
+        const res = await api.get(`/bookings/${booking.id}/`);
+        setSelectedBooking(res.data);
+      } catch {
+        setSelectedBooking(booking);
+      }
+    } else {
+      setSelectedBooking(booking);
+    }
     setIsDrawerOpen(true);
   };
 
@@ -357,13 +367,13 @@ export const AdminDashboardPage: React.FC = () => {
             <Skeleton className="h-36 rounded-2xl" />
             <Skeleton className="h-36 rounded-2xl" />
           </div>
-        ) : dailyOps?.pitches && dailyOps.pitches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {dailyOps.pitches.map((p: any) => {
+        ) : (dailyOps?.pitches || dailyOps?.turfs) && (dailyOps.pitches || dailyOps.turfs).length > 0 ? (
+          <div className={`grid grid-cols-1 gap-4 ${(dailyOps.pitches || dailyOps.turfs).length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+            {(dailyOps.pitches || dailyOps.turfs).map((p: any) => {
               const isOccupied = p.is_occupied;
               return (
                 <div
-                  key={p.id}
+                  key={p.id || p.turf_id}
                   className={`p-5 rounded-2xl border transition-all ${
                     isOccupied
                       ? "bg-[#F0FDF4] border-emerald-200 shadow-sm"
@@ -376,7 +386,7 @@ export const AdminDashboardPage: React.FC = () => {
                         {p.name}
                       </h3>
                       <span className="text-xs text-[#475569]">
-                        {p.turf_type || "FIFA Standard AstroTurf"}
+                        {p.turf_type || p.sport || "FIFA Standard AstroTurf"}
                       </span>
                     </div>
 
@@ -396,14 +406,14 @@ export const AdminDashboardPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-[#475569] font-medium">Player / Team:</span>
                         <span className="font-bold text-[#0F172A]">
-                          {p.current_match.customer_name}
+                          {p.current_match.customer_name || p.current_match.customer || "Player"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between font-mono text-xs">
                         <span className="text-[#475569] font-sans font-medium">Window:</span>
                         <span className="font-bold text-[#059669] flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-[#059669]" />
-                          {p.current_match.time_window}
+                          {p.current_match.time_window || p.current_match.time}
                         </span>
                       </div>
                       <div className="pt-2">

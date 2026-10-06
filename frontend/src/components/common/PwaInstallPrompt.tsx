@@ -167,8 +167,8 @@ export const PwaInstallPrompt: React.FC = () => {
 
   return (
     <>
-      {/* Floating Bottom Quick Action Pill (Compact, Clean, Human-Designed) */}
-      <div className="fixed bottom-20 md:bottom-6 right-3 sm:right-6 z-40 flex items-center pointer-events-none">
+      {/* Floating Top-Right Quick Action Pill (Compact, Clean, Human-Designed) */}
+      <div className="fixed top-[76px] sm:top-[88px] right-3 sm:right-6 z-40 flex items-center pointer-events-none">
         {isCollapsed ? (
           <button
             type="button"

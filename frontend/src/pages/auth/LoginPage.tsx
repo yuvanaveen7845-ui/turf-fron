@@ -7,6 +7,7 @@ import {
   Mail,
   Lock,
   ArrowRight,
+  ArrowLeft,
   Shield,
   AlertCircle,
   Eye,
@@ -445,8 +446,8 @@ export const LoginPage: React.FC = () => {
 
         {/* Right Authentication Terminal (50%) */}
         <div className="lg:col-span-6 xl:col-span-6 p-6 sm:p-10 xl:p-14 flex flex-col justify-between bg-white">
-          {/* Mobile Top Brand Bar */}
-          <div className="lg:hidden flex items-center justify-between pb-6 border-b border-slate-100 mb-6">
+          {/* Mobile Top Brand Bar with Return Button */}
+          <div className="lg:hidden flex items-center justify-between pb-5 border-b border-slate-100 mb-6">
             <Link to="/" className="flex items-center space-x-3">
               <img src="/logo.png" alt="Friends Turf" className="w-10 h-10 object-contain" />
               <div>
@@ -458,6 +459,27 @@ export const LoginPage: React.FC = () => {
                 </span>
               </div>
             </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200/80 active:scale-95 shadow-xs"
+              aria-label="Return to Home"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
+              <span>Return</span>
+            </Link>
+          </div>
+
+          {/* Desktop Top Navigation */}
+          <div className="hidden lg:flex items-center justify-between pb-4 mb-2">
+            <Link
+              to="/"
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-slate-500 hover:text-[#059669] transition-colors group"
+              aria-label="Return to Home"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-[#059669] group-hover:-translate-x-0.5 transition-transform" />
+              <span>Return to Home</span>
+            </Link>
+            <span className="text-[11px] font-semibold text-slate-400">Player Portal</span>
           </div>
 
           <div className="max-w-md w-full mx-auto space-y-6 my-auto">

@@ -155,9 +155,7 @@ export const PwaInstallPrompt: React.FC = () => {
     location.pathname.includes("/checkout") ||
     location.pathname.includes("/payment");
 
-  const isStaffOrAdmin = user?.role === "ADMIN" || user?.role === "STAFF";
-
-  if (isAuthRoute || isAdminOrStaffRoute || isStaffOrAdmin || isCheckoutOrPaymentRoute) {
+  if (isAuthRoute || isAdminOrStaffRoute || isCheckoutOrPaymentRoute) {
     return null;
   }
 

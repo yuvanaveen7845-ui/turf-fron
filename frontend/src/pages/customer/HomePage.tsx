@@ -256,14 +256,20 @@ export const HomePage: React.FC = () => {
 
   // Compute slot granularity (30m vs 60m)
   const slotStepMinutes = useMemo(() => {
-    if (slots.length > 0 && slots[0].start_time && slots[0].end_time) {
-      const [sh, sm] = slots[0].start_time.split(":").map(Number);
-      const [eh, em] = slots[0].end_time.split(":").map(Number);
-      let diff = (eh * 60 + em) - (sh * 60 + sm);
-      if (diff < 0) diff += 24 * 60;
-      if (diff > 0) return diff;
+    if (activeTurf?.slot_duration_minutes) return Number(activeTurf.slot_duration_minutes);
+    if (slots.length > 0) {
+      let minDiff = 60;
+      for (const s of slots) {
+        if (!s.start_time || !s.end_time) continue;
+        const [sh, sm] = s.start_time.split(":").map(Number);
+        const [eh, em] = s.end_time.split(":").map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff < 0) diff += 24 * 60;
+        if (diff > 0 && diff < minDiff) minDiff = diff;
+      }
+      return minDiff;
     }
-    return activeTurf?.slot_duration_minutes || 60;
+    return 60;
   }, [slots, activeTurf]);
 
   // Dynamic duration options matching arena granularity
@@ -285,12 +291,18 @@ export const HomePage: React.FC = () => {
     ];
   }, [slotStepMinutes]);
 
+  // Fast type-safe lookup set for selected slot IDs
+  const selectedSlotIdsSet = useMemo(
+    () => new Set(selectedSlotIds.map(String)),
+    [selectedSlotIds]
+  );
+
   // Selected slots data and calculated total
   const selectedSlotsData = useMemo(() => {
     return slots
-      .filter((s) => selectedSlotIds.includes(s.id))
+      .filter((s) => selectedSlotIdsSet.has(String(s.id)))
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
-  }, [slots, selectedSlotIds]);
+  }, [slots, selectedSlotIdsSet]);
 
   const totalAmount = useMemo(() => {
     return selectedSlotsData.reduce((sum, s) => sum + Number(s.price), 0);
@@ -356,21 +368,51 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Helper: collect consecutive available slots starting from a kickoff slot up to targetMins
+  // Helper: check if a slot is genuinely selectable (open, not booked, not blocked, not held, not past)
+  const isSlotSelectable = (s: TimeSlot): boolean => {
+    const isCustomerBooked = s.status === "BOOKED" || s.schedule_state === "BOOKED";
+    const isAdminBlocked =
+      s.status === "MAINTENANCE" ||
+      s.status === "BLOCKED" ||
+      s.schedule_state === "BLOCKED" ||
+      s.slot_state === "MAINTENANCE";
+    const isHeld = s.status === "LOCKED" || s.schedule_state === "LOCKED";
+    const isPast = Boolean(s.is_past || s.slot_state === "PAST" || s.slot_state === "COMPLETED");
+    return Boolean(s.is_available && !isCustomerBooked && !isAdminBlocked && !isHeld && !isPast);
+  };
+
+  // Helper: collect consecutive available slots starting from kickoff up to targetMins, with backward fallback if forward is bounded
   const collectConsecutiveSlots = (kickoffSlot: TimeSlot, targetMins: number): { ids: string[]; totalMins: number } => {
     const ids = [kickoffSlot.id];
     let totalMins = calcSlotMinutes(kickoffSlot.start_time, kickoffSlot.end_time);
     let nextEndTime = kickoffSlot.end_time;
 
+    // First collect forward
     while (totalMins < targetMins) {
       const nextSlot = slots.find(
-        (s) => s.is_available && s.status === "AVAILABLE" && s.start_time === nextEndTime
+        (s) => isSlotSelectable(s) && s.start_time === nextEndTime
       );
       if (!nextSlot) break;
       ids.push(nextSlot.id);
       totalMins += calcSlotMinutes(nextSlot.start_time, nextSlot.end_time);
       nextEndTime = nextSlot.end_time;
     }
+
+    // If forward didn't reach minimum booking requirement (e.g. 60m min), check if backward adjacent slots are available
+    const minMins = bookingRules?.minDurationMinutes || 60;
+    if (totalMins < minMins) {
+      let prevStartTime = kickoffSlot.start_time;
+      while (totalMins < minMins) {
+        const prevSlot = slots.find(
+          (s) => isSlotSelectable(s) && s.end_time === prevStartTime
+        );
+        if (!prevSlot) break;
+        ids.unshift(prevSlot.id);
+        totalMins += calcSlotMinutes(prevSlot.start_time, prevSlot.end_time);
+        prevStartTime = prevSlot.start_time;
+      }
+    }
+
     return { ids, totalMins };
   };
 
@@ -379,82 +421,85 @@ export const HomePage: React.FC = () => {
     return remainingSlots.reduce((acc, s) => acc + calcSlotMinutes(s.start_time, s.end_time), 0);
   };
 
-  // Toggle slot selection (enforcing continuous slots & 60m min rule)
+  // Toggle slot selection (enforcing continuous slots & 60m min rule with intuitive range selection)
   const toggleSlotSelection = (slot: TimeSlot) => {
-    if (!slot.is_available || slot.status !== "AVAILABLE") return;
+    if (!isSlotSelectable(slot)) return;
     triggerHaptic("light");
     setLockError("");
 
     const minBookingMins = bookingRules?.minDurationMinutes || 60;
 
+    // === CASE A: DESELECTION (User clicked an already-selected slot) ===
     if (selectedSlotIds.includes(slot.id)) {
-      // === DESELECTION BRANCH ===
       const currentSelected = slots
         .filter((s) => selectedSlotIds.includes(s.id))
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-      // If only 1 slot selected, toggle off cleanly
+      // If only 1 slot (or minimum) selected, clear selection cleanly
       if (currentSelected.length <= 1) {
         setSelectedSlotIds([]);
         return;
       }
 
-      let remaining: TimeSlot[] = [];
+      const isFirst = currentSelected[0].id === slot.id;
+      const isLast = currentSelected[currentSelected.length - 1].id === slot.id;
 
-      if (currentSelected[0].id === slot.id) {
-        // Shrink from start: remove kickoff slot
-        remaining = currentSelected.slice(1);
-      } else if (currentSelected[currentSelected.length - 1].id === slot.id) {
-        // Shrink from end: remove finish slot
-        remaining = currentSelected.slice(0, -1);
-      } else {
-        // Clicked intermediate slot: truncate contiguous range up to that slot
-        const clickedIdx = currentSelected.findIndex((s) => s.id === slot.id);
-        if (clickedIdx > 0) {
-          remaining = currentSelected.slice(0, clickedIdx);
-        } else {
+      if (isFirst) {
+        // Remove kickoff slot: shift match start forward
+        const remaining = currentSelected.slice(1);
+        const remDuration = computeRemainingDuration(remaining);
+        if (remDuration < minBookingMins) {
           setSelectedSlotIds([]);
+          setLockError("Match selection cleared. Minimum match duration is 60 minutes.");
           return;
         }
+        setSelectedSlotIds(remaining.map((s) => s.id));
+        return;
       }
 
-      // Check if remaining selection meets minimum duration
-      const remainingDuration = computeRemainingDuration(remaining);
-      if (remainingDuration < minBookingMins) {
-        // On 30-min pitches, a single 30-min slot is an invalid dead state — auto-clear
-        if (remaining.length <= 1 && slotStepMinutes === 30) {
+      if (isLast) {
+        // Remove finish slot: shift match end backward
+        const remaining = currentSelected.slice(0, -1);
+        const remDuration = computeRemainingDuration(remaining);
+        if (remDuration < minBookingMins) {
           setSelectedSlotIds([]);
-          setLockError("Cleared selection — minimum match duration is 60 minutes. Tap a slot to start a new selection.");
+          setLockError("Match selection cleared. Minimum match duration is 60 minutes.");
           return;
         }
-        setLockError(`Minimum match duration is ${minBookingMins} minutes. Please select adjacent slots to complete the minimum.`);
+        setSelectedSlotIds(remaining.map((s) => s.id));
+        return;
+      }
+
+      // Clicked intermediate slot: user intends to finish their match at this slot
+      const clickedIdx = currentSelected.findIndex((s) => s.id === slot.id);
+      const remaining = currentSelected.slice(0, clickedIdx + 1);
+      const remDuration = computeRemainingDuration(remaining);
+      if (remDuration < minBookingMins) {
+        setSelectedSlotIds([]);
+        setLockError("Match selection cleared. Minimum match duration is 60 minutes.");
+        return;
       }
       setSelectedSlotIds(remaining.map((s) => s.id));
       return;
     }
 
-    // === SELECTION BRANCH ===
-    const slotDiff = calcSlotMinutes(slot.start_time, slot.end_time);
-
+    // === CASE B: FRESH SELECTION (No slots currently selected) ===
     if (selectedSlotIds.length === 0) {
-      // Fresh selection: smart 1-click auto-extend to reach target duration
       const targetDuration = Math.max(preferredDuration || 60, minBookingMins);
+      const { ids, totalMins } = collectConsecutiveSlots(slot, targetDuration);
 
-      if (slotDiff < targetDuration) {
-        const { ids, totalMins } = collectConsecutiveSlots(slot, targetDuration);
-        setSelectedSlotIds(ids);
-        if (totalMins < minBookingMins) {
-          setLockError(`Minimum match duration is ${minBookingMins} minutes. Please select adjacent slots to complete the minimum.`);
-        }
+      if (totalMins < minBookingMins) {
+        setSelectedSlotIds([]);
+        setLockError("Minimum match duration is 60 minutes. Adjacent time slots are unavailable for this slot.");
+        triggerHaptic("error");
         return;
       }
 
-      // Single slot already meets target (e.g., 60-min pitch with 60m preferred)
-      setSelectedSlotIds([slot.id]);
+      setSelectedSlotIds(ids);
       return;
     }
 
-    // Existing selection: try contiguous extend or restart
+    // === CASE C: EXTENDING / RANGE SELECTION ===
     const currentSelected = slots
       .filter((s) => selectedSlotIds.includes(s.id))
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
@@ -462,21 +507,74 @@ export const HomePage: React.FC = () => {
     const earliest = currentSelected[0];
     const latest = currentSelected[currentSelected.length - 1];
 
-    if (slot.end_time === earliest.start_time) {
-      // Contiguous prepending before kickoff
-      setSelectedSlotIds([slot.id, ...selectedSlotIds]);
-    } else if (slot.start_time === latest.end_time) {
-      // Contiguous appending after finish
+    // Subcase C1: Adjacent after finish
+    if (slot.start_time === latest.end_time) {
       setSelectedSlotIds([...selectedSlotIds, slot.id]);
-    } else {
-      // Disjoint click: restart contiguous range from this slot with preferred duration
-      const targetDuration = Math.max(preferredDuration || 60, minBookingMins);
-      const { ids, totalMins } = collectConsecutiveSlots(slot, targetDuration);
-      setSelectedSlotIds(ids);
-      if (totalMins < minBookingMins) {
-        setLockError(`Minimum match duration is ${minBookingMins} minutes. Please select adjacent slots to complete the minimum.`);
+      return;
+    }
+
+    // Subcase C2: Adjacent before kickoff
+    if (slot.end_time === earliest.start_time) {
+      setSelectedSlotIds([slot.id, ...selectedSlotIds]);
+      return;
+    }
+
+    // Subcase C3: Range click forward into future (Bridge all available slots in between)
+    if (slot.start_time > latest.end_time) {
+      const bridgeSlots: TimeSlot[] = [];
+      let checkTime = latest.end_time;
+      let bridgeValid = true;
+
+      while (checkTime < slot.end_time) {
+        const nextBridge = slots.find((s) => s.start_time === checkTime);
+        if (!nextBridge || !isSlotSelectable(nextBridge)) {
+          bridgeValid = false;
+          break;
+        }
+        bridgeSlots.push(nextBridge);
+        checkTime = nextBridge.end_time;
+      }
+
+      if (bridgeValid && bridgeSlots.length > 0) {
+        const newIds = [...selectedSlotIds, ...bridgeSlots.map((s) => s.id)];
+        setSelectedSlotIds(newIds);
+        return;
       }
     }
+
+    // Subcase C4: Range click backward into earlier time (Prepend all available slots in between)
+    if (slot.end_time < earliest.start_time) {
+      const bridgeSlots: TimeSlot[] = [];
+      let checkTime = slot.start_time;
+      let bridgeValid = true;
+
+      while (checkTime < earliest.start_time) {
+        const nextBridge = slots.find((s) => s.start_time === checkTime);
+        if (!nextBridge || !isSlotSelectable(nextBridge)) {
+          bridgeValid = false;
+          break;
+        }
+        bridgeSlots.push(nextBridge);
+        checkTime = nextBridge.end_time;
+      }
+
+      if (bridgeValid && bridgeSlots.length > 0) {
+        const newIds = [...bridgeSlots.map((s) => s.id), ...selectedSlotIds];
+        setSelectedSlotIds(newIds);
+        return;
+      }
+    }
+
+    // Subcase C5: Disjoint click across booked intervals: start fresh contiguous selection from this slot
+    const targetDuration = Math.max(preferredDuration || 60, minBookingMins);
+    const { ids, totalMins } = collectConsecutiveSlots(slot, targetDuration);
+    if (totalMins < minBookingMins) {
+      setSelectedSlotIds([]);
+      setLockError("Minimum match duration is 60 minutes. Adjacent time slots are unavailable for this slot.");
+      triggerHaptic("error");
+      return;
+    }
+    setSelectedSlotIds(ids);
   };
 
   // Adjust duration on active selection when clicking duration chips
@@ -535,10 +633,11 @@ export const HomePage: React.FC = () => {
     setLockError("");
 
     try {
+      const sortedSlotIds = selectedSlotsData.map((s) => s.id);
       const res = await api.post("/bookings/lock/", {
         turf_id: activeTurf.id,
         date: selectedDate,
-        slot_ids: selectedSlotIds,
+        slot_ids: sortedSlotIds,
       });
 
       localStorage.setItem("ft_preferred_duration_minutes", String(durationMinutes));
@@ -1136,7 +1235,7 @@ export const HomePage: React.FC = () => {
               ) : visibleSlots.length > 0 ? (
                 <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
                   {visibleSlots.map((slot) => {
-                    const isSelected = selectedSlotIds.includes(slot.id);
+                    const isSelected = selectedSlotIdsSet.has(String(slot.id));
                     const isCustomerBooked = slot.status === "BOOKED" || slot.schedule_state === "BOOKED";
                     const isAdminBlocked =
                       slot.status === "MAINTENANCE" ||

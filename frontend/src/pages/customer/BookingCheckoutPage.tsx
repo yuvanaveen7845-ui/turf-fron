@@ -126,7 +126,8 @@ export const BookingCheckoutPage: React.FC = () => {
         if (s.start_time && s.end_time) {
           const [sh, sm] = s.start_time.split(":").map(Number);
           const [eh, em] = s.end_time.split(":").map(Number);
-          const diff = (eh * 60 + em) - (sh * 60 + sm);
+          let diff = (eh * 60 + em) - (sh * 60 + sm);
+          if (diff < 0) diff += 24 * 60;
           totalMins += diff > 0 ? diff : 60;
         } else {
           totalMins += 60;
@@ -514,7 +515,7 @@ export const BookingCheckoutPage: React.FC = () => {
         });
       }
     } catch (e) {}
-    navigate(`/turfs/${state?.turf.id || ""}`);
+    navigate(`/?turf=${state?.turf.id || ""}&date=${actualDate}`);
   };
 
   if (paymentSuccessData) {

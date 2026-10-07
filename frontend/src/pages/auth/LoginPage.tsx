@@ -92,13 +92,19 @@ export const LoginPage: React.FC = () => {
     if (intent && intent.turfId && intent.slotIds?.length > 0) {
       setStatusMessage("Reserving your selected pitch slots...");
       try {
+        const guestToken = sessionStorage.getItem("slot_guest_lock_token") || "";
         const res = await api.post("/bookings/lock/", {
           turf_id: intent.turfId,
           date: intent.date,
           slot_ids: intent.slotIds,
+          lock_token: guestToken,
         });
 
         const lockPayload = res.data.data || res.data;
+        const returnedToken = res.data.lock_token || lockPayload.lock_token || guestToken;
+        if (returnedToken) {
+          sessionStorage.setItem("slot_guest_lock_token", returnedToken);
+        }
         const lockedUntil =
           res.data.locked_until ||
           lockPayload.locked_until ||
@@ -122,7 +128,9 @@ export const LoginPage: React.FC = () => {
             lockData: {
               locked_until: lockedUntil,
               slot_ids: intent.slotIds,
+              lock_token: returnedToken,
             },
+            lockToken: returnedToken,
             lockDurationSeconds,
             expiresAt: lockedUntil,
             totalPrice: intent.totalAmount,

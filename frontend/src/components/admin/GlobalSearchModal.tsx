@@ -16,7 +16,6 @@ import {
   Lock,
   Sliders,
   UserPlus,
-  Ticket,
   Wrench,
   Sparkles,
 } from "lucide-react";
@@ -119,18 +118,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       execute: () => {
         onClose();
         navigate("/admin/maintenance");
-      },
-    },
-    {
-      id: "action_coupon",
-      title: "Create Coupon / Discount Code",
-      desc: "New promotional code with percentage or flat discount",
-      icon: Ticket,
-      badge: "Marketing",
-      color: "text-rose-600 bg-rose-50 border-rose-200",
-      execute: () => {
-        onClose();
-        navigate("/admin/coupons");
       },
     },
   ];

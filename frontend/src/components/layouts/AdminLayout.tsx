@@ -8,7 +8,6 @@ import {
   Camera,
   Layers,
   Sliders,
-  Ticket,
   Users,
   UserCog,
   Wrench,
@@ -134,7 +133,6 @@ export const AdminLayout: React.FC = () => {
       items: [
         { label: "Players CRM", path: "/admin/customers", icon: Users, permission: "CUSTOMER_VIEW" },
         { label: "Staff & Team", path: "/admin/staff", icon: UserCog, permission: "STAFF_VIEW" },
-        { label: "Offers & Coupons", path: "/admin/coupons", icon: Ticket, permission: "COUPONS_MANAGE", feature: "COUPONS" },
         { label: "Reviews", path: "/admin/reviews", icon: Star, feature: "REVIEWS" },
       ],
     },

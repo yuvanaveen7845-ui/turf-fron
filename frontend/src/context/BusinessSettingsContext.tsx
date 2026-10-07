@@ -10,6 +10,7 @@ export interface CompanySettings {
   support_email?: string;
   website: string;
   instagram?: string;
+  facebook?: string;
   whatsapp?: string;
   timezone?: string;
   currency?: string;
@@ -94,6 +95,7 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettingsState, "loading" | "refreshS
     support_email: "support@friendsturf.com",
     website: "https://friendsturf.com",
     instagram: "@friendsturf_tiruppur",
+    facebook: "@friendsturf_tiruppur",
     whatsapp: "+91 93639 89494",
     timezone: "Asia/Kolkata",
     currency: "INR",
@@ -156,7 +158,7 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettingsState, "loading" | "refreshS
     QR_CHECKIN: true,
     ONLINE_PAYMENTS: true,
     OFFLINE_PAYMENTS: true,
-    COUPONS: true,
+    COUPONS: false,
     REVIEWS: true,
     ADVANCED_REPORTING: true,
   },

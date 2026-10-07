@@ -1,149 +1,139 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   Gift,
-  Copy,
-  Check,
-  Tag,
   ArrowRight,
   Sparkles,
   Percent,
   Compass,
   ShieldCheck,
+  Wallet,
+  Zap,
+  Clock,
+  Users,
 } from "lucide-react";
-import api from "../../services/api";
-import { Coupon } from "../../types";
 import { Link } from "react-router-dom";
 import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const OffersPage: React.FC = () => {
   const { company } = useBusinessSettings();
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.get("/promotions/coupons/")
-      .then((couponsRes) => {
-        const raw = couponsRes.data;
-        const list = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.results)
-            ? raw.results
-            : [];
-        setCoupons(list);
-      })
-      .catch((err) => {
-        console.error("Failed to load offers:", err);
-        setCoupons([]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCode(id);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
+  const benefits = [
+    {
+      title: "Direct Venue Rates",
+      badge: "0% Commission",
+      icon: Zap,
+      desc: "Zero hidden convenience fees or third-party markups. What you see is the direct pitch price set by the venue management.",
+      ctaText: "Book Pitch Now",
+      ctaLink: "/",
+    },
+    {
+      title: "Turf Cash Cashback",
+      badge: "Automatic Reward",
+      icon: Wallet,
+      desc: "Earn instant Turf Cash wallet credits on completed match bookings. Use wallet balance for 1-click lightning checkout.",
+      ctaText: "View My Wallet",
+      ctaLink: "/wallet",
+    },
+    {
+      title: "Squad Block Passes",
+      badge: "Team Savings",
+      icon: Users,
+      desc: "Organizing tournaments or weekly league training? Contact management for custom squad packages and discounted slot bundles.",
+      ctaText: "Contact Turf Desk",
+      ctaLink: "/contact",
+    },
+    {
+      title: "Flexible Rescheduling",
+      badge: "Fair Play",
+      icon: Clock,
+      desc: "Weather changes or teammate emergency? Reschedule your slot hassle-free up to 2 hours before kickoff directly from your pass.",
+      ctaText: "My Bookings",
+      ctaLink: "/my-bookings",
+    },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
       {/* 1. Header */}
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669]">
-          {company.name} • Match Deals & Discounts
+          {company.name} • Match Rewards & Value
         </span>
-        <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-tight">
-          Active Offers & Promo Codes
+        <h1 className="text-[26px] sm:text-[34px] font-extrabold text-slate-900 tracking-tight">
+          Direct Pricing & Player Privileges
         </h1>
-        <p className="text-sm text-slate-600">
-          Apply these verified promotional codes at checkout for instant booking savings at {company.name}.
+        <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
+          At {company.name}, we believe in direct, transparent pricing without coupon gimmicks or arbitrary markups. Every registered player gets guaranteed benefits and automatic match rewards.
         </p>
       </div>
 
-      {/* 2. Coupons Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="h-56 bg-white rounded-3xl border border-slate-200" />
-          ))}
-        </div>
-      ) : coupons.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {coupons.map((coupon) => (
+      {/* 2. Value Highlights Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {benefits.map((b, idx) => {
+          const Icon = b.icon;
+          return (
             <div
-              key={coupon.id}
-              className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-pitch-card flex flex-col justify-between space-y-5 relative overflow-hidden transition-all hover:border-emerald-300 hover:shadow-lg"
+              key={idx}
+              className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-pitch-card flex flex-col justify-between space-y-6 hover:border-emerald-300 hover:shadow-lg transition-all"
             >
-              {/* Header */}
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-200 shadow-2xs">
-                    {coupon.discount_type === "PERCENTAGE"
-                      ? `${Number(coupon.discount_value)}% OFF`
-                      : `FLAT ₹${Number(coupon.discount_value)} OFF`}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#059669]">
-                    <Tag className="w-4 h-4" />
+                  <div className="w-10 h-10 rounded-2xl bg-[#ECFDF5] border border-emerald-200 flex items-center justify-center text-[#059669]">
+                    <Icon className="w-5 h-5" />
                   </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#ECFDF5] text-[#059669] border border-emerald-200">
+                    {b.badge}
+                  </span>
                 </div>
-
-                <h3 className="text-lg font-bold text-slate-900">
-                  {coupon.title}
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {coupon.description}
-                </p>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-bold text-slate-900">{b.title}</h3>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                    {b.desc}
+                  </p>
+                </div>
               </div>
 
-              {/* Code Box & Copy */}
-              <div className="pt-2 border-t border-slate-100 space-y-2">
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200">
-                  <span className="font-mono font-black text-sm text-[#059669] tracking-wider">
-                    {coupon.code}
-                  </span>
-                  <button
-                    onClick={() => copyToClipboard(coupon.code, coupon.id)}
-                    className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
-                    title="Copy code"
-                  >
-                    {copiedCode === coupon.id ? (
-                      <Check className="w-4 h-4 text-[#059669]" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-
-                <p className="text-[10px] text-slate-400">
-                  Min spend: ₹{Number(coupon.min_booking_amount)} • Valid across all venues
-                </p>
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <Link
+                  to={b.ctaLink}
+                  className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#059669] hover:text-[#047857] transition-colors"
+                >
+                  <span>{b.ctaText}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Verified Pitch Guarantee
+                </span>
               </div>
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {/* 3. Direct Booking Banner */}
+      <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="space-y-2 text-center sm:text-left">
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>FIFA Pro Turf Quality</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black">
+            Ready to Lock in Your Next Match?
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-lg">
+            Choose your pitch, pick your hourly slot, and get instant digital Match Pass confirmation with zero hassle.
+          </p>
         </div>
-      ) : (
-        <div className="p-10 sm:p-14 text-center bg-white rounded-3xl border border-slate-200/80 shadow-pitch-card space-y-5 max-w-2xl mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-[#059669] shadow-2xs">
-            <Gift className="w-7 h-7" />
-          </div>
-          <div className="space-y-1.5">
-            <h3 className="text-xl font-bold text-slate-900">No Public Promo Codes Available Right Now</h3>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              We offer direct transparent pricing with 0% brokerage and instant Turf Cash cashback on every completed match.
-            </p>
-          </div>
-          <div className="pt-2">
-            <Link
-              to="/"
-              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-md transition-all cursor-pointer"
-            >
-              <Compass className="w-4 h-4" />
-              <span>Explore Available Pitches</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      )}
+
+        <Link
+          to="/"
+          className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-lg hover:shadow-emerald-600/30 transition-all shrink-0 cursor-pointer"
+        >
+          <Compass className="w-4 h-4" />
+          <span>Explore Available Pitches</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
     </div>
   );
 };

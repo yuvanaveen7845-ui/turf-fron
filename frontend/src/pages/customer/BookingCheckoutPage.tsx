@@ -3,7 +3,6 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
   Clock,
   ShieldCheck,
-  Tag,
   CreditCard,
   Wallet,
   QrCode,
@@ -53,7 +52,8 @@ export const BookingCheckoutPage: React.FC = () => {
     slotIds?: string[];
     selectedSlotIds?: string[];
     selectedSlots: TimeSlot[];
-    lockData?: { locked_until: string; slot_ids: string[] };
+    lockData?: { locked_until: string; slot_ids: string[]; lock_token?: string };
+    lockToken?: string;
     lockedSlots?: any[];
     expiresAt?: string;
   } | null;
@@ -64,10 +64,9 @@ export const BookingCheckoutPage: React.FC = () => {
   // Countdown timer for slot lock
   const defaultLockSecs = (bookingRules?.slotHoldMinutes || 5) * 60;
   const [timeLeftSeconds, setTimeLeftSeconds] = useState<number>(defaultLockSecs);
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [couponError, setCouponError] = useState("");
-  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [lockToken, setLockToken] = useState<string>(
+    state?.lockData?.lock_token || state?.lockToken || sessionStorage.getItem("slot_guest_lock_token") || ""
+  );
 
   // Pricing breakdown
   const [priceBreakdown, setPriceBreakdown] = useState<any>(null);
@@ -189,7 +188,7 @@ export const BookingCheckoutPage: React.FC = () => {
       setTimeLeftSeconds(defaultLockSecs);
     }
 
-    fetchPricePreview("");
+    fetchPricePreview();
   }, [state, defaultLockSecs, user, authLoading]);
 
   // Countdown interval for slot reservation hold
@@ -214,7 +213,7 @@ export const BookingCheckoutPage: React.FC = () => {
     };
   }, [timeLeftSeconds]);
 
-  const fetchPricePreview = async (codeToApply: string) => {
+  const fetchPricePreview = async () => {
     if (!state || !actualSlotIds.length) return;
     setLoadingPrice(true);
     try {
@@ -222,46 +221,13 @@ export const BookingCheckoutPage: React.FC = () => {
         turf_id: state.turf.id,
         date: actualDate,
         slot_ids: actualSlotIds,
-        coupon_code: codeToApply,
       });
       setPriceBreakdown(res.data);
-      if (res.data.coupon_error) {
-        setCouponError(res.data.coupon_error);
-      }
     } catch (err: any) {
       console.error(err);
     } finally {
       setLoadingPrice(false);
     }
-  };
-
-  const handleApplyCoupon = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!couponCode.trim()) return;
-    setValidatingCoupon(true);
-    setCouponError("");
-
-    try {
-      const subtotal = priceBreakdown?.subtotal || state?.turf.base_price;
-      const res = await api.post("/promotions/validate/", {
-        code: couponCode,
-        amount: subtotal,
-      });
-      setAppliedCoupon(res.data);
-      await fetchPricePreview(couponCode);
-    } catch (err: any) {
-      setCouponError(err.response?.data?.message || "Invalid coupon code.");
-      setAppliedCoupon(null);
-    } finally {
-      setValidatingCoupon(false);
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    setCouponCode("");
-    setAppliedCoupon(null);
-    setCouponError("");
-    fetchPricePreview("");
   };
 
   const [paymentAttemptFailed, setPaymentAttemptFailed] = useState(false);
@@ -289,7 +255,7 @@ export const BookingCheckoutPage: React.FC = () => {
             turf_id: state?.turf.id,
             date: actualDate,
             slot_ids: actualSlotIds,
-            coupon_code: appliedCoupon ? appliedCoupon.code : "",
+            lock_token: lockToken,
             notes,
           }),
           new Promise((resolve) => setTimeout(resolve, 3200)), // Orchestrate smooth cinematic interactive progression
@@ -362,7 +328,7 @@ export const BookingCheckoutPage: React.FC = () => {
         turf_id: state?.turf.id,
         date: actualDate,
         slot_ids: actualSlotIds,
-        coupon_code: appliedCoupon ? appliedCoupon.code : "",
+        lock_token: lockToken,
         payment_type: effectivePaymentType,
         advance_amount: effectivePaymentType === "PARTIAL" ? amountToCharge : undefined,
         notes,
@@ -480,8 +446,14 @@ export const BookingCheckoutPage: React.FC = () => {
         turf_id: state.turf.id,
         date: actualDate,
         slot_ids: actualSlotIds,
+        lock_token: lockToken,
       });
       const lockPayload = res.data.data || res.data;
+      if (res.data.lock_token || lockPayload.lock_token) {
+        const newToken = res.data.lock_token || lockPayload.lock_token;
+        setLockToken(newToken);
+        sessionStorage.setItem("slot_guest_lock_token", newToken);
+      }
       const lockedUntil =
         res.data.locked_until || lockPayload.locked_until || res.data.expires_at;
       if (lockedUntil) {
@@ -632,7 +604,6 @@ export const BookingCheckoutPage: React.FC = () => {
     featureFlags?.PARTIAL_PAYMENTS !== false;
   const effectivePaymentType = !canPartialPay && paymentType === "PARTIAL" ? "FULL" : paymentType;
   const amountToCharge = effectivePaymentType === "FULL" ? finalPayable : effectiveAdvanceAmount;
-  const couponsEnabled = featureFlags?.COUPONS !== false;
 
 
   return (
@@ -1235,58 +1206,7 @@ export const BookingCheckoutPage: React.FC = () => {
 
         {/* Right Column: Pricing Breakdown & Checkout Action */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Coupon Box */}
-          {couponsEnabled && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-3">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
-                <Tag className="w-4 h-4 text-[#059669]" />
-                <span>Promo Coupon Code</span>
-              </h3>
 
-              {appliedCoupon ? (
-                <div className="p-3 bg-[#ECFDF5] border border-emerald-200 rounded-xl flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-[#059669]">
-                      Applied: {appliedCoupon.code}
-                    </p>
-                    <p className="text-[11px] text-emerald-800">
-                      {appliedCoupon.message}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleRemoveCoupon}
-                    className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    placeholder="WELCOME100 / TURF20"
-                    className="flex-1 px-3.5 py-2.5 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono uppercase font-bold text-slate-900 placeholder-slate-400 focus:bg-white focus:border-[#059669] outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={validatingCoupon || !couponCode.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs disabled:opacity-50 transition-colors cursor-pointer"
-                  >
-                    {validatingCoupon ? "Checking..." : "Apply"}
-                  </button>
-                </form>
-              )}
-
-              {couponError && (
-                <p className="text-xs text-red-600 font-semibold flex items-center space-x-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{couponError}</span>
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Pricing Breakdown Card */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-pitch-card p-6 space-y-4">
@@ -1319,14 +1239,7 @@ export const BookingCheckoutPage: React.FC = () => {
                   </div>
                 )}
 
-                {priceBreakdown.coupon_discount > 0 && (
-                  <div className="flex justify-between text-[#059669]">
-                    <span>Coupon Discount ({priceBreakdown.coupon_code})</span>
-                    <span className="font-bold">
-                      -₹{priceBreakdown.coupon_discount}
-                    </span>
-                  </div>
-                )}
+
 
                 <div className="flex justify-between text-slate-500">
                   <span className="flex items-center space-x-1.5">

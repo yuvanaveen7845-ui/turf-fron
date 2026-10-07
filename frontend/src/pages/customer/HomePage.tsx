@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -23,6 +23,7 @@ import {
   Compass,
   Download,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
@@ -38,11 +39,66 @@ import { AmenityGrid } from "../../components/common/AmenityGrid";
 import { resolveImageUrl, handleImageError } from "../../utils/imageUrl";
 import { LocationModal } from "../../components/common/LocationModal";
 
+const InstagramIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.13-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+  </svg>
+);
+
+const FacebookIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+);
+
+const getInstagramUrl = (handle?: string): string => {
+  if (!handle) return "https://www.instagram.com/friendsturf_tiruppur";
+  const trimmed = handle.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  const username = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  return `https://www.instagram.com/${username}`;
+};
+
+const getFacebookUrl = (handle?: string): string => {
+  if (!handle) return "https://www.facebook.com/friendsturf_tiruppur";
+  const trimmed = handle.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  const page = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  return `https://www.facebook.com/${page}`;
+};
+
+const getHandleDisplay = (handle?: string, fallback: string = ""): string => {
+  if (!handle) return fallback;
+  const trimmed = handle.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const urlObj = new URL(trimmed);
+      const pathname = urlObj.pathname.replace(/^\/|\/$/g, "");
+      return pathname ? `@${pathname}` : urlObj.hostname;
+    } catch {
+      return trimmed;
+    }
+  }
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+};
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { company, booking: bookingRules } = useBusinessSettings();
+
+  // Social Media URLs and Display Handles from Admin Configuration
+  const instagramUrl = useMemo(() => getInstagramUrl(company.instagram), [company.instagram]);
+  const facebookUrl = useMemo(() => getFacebookUrl(company.facebook), [company.facebook]);
+  const instagramDisplay = useMemo(
+    () => getHandleDisplay(company.instagram, "@friendsturf_tiruppur"),
+    [company.instagram]
+  );
+  const facebookDisplay = useMemo(
+    () => getHandleDisplay(company.facebook, "@friendsturf_tiruppur"),
+    [company.facebook]
+  );
 
   // Query parameter extraction
   const queryTurfId = searchParams.get("turf") || searchParams.get("id");
@@ -150,19 +206,69 @@ export const HomePage: React.FC = () => {
     });
   }, [advanceDays]);
 
-  // Fetch slots for active turf
-  const fetchSlots = (turfId: string | number, date: string) => {
+  // In-memory SWR client-side cache for instant 0ms date switching
+  const slotsCacheRef = useRef<
+    Map<string, { slots: TimeSlot[]; count: number; isFastFill: boolean; timestamp: number }>
+  >(new Map());
+  const scheduleCacheRef = useRef<Map<string, { countMap: Record<string, number>; timestamp: number }>>(
+    new Map()
+  );
+
+  // Fetch slots for active turf (with SWR client cache)
+  const fetchSlots = (turfId: string | number, date: string, options?: { force?: boolean }) => {
     if (!turfId) return;
-    setLoadingSlots(true);
+    const cacheKey = `${turfId}:${date}`;
+    const cached = slotsCacheRef.current.get(cacheKey);
+    const now = Date.now();
+
+    // Instant SWR rendering if cached
+    if (cached && !options?.force) {
+      setSlots(cached.slots);
+      setAvailableSlotsCount(cached.count);
+      setIsFastFill(cached.isFastFill);
+
+      // Auto select slot from query if requested
+      if (querySlot) {
+        const match = cached.slots.find(
+          (s: TimeSlot) => String(s.id) === String(querySlot) && (s.is_available || s.status === "AVAILABLE")
+        );
+        if (match) {
+          setSelectedSlotIds([match.id]);
+        }
+      }
+
+      // If cached data is fresh (< 25s), avoid background re-fetch and skip loading spinner
+      if (now - cached.timestamp < 25000) {
+        setLoadingSlots(false);
+        return;
+      }
+    } else {
+      setLoadingSlots(true);
+    }
+
     setLockError("");
 
+    const url = options?.force
+      ? `/turfs/${turfId}/availability/?date=${date}&_t=${Date.now()}`
+      : `/turfs/${turfId}/availability/?date=${date}`;
+
     api
-      .get(`/turfs/${turfId}/availability/?date=${date}`)
+      .get(url)
       .then((res) => {
         const loadedSlots: TimeSlot[] = res.data.slots || [];
+        const count = res.data.available_slots_count || 0;
+        const fastFill = res.data.is_fast_fill || false;
+
+        slotsCacheRef.current.set(cacheKey, {
+          slots: loadedSlots,
+          count,
+          isFastFill: fastFill,
+          timestamp: Date.now(),
+        });
+
         setSlots(loadedSlots);
-        setAvailableSlotsCount(res.data.available_slots_count || 0);
-        setIsFastFill(res.data.is_fast_fill || false);
+        setAvailableSlotsCount(count);
+        setIsFastFill(fastFill);
 
         // Auto select slot from query if requested
         if (querySlot) {
@@ -176,8 +282,10 @@ export const HomePage: React.FC = () => {
       })
       .catch((err) => {
         console.error("Failed to load slot availability:", err);
-        setSlots([]);
-        setLockError("Could not fetch slots for this date. Please try again.");
+        if (!cached) {
+          setSlots([]);
+          setLockError("Could not fetch slots for this date. Please try again.");
+        }
       })
       .finally(() => setLoadingSlots(false));
   };
@@ -191,14 +299,28 @@ export const HomePage: React.FC = () => {
   }, [activeTurf?.id, selectedDate]);
 
   // Real-time live sync for the active turf & date
-  useSlotRealtime(activeTurf?.id ? String(activeTurf.id) : undefined, selectedDate, () => {
+  useSlotRealtime(activeTurf?.id ? String(activeTurf.id) : undefined, selectedDate, (event) => {
     if (activeTurf?.id) {
-      fetchSlots(activeTurf.id, selectedDate);
+      if (event?.type === "PRICE_CHANGED") {
+        slotsCacheRef.current.clear();
+        scheduleCacheRef.current.clear();
+      } else {
+        const cacheKey = `${activeTurf.id}:${selectedDate}`;
+        slotsCacheRef.current.delete(cacheKey);
+      }
+      fetchSlots(activeTurf.id, selectedDate, { force: true });
     }
   });
 
   // Query schedule across all turfs for active date to populate pitch availability badges
   useEffect(() => {
+    const cachedSchedule = scheduleCacheRef.current.get(selectedDate);
+    const now = Date.now();
+    if (cachedSchedule && now - cachedSchedule.timestamp < 30000) {
+      setPitchOpenCounts(cachedSchedule.countMap);
+      return;
+    }
+
     api
       .get(`/turfs/schedule/?date=${selectedDate}`)
       .then((res) => {
@@ -206,6 +328,10 @@ export const HomePage: React.FC = () => {
         const countMap: Record<string, number> = {};
         list.forEach((item: any) => {
           countMap[String(item.id)] = item.available_slots_count ?? 0;
+        });
+        scheduleCacheRef.current.set(selectedDate, {
+          countMap,
+          timestamp: Date.now(),
         });
         setPitchOpenCounts(countMap);
       })
@@ -634,15 +760,24 @@ export const HomePage: React.FC = () => {
 
     try {
       const sortedSlotIds = selectedSlotsData.map((s) => s.id);
+      let currentLockToken = sessionStorage.getItem("slot_guest_lock_token") || "";
+      if (!currentLockToken) {
+        currentLockToken = "guest_" + Math.random().toString(36).substring(2, 12) + "_" + Date.now();
+        sessionStorage.setItem("slot_guest_lock_token", currentLockToken);
+      }
       const res = await api.post("/bookings/lock/", {
         turf_id: activeTurf.id,
         date: selectedDate,
         slot_ids: sortedSlotIds,
+        lock_token: currentLockToken,
       });
 
       localStorage.setItem("ft_preferred_duration_minutes", String(durationMinutes));
 
       const lockPayload = res.data.data || res.data;
+      const returnedLockToken = res.data.lock_token || lockPayload.lock_token || currentLockToken;
+      sessionStorage.setItem("slot_guest_lock_token", returnedLockToken);
+
       const slotHoldSecs = (bookingRules?.slotHoldMinutes || 5) * 60;
       const lockedUntil =
         res.data.locked_until ||
@@ -665,7 +800,9 @@ export const HomePage: React.FC = () => {
           lockData: {
             locked_until: lockedUntil,
             slot_ids: selectedSlotIds,
+            lock_token: returnedLockToken,
           },
+          lockToken: returnedLockToken,
           lockDurationSeconds,
           expiresAt: lockedUntil,
           totalPrice: totalAmount,
@@ -680,7 +817,7 @@ export const HomePage: React.FC = () => {
       setLockError(errorMsg);
       triggerHaptic("error");
       if (activeTurf?.id) {
-        fetchSlots(activeTurf.id, selectedDate);
+        fetchSlots(activeTurf.id, selectedDate, { force: true });
       }
     } finally {
       setLockLoading(false);
@@ -697,7 +834,7 @@ export const HomePage: React.FC = () => {
 
       <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-6 space-y-4 sm:space-y-6 pb-28 md:pb-16">
         {/* Hero Photo Banner - Prominent Venue Showcase */}
-        <section className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 text-white min-h-[220px] sm:min-h-[280px] flex flex-col justify-end p-4 sm:p-7 group">
+        <section className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 text-white min-h-[260px] sm:min-h-[290px] flex flex-col justify-between p-3.5 sm:p-7 group">
           {/* Background Turf Venue Photo */}
           <div
             className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-105"
@@ -708,35 +845,88 @@ export const HomePage: React.FC = () => {
               )}')`,
             }}
           />
-          {/* Gradient Dark Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-black/30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/40 via-transparent to-transparent" />
+          {/* Multi-Layer Gradient Overlays for High Contrast & Visual Depth */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/65 to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/50 via-slate-950/30 to-black/40" />
 
-          {/* Banner Content */}
-          <div className="relative z-10 space-y-2">
-            <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
-              {company.banner_title || company.name || "Friends Turf Sports Complex"}
-            </h2>
-            <div className="flex items-center">
+          {/* 1. Top Bar: Live Status Badge & Quick Social Pills */}
+          <div className="relative z-10 flex items-center justify-between gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/75 border border-emerald-500/40 text-emerald-300 text-[10px] sm:text-xs font-bold backdrop-blur-md shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+              <span className="tracking-wide uppercase">FIFA Certified • Open Today</span>
+            </div>
+          </div>
+
+          {/* 2. Bottom Content: Venue Header, Rating & Responsive Action Matrix */}
+          <div className="relative z-10 space-y-2.5">
+            <div>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 drop-shadow-sm mb-0.5">
+                <span>★ 4.9 Rating</span>
+                <span className="text-white/40">•</span>
+                <span className="text-slate-300 font-medium">Turf & Box Cricket Arena</span>
+              </div>
+              <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md leading-tight">
+                {company.banner_title || company.name || "Friends Turf Sports Complex"}
+              </h2>
+            </div>
+
+            {/* Action Matrix: Location Pill + Symmetrical Social Buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              {/* Venue Location Pill */}
               <button
                 type="button"
                 onClick={() => setIsLocationModalOpen(true)}
-                className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 hover:bg-slate-900/80 active:scale-[0.98] border border-white/15 hover:border-emerald-400/40 text-xs text-slate-200 hover:text-white backdrop-blur-md shadow-sm transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
+                className="group inline-flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-xl sm:rounded-full bg-slate-900/85 hover:bg-slate-900 active:scale-[0.98] border border-white/20 hover:border-emerald-400/60 text-xs text-slate-100 hover:text-white backdrop-blur-md shadow-md transition-all duration-200 cursor-pointer w-full sm:w-auto"
                 title="View venue directions & map"
               >
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200 shrink-0">
-                  <MapPin className="w-3 h-3" />
-                </span>
-                <span className="font-medium text-slate-200 group-hover:text-white">
-                  {company.address?.split("(")[0]?.trim() || "Near Sirupooluvapatti, Kamatchepuram, Tiruppur"}
-                </span>
-                {(company.banner_landmark || company.address?.includes("RTO")) && (
-                  <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[10px] font-bold text-emerald-300 tracking-wide uppercase">
-                    {company.banner_landmark || "RTO Backside"}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/25 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200 shrink-0">
+                    <MapPin className="w-3 h-3" />
                   </span>
-                )}
-                <Navigation className="w-3 h-3 text-slate-400 group-hover:text-emerald-300 group-hover:translate-x-0.5 transition-all shrink-0 ml-0.5" />
+                  <span className="font-semibold text-slate-200 group-hover:text-white truncate">
+                    {company.banner_landmark
+                      ? `${company.banner_landmark}, Tiruppur`
+                      : (company.address?.split(",")[1]?.trim() || company.address?.split("(")[0]?.trim() || "Kamatchepuram") + ", Tiruppur"}
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-bold text-emerald-300 uppercase tracking-wider shrink-0">
+                  <span>Map</span>
+                  <Navigation className="w-2.5 h-2.5" />
+                </span>
               </button>
+
+              {/* Social Redirect Twin Buttons */}
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                {/* Instagram Direct Redirect Button */}
+                <a
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl sm:rounded-full bg-gradient-to-r from-purple-900/60 via-pink-900/60 to-amber-900/60 hover:from-purple-600 hover:via-pink-600 hover:to-amber-500 border border-pink-500/50 hover:border-pink-300 text-xs font-bold text-white backdrop-blur-md shadow-md shadow-pink-950/30 transition-all duration-200 active:scale-95 cursor-pointer group/insta"
+                  title={`Follow on Instagram (${instagramDisplay})`}
+                >
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 text-white shrink-0 shadow-2xs group-hover/insta:scale-110 transition-transform">
+                    <InstagramIcon className="w-2.5 h-2.5 fill-current" />
+                  </span>
+                  <span className="tracking-tight">Instagram</span>
+                  <ExternalLink className="w-3 h-3 text-pink-300 group-hover/insta:translate-x-0.5 transition-all shrink-0" />
+                </a>
+
+                {/* Facebook Direct Redirect Button */}
+                <a
+                  href={facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl sm:rounded-full bg-blue-950/70 hover:bg-[#1877F2] border border-blue-500/50 hover:border-blue-300 text-xs font-bold text-white backdrop-blur-md shadow-md shadow-blue-950/30 transition-all duration-200 active:scale-95 cursor-pointer group/fb"
+                  title={`Visit Facebook Page (${facebookDisplay})`}
+                >
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[#1877F2] text-white shrink-0 shadow-2xs group-hover/fb:scale-110 transition-transform">
+                    <FacebookIcon className="w-2.5 h-2.5 fill-current" />
+                  </span>
+                  <span className="tracking-tight">Facebook</span>
+                  <ExternalLink className="w-3 h-3 text-blue-300 group-hover/fb:translate-x-0.5 transition-all shrink-0" />
+                </a>
+              </div>
             </div>
           </div>
         </section>
@@ -795,74 +985,83 @@ export const HomePage: React.FC = () => {
                         setSelectedTurfId(turf.id);
                         setSearchParams({ turf: String(turf.id), date: selectedDate }, { preventScrollReset: true });
                       }}
-                      className={`group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-left transition-all duration-200 cursor-pointer flex items-center justify-between gap-3 border ${
+                      className={`group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-left transition-all duration-200 cursor-pointer flex items-center gap-3 border ${
                         isSelected
-                          ? "bg-white border-[#059669] ring-2 ring-emerald-500/20 shadow-sm"
+                          ? "bg-white border-[#059669] ring-2 ring-emerald-500/20 shadow-md"
                           : "bg-white border-slate-200/90 text-slate-700 hover:border-emerald-300 hover:shadow-xs"
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* Turf Preview Image with Sport Badge overlay */}
-                        <div
-                          className={`relative w-13 h-13 sm:w-15 sm:h-15 rounded-lg sm:rounded-xl overflow-hidden shrink-0 transition-transform duration-300 group-hover:scale-105 border ${
-                            isSelected
-                              ? "border-emerald-500/40 ring-1 ring-emerald-500/30"
-                              : "border-slate-200/90 bg-slate-100"
-                          }`}
-                        >
-                          <img
-                            src={resolveImageUrl(turf.images && turf.images.length > 0 ? turf.images[0] : null, turf.sport_type)}
-                            alt={turf.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover"
-                            onError={(e) => handleImageError(e, turf.sport_type)}
-                          />
-                          <span className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent pt-2 pb-0.5 text-center text-[8px] sm:text-[9px] font-black text-emerald-300 uppercase tracking-wider">
-                            {turf.sport_type}
-                          </span>
-                        </div>
-
-                        {/* Pitch Details */}
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-snug">
-                            {turf.name}
-                          </h3>
-                          <p className="text-[11px] sm:text-xs text-slate-500 flex items-center gap-1 font-medium mt-0.5 truncate">
-                            <span>{turf.dimensions || "Tournament Pitch"}</span>
-                            <span className="text-slate-300">•</span>
-                            <span>{turf.surface_spec?.split(" ")[0] || "50mm"} Turf</span>
-                          </p>
-                        </div>
+                      {/* Turf Preview Image - Wide Landscape Aspect Ratio for High Legibility */}
+                      <div
+                        className={`relative w-24 sm:w-28 md:w-32 h-18 sm:h-20 md:h-22 rounded-lg sm:rounded-xl overflow-hidden shrink-0 transition-transform duration-300 group-hover:scale-105 border ${
+                          isSelected
+                            ? "border-emerald-500/40 ring-1 ring-emerald-500/30"
+                            : "border-slate-200/90 bg-slate-100"
+                        }`}
+                      >
+                        <img
+                          src={resolveImageUrl(turf.images && turf.images.length > 0 ? turf.images[0] : null, turf.sport_type)}
+                          alt={turf.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover object-center"
+                          onError={(e) => handleImageError(e, turf.sport_type)}
+                        />
+                        {/* Sport Indicator Micro-Chip */}
+                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-slate-950/75 backdrop-blur-xs text-[8px] sm:text-[9px] font-black text-emerald-300 uppercase tracking-wider shadow-xs border border-white/10">
+                          {turf.sport_type === "CRICKET" ? "🏏 Cricket" : turf.sport_type === "FOOTBALL" ? "⚽ Football" : turf.sport_type}
+                        </span>
                       </div>
 
-                      {/* Pricing & Availability Column */}
-                      <div className="text-right shrink-0 pl-1">
-                        <div className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                          ₹{Number(turf.base_price).toLocaleString("en-IN")}
-                          <span className="text-[10px] font-medium text-slate-500 ml-0.5">/hr</span>
+                      {/* Pitch Details & Pricing */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
+                        <div>
+                          <div className="flex items-start justify-between gap-1.5">
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate leading-snug">
+                              {turf.name}
+                            </h3>
+                            <div className="text-right shrink-0 pl-1">
+                              <span className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                                ₹{Number(turf.base_price).toLocaleString("en-IN")}
+                              </span>
+                              <span className="text-[10px] font-medium text-slate-500">/hr</span>
+                            </div>
+                          </div>
+                          <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5 font-medium">
+                            <span>{turf.dimensions || "Tournament Pitch"}</span>
+                            {turf.surface_spec && (
+                              <>
+                                <span className="text-slate-300 mx-1">•</span>
+                                <span>{turf.surface_spec.split("(")[0]?.trim()}</span>
+                              </>
+                            )}
+                          </p>
                         </div>
 
-                        {openCount !== undefined ? (
-                          <div className="mt-0.5 flex items-center justify-end">
-                            {openCount > 0 ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-[#059669] border border-emerald-200/70">
+                        <div className="flex items-center justify-between gap-2 mt-1.5 pt-1 border-t border-slate-100">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            {turf.capacity ? `${turf.capacity} Players` : "Standard Arena"}
+                          </span>
+
+                          {openCount !== undefined ? (
+                            openCount > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-[#059669] border border-emerald-200/80">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
-                                {openCount} Open
+                                <span>{openCount} Open</span>
                               </span>
                             ) : (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-400">
                                 Sold Out
                               </span>
-                            )}
-                          </div>
-                        ) : null}
+                            )
+                          ) : null}
+                        </div>
                       </div>
 
                       {/* Selected Indicator Checkmark */}
                       {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-[#059669] text-white flex items-center justify-center shadow-xs ring-2 ring-white">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#059669] text-white flex items-center justify-center shadow-xs ring-2 ring-white">
+                          <Check className="w-3 h-3 stroke-[3]" />
                         </div>
                       )}
                     </button>
@@ -1486,6 +1685,11 @@ export const HomePage: React.FC = () => {
                   <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
                     ₹{totalAmount.toLocaleString("en-IN")}
                   </span>
+                  {durationMinutes >= 60 && (
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-400 font-mono">
+                      (₹{Math.round(totalAmount / (durationMinutes / 60))}/hr)
+                    </span>
+                  )}
                   {selectedSlotsData.length > 0 && (
                     <span className="text-[11px] sm:text-xs text-slate-600 font-medium truncate">
                       {activeTurf?.name} • {formatSlotTime(selectedSlotsData[0]?.start_time)} to{" "}
@@ -1621,18 +1825,123 @@ export const HomePage: React.FC = () => {
                     <p className="text-[11px] text-slate-600">{company.address || "Dharapuram Road, Tiruppur, Tamil Nadu"}</p>
                   </div>
                 </div>
-                <a
-                  href={`https://maps.google.com/?q=${encodeURIComponent(company.address || "Friends Turf Tiruppur")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1 rounded-lg bg-white border border-emerald-300 text-[#059669] text-xs font-bold flex items-center justify-center space-x-1 hover:bg-emerald-50 transition shadow-2xs self-start sm:self-auto"
-                >
-                  <Navigation className="w-3 h-3" />
-                  <span>Get Directions</span>
-                </a>
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(company.address || "Friends Turf Tiruppur")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-[#059669] text-xs font-bold flex items-center justify-center space-x-1 hover:bg-emerald-50 transition shadow-2xs"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    <span>Get Directions</span>
+                  </a>
+                  <a
+                    href={instagramUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 rounded-lg bg-white border border-pink-200 text-pink-700 hover:text-pink-800 hover:bg-pink-50 text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-2xs"
+                    title={`Instagram: ${instagramDisplay}`}
+                  >
+                    <InstagramIcon className="w-3 h-3 fill-current text-pink-600" />
+                    <span>Instagram</span>
+                  </a>
+                  <a
+                    href={facebookUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:text-blue-800 hover:bg-blue-50 text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-2xs"
+                    title={`Facebook: ${facebookDisplay}`}
+                  >
+                    <FacebookIcon className="w-3 h-3 fill-current text-blue-600" />
+                    <span>Facebook</span>
+                  </a>
+                </div>
               </div>
             </div>
           )}
+        </section>
+
+        {/* Compact & Flawless Social Community Strip */}
+        <section className="relative rounded-2xl sm:rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white p-3 sm:p-4 shadow-pitch-card overflow-hidden backdrop-blur-xl ring-1 ring-white/10">
+          {/* Subtle Ambient Glows */}
+          <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -left-10 -bottom-10 w-40 h-40 bg-pink-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Compact Header Row */}
+          <div className="relative z-10 flex items-center justify-between gap-2 mb-2 sm:mb-2.5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_8px_#10B981] animate-pulse" />
+              <h3 className="text-xs sm:text-sm font-black text-white tracking-tight">
+                Official Channels • {company.name || "Friends Turf"}
+              </h3>
+            </div>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">
+              Reels & Match Highlights
+            </span>
+          </div>
+
+          {/* Symmetrical 2-Column Flawless Glass Tiles */}
+          <div className="relative z-10 grid grid-cols-2 gap-2 sm:gap-3">
+            {/* Instagram Compact Tile */}
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] hover:from-white/[0.14] hover:to-white/[0.04] border border-white/10 hover:border-pink-500/50 shadow-sm transition-all duration-200 active:scale-[0.98] flex items-center gap-2 sm:gap-2.5 overflow-hidden cursor-pointer"
+              title={`Visit ${instagramDisplay} on Instagram`}
+            >
+              {/* Ambient Corner Glow on Hover */}
+              <div className="absolute -top-6 -right-6 w-16 h-16 bg-pink-500/20 rounded-full blur-lg pointer-events-none group-hover:scale-125 transition-transform" />
+
+              {/* 3D Icon Badge */}
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] p-1.5 sm:p-2 flex items-center justify-center text-white shrink-0 shadow-md shadow-pink-500/20 group-hover:scale-105 transition-transform">
+                <InstagramIcon className="w-full h-full fill-current" />
+              </div>
+
+              {/* Info */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-pink-400 truncate">
+                    Instagram
+                  </span>
+                  <ExternalLink className="w-2.5 h-2.5 text-slate-400 group-hover:text-pink-300 transition-colors shrink-0" />
+                </div>
+                <h4 className="text-[11px] sm:text-xs font-bold text-white group-hover:text-pink-100 truncate leading-snug">
+                  {instagramDisplay}
+                </h4>
+              </div>
+            </a>
+
+            {/* Facebook Compact Tile */}
+            <a
+              href={facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] hover:from-white/[0.14] hover:to-white/[0.04] border border-white/10 hover:border-blue-500/50 shadow-sm transition-all duration-200 active:scale-[0.98] flex items-center gap-2 sm:gap-2.5 overflow-hidden cursor-pointer"
+              title={`Visit ${facebookDisplay} on Facebook`}
+            >
+              {/* Ambient Corner Glow on Hover */}
+              <div className="absolute -top-6 -right-6 w-16 h-16 bg-blue-500/20 rounded-full blur-lg pointer-events-none group-hover:scale-125 transition-transform" />
+
+              {/* 3D Icon Badge */}
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-[#1877F2] p-1.5 sm:p-2 flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+                <FacebookIcon className="w-full h-full fill-current" />
+              </div>
+
+              {/* Info */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-blue-400 truncate">
+                    Facebook
+                  </span>
+                  <ExternalLink className="w-2.5 h-2.5 text-slate-400 group-hover:text-blue-300 transition-colors shrink-0" />
+                </div>
+                <h4 className="text-[11px] sm:text-xs font-bold text-white group-hover:text-blue-100 truncate leading-snug">
+                  {facebookDisplay}
+                </h4>
+              </div>
+            </a>
+          </div>
         </section>
 
         {/* 4. Verified Player Reviews Strip */}
@@ -1655,6 +1964,11 @@ export const HomePage: React.FC = () => {
                 <span className="text-base font-black font-mono text-emerald-400">
                   ₹{totalAmount.toLocaleString("en-IN")}
                 </span>
+                {durationMinutes >= 60 && (
+                  <span className="text-[10px] font-bold text-slate-400 font-mono">
+                    (₹{Math.round(totalAmount / (durationMinutes / 60))}/hr)
+                  </span>
+                )}
                 <span className={`text-[10px] font-bold ${durationMinutes < (bookingRules?.minDurationMinutes || 60) ? "text-amber-400" : "text-slate-400"}`}>
                   • {selectedSlotIds.length} Slot{selectedSlotIds.length > 1 ? "s" : ""} ({durationMinutes}m)
                 </span>

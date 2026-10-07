@@ -44,7 +44,7 @@ export const AdminSettingsPage: React.FC = () => {
     QR_CHECKIN: true,
     ONLINE_PAYMENTS: true,
     OFFLINE_PAYMENTS: true,
-    COUPONS: true,
+    COUPONS: false,
     REVIEWS: true,
     ADVANCED_REPORTING: true,
   });
@@ -63,6 +63,7 @@ export const AdminSettingsPage: React.FC = () => {
     support_email: "support@friendsturf.com",
     website: "https://friendsturf.com",
     instagram: "@friendsturf_tiruppur",
+    facebook: "@friendsturf_tiruppur",
     whatsapp: "+91 93639 89494",
     gstin: "33ABCDE1234F1Z5",
     banner_title: "Friends Turf Sports Complex",
@@ -316,11 +317,6 @@ export const AdminSettingsPage: React.FC = () => {
                   desc: "Permit physical cash collection and manual daily drawer reconciliation by staff.",
                 },
                 {
-                  key: "COUPONS",
-                  title: "Promotional Coupons & Vouchers",
-                  desc: "Permit checkout discount codes and coupon campaigns for marketing promotions.",
-                },
-                {
                   key: "REVIEWS",
                   title: "Customer Reviews & Star Ratings",
                   desc: "Allow verified turf players to submit pitch quality ratings and feedback.",
@@ -562,6 +558,21 @@ export const AdminSettingsPage: React.FC = () => {
                       setCompanySettings({ ...companySettings, instagram: e.target.value })
                     }
                     placeholder="@friendsturf_tiruppur"
+                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Facebook Handle / Page URL
+                  </label>
+                  <input
+                    type="text"
+                    value={companySettings.facebook || ""}
+                    onChange={(e) =>
+                      setCompanySettings({ ...companySettings, facebook: e.target.value })
+                    }
+                    placeholder="@friendsturf_tiruppur or https://facebook.com/friendsturf"
                     className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
                   />
                 </div>

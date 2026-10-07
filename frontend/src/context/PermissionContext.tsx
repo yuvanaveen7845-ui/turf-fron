@@ -26,7 +26,7 @@ const DEFAULT_FEATURE_FLAGS: Record<string, boolean> = {
   QR_CHECKIN: true,
   ONLINE_PAYMENTS: true,
   OFFLINE_PAYMENTS: true,
-  COUPONS: true,
+  COUPONS: false,
   REVIEWS: true,
   ADVANCED_REPORTING: true,
 };

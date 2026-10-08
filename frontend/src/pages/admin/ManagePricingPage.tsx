@@ -395,8 +395,43 @@ export const ManagePricingPage: React.FC = () => {
       const slotA = sortedSlots[i];
       const nextSlot = sortedSlots[i + 1];
 
-      // Form 1-Hour block if nextSlot directly follows slotA
-      if (nextSlot && slotA.end_time.slice(0, 5) === nextSlot.start_time.slice(0, 5)) {
+      const [sh, sm] = slotA.start_time.split(":").map(Number);
+      const [eh, em] = slotA.end_time.split(":").map(Number);
+      let slotADuration = (eh * 60 + em) - (sh * 60 + sm);
+      if (slotADuration < 0) slotADuration += 24 * 60;
+
+      const startH = parseInt(slotA.start_time.slice(0, 2), 10);
+      let period: HourlyBlock["period"] = "MORNING";
+      if (startH >= 5 && startH < 12) period = "MORNING";
+      else if (startH >= 12 && startH < 17) period = "AFTERNOON";
+      else if (startH >= 17 && startH < 22) period = "EVENING";
+      else period = "NIGHT";
+
+      if (slotADuration >= 55) {
+        // Native 1-Hour slot (60-minute pitch)
+        const baseA = slotA.base_price !== undefined ? Number(slotA.base_price) : (slotData.base_price ? Number(slotData.base_price) : 1000);
+        const priceA = slotA.price !== undefined ? Number(slotA.price) : baseA;
+        const baseHourly = Math.round(baseA);
+        const currentHourly = Math.round(priceA);
+        const diff = currentHourly - baseHourly;
+
+        blocks.push({
+          id: `${slotA.start_time.slice(0, 5)}-${slotA.end_time.slice(0, 5)}`,
+          start_time: slotA.start_time,
+          end_time: slotA.end_time,
+          display_time: `${slotA.start_time.slice(0, 5)} - ${slotA.end_time.slice(0, 5)}`,
+          formatted_time_range: `${format12(slotA.start_time.slice(0, 5))} - ${format12(slotA.end_time.slice(0, 5))}`,
+          period,
+          slots: [slotA],
+          hourly_price: currentHourly,
+          base_hourly_price: baseHourly,
+          diff,
+          status: slotA.status || "AVAILABLE",
+        });
+
+        i += 1;
+      } else if (nextSlot && slotA.end_time.slice(0, 5) === nextSlot.start_time.slice(0, 5)) {
+        // Form 1-Hour block from two contiguous 30-min slots
         const baseA = slotA.base_price !== undefined ? Number(slotA.base_price) : (slotData.base_price ? Number(slotData.base_price) / 2 : 500);
         const baseB = nextSlot.base_price !== undefined ? Number(nextSlot.base_price) : (slotData.base_price ? Number(slotData.base_price) / 2 : 500);
         const priceA = slotA.price !== undefined ? Number(slotA.price) : baseA;
@@ -416,13 +451,6 @@ export const ManagePricingPage: React.FC = () => {
         } else if (slotA.status === "MAINTENANCE" || nextSlot.status === "MAINTENANCE") {
           status = "MAINTENANCE";
         }
-
-        const startH = parseInt(slotA.start_time.slice(0, 2), 10);
-        let period: HourlyBlock["period"] = "MORNING";
-        if (startH >= 5 && startH < 12) period = "MORNING";
-        else if (startH >= 12 && startH < 17) period = "AFTERNOON";
-        else if (startH >= 17 && startH < 22) period = "EVENING";
-        else period = "NIGHT";
 
         blocks.push({
           id: `${slotA.start_time.slice(0, 5)}-${nextSlot.end_time.slice(0, 5)}`,
@@ -446,13 +474,6 @@ export const ManagePricingPage: React.FC = () => {
         const baseHourly = Math.round(baseA * 2);
         const currentHourly = Math.round(priceA * 2);
         const diff = currentHourly - baseHourly;
-
-        const startH = parseInt(slotA.start_time.slice(0, 2), 10);
-        let period: HourlyBlock["period"] = "MORNING";
-        if (startH >= 5 && startH < 12) period = "MORNING";
-        else if (startH >= 12 && startH < 17) period = "AFTERNOON";
-        else if (startH >= 17 && startH < 22) period = "EVENING";
-        else period = "NIGHT";
 
         blocks.push({
           id: `${slotA.start_time.slice(0, 5)}-${slotA.end_time.slice(0, 5)}`,
@@ -596,24 +617,22 @@ export const ManagePricingPage: React.FC = () => {
       if (slotAdjustUnit === "PERCENT") {
         signedVal = slotAdjustMode === "DISCOUNT" ? -Math.abs(numVal) : Math.abs(numVal);
       } else {
-        // FLAT adjustment
+        // FLAT adjustment (PricingEngine automatically prorates hourly adjustment by slot duration)
         if (isBlock) {
-          // Hourly delta split equally across the block's slots (e.g. +200/hr = +100/slot)
-          const slotCount = selectedBlock.slots.length || 2;
           const totalDelta = slotAdjustMode === "DISCOUNT"
             ? -Math.abs(numVal)
             : slotAdjustMode === "FIXED"
             ? (numVal - baseRate)
             : Math.abs(numVal);
-          signedVal = Math.round(totalDelta / slotCount);
+          signedVal = totalDelta;
         } else {
-          if (slotAdjustMode === "DISCOUNT") {
-            signedVal = -Math.abs(numVal);
-          } else if (slotAdjustMode === "FIXED") {
-            signedVal = numVal - baseRate;
-          } else {
-            signedVal = Math.abs(numVal);
-          }
+          const slotDelta = slotAdjustMode === "DISCOUNT"
+            ? -Math.abs(numVal)
+            : slotAdjustMode === "FIXED"
+            ? (numVal - baseRate)
+            : Math.abs(numVal);
+          // Scale to 1-hour equivalent so the engine prorates it back to slotDelta for this 30m slot
+          signedVal = Math.round(slotDelta * 2);
         }
       }
 
@@ -729,9 +748,8 @@ export const ManagePricingPage: React.FC = () => {
       if (batchUnit === "PERCENT") {
         signedVal = batchMode === "DISCOUNT" ? -Math.abs(numVal) : Math.abs(numVal);
       } else {
-        // Flat per-hour entered by admin -> each 30-min slot gets half
-        const perSlotVal = Math.round(numVal / 2);
-        signedVal = batchMode === "DISCOUNT" ? -Math.abs(perSlotVal) : Math.abs(perSlotVal);
+        // Flat per-hour entered by admin -> stored as hourly delta, prorated by PricingEngine automatically
+        signedVal = batchMode === "DISCOUNT" ? -Math.abs(numVal) : Math.abs(numVal);
       }
 
       const ruleName = `Range ${batchMode === "HIKE" ? "Surge" : "Discount"}: ${batchStartTime}-${batchEndTime} (${batchMode === "HIKE" ? "+" : "-"}${numVal}${batchUnit === "PERCENT" ? "%" : "/hr"})`;
@@ -1194,14 +1212,14 @@ export const ManagePricingPage: React.FC = () => {
                           <span className="text-xs font-bold text-slate-500">/hr</span>
                         </div>
 
-                        {/* Breakdown of 30-min sub-slots */}
+                        {/* Breakdown of sub-slots */}
                         <div className="text-[11px] font-medium text-slate-500 mt-1">
                           {block.slots.length > 1 ? (
                             <span>
                               2 × 30m slots (₹{Math.round(Number(block.slots[0]?.price || block.base_hourly_price / 2))} + ₹{Math.round(Number(block.slots[1]?.price || block.base_hourly_price / 2))})
                             </span>
                           ) : (
-                            <span>1 × 30m slot normalized</span>
+                            <span>Standard 1-hour slot (₹{block.hourly_price})</span>
                           )}
                         </div>
 

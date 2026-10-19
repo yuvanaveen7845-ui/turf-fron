@@ -526,10 +526,10 @@ export const AdminSettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Online Presence & Legal */}
+            {/* Online Presence & Social */}
             <div className="space-y-4 pt-2 border-t border-slate-100">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
-                3. Online Presence &amp; Statutory GSTIN
+                3. Online Presence &amp; Social Media
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
@@ -574,21 +574,6 @@ export const AdminSettingsPage: React.FC = () => {
                     }
                     placeholder="@friendsturf_tiruppur or https://facebook.com/friendsturf"
                     className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    GSTIN Tax Identification
-                  </label>
-                  <input
-                    type="text"
-                    value={companySettings.gstin || ""}
-                    onChange={(e) =>
-                      setCompanySettings({ ...companySettings, gstin: e.target.value })
-                    }
-                    placeholder="33ABCDE1234F1Z5"
-                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-[#059669]"
                   />
                 </div>
               </div>
@@ -1209,35 +1194,13 @@ export const AdminSettingsPage: React.FC = () => {
               )}
             </div>
 
-            {/* GST Tax & Operational Limits */}
+            {/* Operational Pricing Limits */}
             <div className="space-y-4 pt-2 border-t border-slate-100">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#059669] block">
-                3. Statutory GST Taxation &amp; Pricing Limits
+                3. Operational Pricing Limits
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    GST / Tax Rate (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    max={30}
-                    value={paymentSettings.taxPercentage ?? 18}
-                    onChange={(e) =>
-                      setPaymentSettings({
-                        ...paymentSettings,
-                        taxPercentage: Number(e.target.value),
-                      })
-                    }
-                    className="w-full p-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-[#059669]"
-                  />
-                  <span className="text-[10px] text-slate-500">
-                    Statutory GST rate included in slot rates (All slot prices on the website are 100% GST-inclusive; no additional tax is added at checkout)
-                  </span>
-                </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">

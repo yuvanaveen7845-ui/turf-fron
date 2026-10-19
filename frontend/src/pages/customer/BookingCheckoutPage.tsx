@@ -1241,23 +1241,11 @@ export const BookingCheckoutPage: React.FC = () => {
 
 
 
-                <div className="flex justify-between text-slate-500">
-                  <span className="flex items-center space-x-1.5">
-                    <span>Statutory GST ({priceBreakdown.tax_rate_percent}%)</span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                      Included
-                    </span>
-                  </span>
-                  <span className="font-semibold text-slate-700">
-                    ₹{priceBreakdown.tax_amount}
-                  </span>
-                </div>
-
                 <div className="pt-3 border-t border-slate-100 flex justify-between text-base font-black text-slate-900">
                   <div>
                     <span>Total Match Price</span>
                     <span className="text-[10px] text-slate-400 font-medium block">
-                      Inclusive of all taxes &amp; GST
+                      Net Payable Amount
                     </span>
                   </div>
                   <span className="text-[#059669]">

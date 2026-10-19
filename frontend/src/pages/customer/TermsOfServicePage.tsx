@@ -319,11 +319,11 @@ export const TermsOfServicePage: React.FC = () => {
               <div className="flex items-center space-x-2 text-[#059669]">
                 <CheckCircle2 className="w-5 h-5" />
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                  5. Pricing, Tax & Payment Gateways
+                  5. Pricing &amp; Payment Gateways
                 </h2>
               </div>
               <p>
-                All rates displayed on Friends Turf are in Indian Rupees (₹ INR) and include all applicable taxes (GST @ 18% under SAC Code 999651).
+                All rates displayed on Friends Turf are in Indian Rupees (₹ INR) with transparent pricing and zero hidden fees.
               </p>
               <ul className="space-y-2 list-disc pl-5 text-slate-600">
                 <li>
@@ -331,12 +331,12 @@ export const TermsOfServicePage: React.FC = () => {
                   via Razorpay (PCI-DSS compliant), Turf Cash Wallet balance, and cash at the venue counter.
                 </li>
                 <li>
-                  <strong>Advance Deposits:</strong> Certain peak slots may allow a 50% partial advance deposit. The remaining
+                  <strong>Advance Deposits:</strong> Certain slots may allow a partial advance deposit. The remaining
                   balance must be cleared before pitch entry.
                 </li>
                 <li>
-                  <strong>Official GST Invoices:</strong> Cryptographically generated GST Tax Invoices are issued immediately
-                  upon full payment and accessible via the portal or downloadable PDF.
+                  <strong>Official Booking Receipts:</strong> Digital booking receipts are issued immediately
+                  upon payment and accessible via the portal or downloadable PDF.
                 </li>
               </ul>
             </section>

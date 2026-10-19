@@ -95,6 +95,8 @@ export interface Turf {
   location: string;
   address: string;
   base_price: number | string;
+  min_price?: number | string;
+  max_price?: number | string;
   capacity: number;
   surface_spec?: string;
   is_fifa_certified?: boolean;

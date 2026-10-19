@@ -217,7 +217,7 @@ export const PrivacyPolicyPage: React.FC = () => {
                 </li>
                 <li>
                   <strong>Transaction Metadata:</strong> Razorpay payment order IDs, payment methods (UPI, Card, Wallet),
-                  amounts paid, balance dues, and GST tax invoice numbers.
+                  amounts paid, balance dues, and booking receipt numbers.
                 </li>
                 <li>
                   <strong>Technical & Device Data:</strong> IP address, browser type, operating system, and session tokens
@@ -239,10 +239,9 @@ export const PrivacyPolicyPage: React.FC = () => {
               <p>We process your personal information strictly for legitimate operational purposes:</p>
               <ul className="space-y-2 list-disc pl-5 text-slate-600">
                 <li>Issuing cryptographic QR match passes for stadium gate check-in.</li>
-                <li>Dispatching booking confirmation emails, GST invoices, and slot reminder notifications.</li>
+                <li>Dispatching booking confirmation emails, receipts, and slot reminder notifications.</li>
                 <li>Managing Turf Cash Wallet balances and automated cancellation credits.</li>
                 <li>Preventing fraud, duplicate turnstile admissions, and automated slot hoarding.</li>
-                <li>Complying with statutory tax reporting requirements under the Indian Goods and Services Tax (GST) Act.</li>
               </ul>
             </section>
 
@@ -311,7 +310,7 @@ export const PrivacyPolicyPage: React.FC = () => {
                 <li><strong>Razorpay:</strong> Payment gateway authorization and settlement.</li>
                 <li><strong>Google Identity Services:</strong> Secure OAuth 2.0 single sign-on authentication.</li>
                 <li><strong>Supabase / PostgreSQL:</strong> Secure, encrypted cloud database hosting with row-level security.</li>
-                <li><strong>SMTP Mail Relays:</strong> Transactional delivery of match passes and GST invoices.</li>
+                <li><strong>SMTP Mail Relays:</strong> Transactional delivery of match passes and booking receipts.</li>
               </ul>
               <p className="text-xs text-slate-500">
                 We never sell, monetise, or distribute player contact lists to external advertisers or telemarketers.
@@ -325,7 +324,7 @@ export const PrivacyPolicyPage: React.FC = () => {
               <div className="flex items-center space-x-2 text-[#059669]">
                 <Database className="w-5 h-5" />
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                  6. Data Retention & Erasure
+                  6. Data Retention &amp; Erasure
                 </h2>
               </div>
               <p>
@@ -333,7 +332,7 @@ export const PrivacyPolicyPage: React.FC = () => {
               </p>
               <ul className="space-y-2 list-disc pl-5 text-slate-600">
                 <li><strong>Account Profile Data:</strong> Maintained until account closure is requested by the user.</li>
-                <li><strong>Financial & Invoice Records:</strong> Retained for 7 years in compliance with Indian Income Tax and GST regulations.</li>
+                <li><strong>Financial &amp; Receipt Records:</strong> Retained for 7 years in compliance with applicable commercial and financial regulations.</li>
                 <li><strong>Gate Scan Audit Logs:</strong> Kept for 12 months for operational reconciliation before automated archival.</li>
               </ul>
             </section>

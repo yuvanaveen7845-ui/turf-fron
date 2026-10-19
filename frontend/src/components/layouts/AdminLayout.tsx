@@ -38,6 +38,7 @@ import { RecordOfflinePaymentModal } from "../admin/RecordOfflinePaymentModal";
 import { QuickPriceChangeModal } from "../admin/QuickPriceChangeModal";
 import { QuickBlockSlotModal } from "../admin/QuickBlockSlotModal";
 import { QuickCustomerModal } from "../admin/QuickCustomerModal";
+import { AdminPaymentQRModal } from "../admin/AdminPaymentQRModal";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../context/AuthContext";
 import { usePermission } from "../../context/PermissionContext";
@@ -93,6 +94,7 @@ export const AdminLayout: React.FC = () => {
   const [isBlockSlotOpen, setIsBlockSlotOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isQuickActionMenuOpen, setIsQuickActionMenuOpen] = useState(false);
+  const [isUPIQROpen, setIsUPIQROpen] = useState(false);
 
   // Consolidated Global Keyboard Shortcuts Hook (⌘B, ⌘K, ⌘Q)
   useGlobalShortcuts({
@@ -467,6 +469,19 @@ export const AdminLayout: React.FC = () => {
                   </kbd>
                 </button>
 
+                {/* Admin Counter UPI QR Button (Admin Only) */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsUPIQROpen(true)}
+                    className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-full text-xs font-bold text-[#059669] transition shadow-2xs active:scale-95 cursor-pointer"
+                    title="Display Offline Counter UPI QR code (Admin Only)"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-[#059669]" />
+                    <span className="hidden md:inline">Counter UPI QR</span>
+                  </button>
+                )}
+
                 {/* Quick Actions Dropdown Menu */}
                 <div className="relative">
                   <button
@@ -561,6 +576,19 @@ export const AdminLayout: React.FC = () => {
                             <span>+ Invite Staff Member</span>
                           </button>
                         )}
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setIsQuickActionMenuOpen(false);
+                              setIsUPIQROpen(true);
+                            }}
+                            className="w-full text-left px-3 py-2 rounded-2xl hover:bg-emerald-50 hover:text-[#059669] flex items-center space-x-2.5 transition cursor-pointer"
+                          >
+                            <QrCode className="w-4 h-4 text-[#059669]" />
+                            <span>Show Counter UPI QR</span>
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
@@ -625,6 +653,11 @@ export const AdminLayout: React.FC = () => {
       <QuickCustomerModal
         isOpen={isAddCustomerOpen}
         onClose={() => setIsAddCustomerOpen(false)}
+      />
+
+      <AdminPaymentQRModal
+        isOpen={isUPIQROpen}
+        onClose={() => setIsUPIQROpen(false)}
       />
     </div>
   );

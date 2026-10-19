@@ -122,14 +122,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm mt-1">
                     {receipt.business?.address || "Near Sirupooluvapatti, Kamatchepuram, Tiruppur, Tamil Nadu 641603 (RTO Office Backside)"}
                   </p>
-                  <p className="text-[11px] font-bold text-slate-600">
-                    GSTIN: <span className="font-mono text-slate-900">{receipt.business?.gstin || "33ABCDE1234F1Z5"}</span> | SAC: <span className="font-mono text-slate-900">999651</span>
-                  </p>
                 </div>
 
                 <div className="sm:text-right space-y-1">
                   <div className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-[#059669] border border-emerald-200">
-                    TAX INVOICE
+                    BOOKING RECEIPT
                   </div>
                   <p className="text-xs font-bold text-slate-900 font-mono">
                     {receipt.receipt_number}
@@ -212,26 +209,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
                 {/* Subtotals & Taxes */}
                 <div className="bg-slate-50/70 p-4 border-t border-slate-200 space-y-1.5 font-medium text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Taxable Value</span>
-                    <span>₹{Number(receipt.financial_summary?.taxable_amount || 0).toFixed(2)}</span>
-                  </div>
-
-                  {Number(receipt.financial_summary?.gst_amount || 0) > 0 && (
-                    <>
-                      <div className="flex justify-between text-slate-500 text-[11px]">
-                        <span>Central GST (CGST @ 9% Included)</span>
-                        <span>₹{Number(receipt.financial_summary?.cgst_amount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-500 text-[11px]">
-                        <span>State GST (SGST @ 9% Included)</span>
-                        <span>₹{Number(receipt.financial_summary?.sgst_amount || 0).toFixed(2)}</span>
-                      </div>
-                    </>
-                  )}
-
                   <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-black text-slate-900">
-                    <span>Total Match Fee (GST Included)</span>
+                    <span>Total Match Fee</span>
                     <span className="text-[#059669]">
                       ₹{Number(receipt.financial_summary?.final_amount || 0).toFixed(2)}
                     </span>

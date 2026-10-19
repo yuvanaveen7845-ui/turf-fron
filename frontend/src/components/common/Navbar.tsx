@@ -18,7 +18,10 @@ import {
   Compass,
   ArrowRight,
   Zap,
+  ScanLine,
 } from "lucide-react";
+import { QuickScannerModal } from "../admin/QuickScannerModal";
+import { AdminPaymentQRModal } from "../admin/AdminPaymentQRModal";
 import api from "../../services/api";
 import { useRealtime } from "../../context/RealtimeContext";
 import { useBusinessSettings } from "../../hooks/useBusinessSettings";
@@ -35,6 +38,8 @@ export const Navbar: React.FC = () => {
   const [showNotificationOverlay, setShowNotificationOverlay] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
+  const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+  const [isUPIQROpen, setIsUPIQROpen] = useState<boolean>(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Close user dropdown when clicking outside
@@ -297,6 +302,26 @@ export const Navbar: React.FC = () => {
                 >
                   <span>Reports</span>
                 </Link>
+
+                {/* Quick Scanner & UPI QR Popups */}
+                <button
+                  type="button"
+                  onClick={() => setIsUPIQROpen(true)}
+                  className="px-2.5 xl:px-3.5 py-1.5 xl:py-2 rounded-full text-xs font-bold transition-all text-[#059669] bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 flex items-center space-x-1.5 shadow-2xs active:scale-95 cursor-pointer"
+                  title="Display Offline Counter UPI QR code (Popup)"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">UPI QR</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="px-2.5 xl:px-3.5 py-1.5 xl:py-2 rounded-full text-xs font-bold transition-all text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 flex items-center space-x-1.5 shadow-2xs active:scale-95 cursor-pointer"
+                  title="Quick Optical QR Check-In Scanner (Popup)"
+                >
+                  <ScanLine className="w-3.5 h-3.5 text-[#059669]" />
+                  <span className="hidden xl:inline">Scan Pass</span>
+                </button>
               </>
             )}
           </nav>
@@ -346,6 +371,30 @@ export const Navbar: React.FC = () => {
                       ₹{Number(user.customer_profile.wallet_balance || 0).toLocaleString("en-IN")}
                     </span>
                   </Link>
+                )}
+
+                {/* Mobile & Compact QR Buttons (Directly visible on mobile top bar for Admin & Staff) */}
+                {(user.role === "ADMIN" || user.is_superuser) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsUPIQROpen(true)}
+                    className="flex lg:hidden items-center space-x-1 px-2.5 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[#059669] text-xs font-bold transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                    title="Counter UPI QR Popup"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-[#059669]" />
+                    <span className="text-[11px] font-bold">UPI QR</span>
+                  </button>
+                )}
+
+                {(user.role === "ADMIN" || user.is_superuser || user.role === "STAFF") && (
+                  <button
+                    type="button"
+                    onClick={() => setIsScannerOpen(true)}
+                    className="flex lg:hidden items-center justify-center w-8.5 h-8.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-[#059669] shadow-2xs active:scale-95 transition cursor-pointer shrink-0"
+                    title="Quick QR Check-In Scanner"
+                  >
+                    <ScanLine className="w-4 h-4 text-[#059669]" />
+                  </button>
                 )}
 
                 {/* Notification Bell (Opens Overlay Popover) */}
@@ -473,17 +522,47 @@ export const Navbar: React.FC = () => {
                         )}
 
                         {(user.role === "ADMIN" || user.is_superuser) && (
-                          <Link
-                            to="/admin/settings"
-                            onClick={() => setShowUserMenu(false)}
-                            className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-white/60 hover:text-slate-950 transition-all border border-transparent hover:border-white/60"
-                          >
-                            <div className="flex items-center space-x-3">
-                              <Settings className="w-4 h-4 text-slate-400" />
-                              <span>System Settings</span>
-                            </div>
-                            <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-                          </Link>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowUserMenu(false);
+                                setIsUPIQROpen(true);
+                              }}
+                              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-emerald-50 text-[#059669] transition-all border border-transparent hover:border-emerald-200 cursor-pointer text-left font-bold"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <QrCode className="w-4 h-4 text-[#059669]" />
+                                <span>Show Counter UPI QR</span>
+                              </div>
+                              <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowUserMenu(false);
+                                setIsScannerOpen(true);
+                              }}
+                              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-slate-50 hover:text-slate-950 transition-all border border-transparent hover:border-slate-200 cursor-pointer text-left"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <ScanLine className="w-4 h-4 text-[#059669]" />
+                                <span>Quick QR Scanner Popup</span>
+                              </div>
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+                            </button>
+                            <Link
+                              to="/admin/settings"
+                              onClick={() => setShowUserMenu(false)}
+                              className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-white/60 hover:text-slate-950 transition-all border border-transparent hover:border-white/60"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <Settings className="w-4 h-4 text-slate-400" />
+                                <span>System Settings</span>
+                              </div>
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+                            </Link>
+                          </>
                         )}
                       </div>
 
@@ -724,6 +803,32 @@ export const Navbar: React.FC = () => {
                       <QrCode className="w-4 h-4" />
                       <span>Gate Scanner (⌘Q)</span>
                     </Link>
+
+                    {(user.role === "ADMIN" || user.is_superuser) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMobileMenu(false);
+                          setIsUPIQROpen(true);
+                        }}
+                        className="w-full flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-[#059669] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer text-left"
+                      >
+                        <QrCode className="w-4 h-4 text-[#059669]" />
+                        <span>Counter UPI QR (Offline Payment Popup)</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        setIsScannerOpen(true);
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl text-xs font-bold text-slate-800 hover:bg-white/60 border border-transparent hover:border-white/60 transition-all cursor-pointer text-left"
+                    >
+                      <ScanLine className="w-4 h-4 text-[#059669]" />
+                      <span>Quick QR Scanner Popup</span>
+                    </button>
                   </div>
                 )}
 
@@ -757,6 +862,16 @@ export const Navbar: React.FC = () => {
             />
           </div>
         )}
+
+        {/* Global Quick Scanner & Admin Payment UPI QR Popups */}
+        <QuickScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+        />
+        <AdminPaymentQRModal
+          isOpen={isUPIQROpen}
+          onClose={() => setIsUPIQROpen(false)}
+        />
       </div>
     </header>
   );

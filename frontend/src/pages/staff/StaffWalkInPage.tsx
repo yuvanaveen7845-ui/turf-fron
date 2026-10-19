@@ -27,6 +27,7 @@ export const StaffWalkInPage: React.FC = () => {
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "RAZORPAY">("CASH");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,7 @@ export const StaffWalkInPage: React.FC = () => {
           slot_ids: selectedSlotIds,
           customer_name: customerName,
           customer_phone: customerPhone,
+          customer_email: customerEmail,
           payment_method: "RAZORPAY",
           notes: `${notes ? notes + " • " : ""}Desk Razorpay Digital Payment`,
         });
@@ -106,6 +108,7 @@ export const StaffWalkInPage: React.FC = () => {
             setSelectedSlotIds([]);
             setCustomerName("");
             setCustomerPhone("");
+            setCustomerEmail("");
             setNotes("");
             api
               .get(`/turfs/${selectedTurfId}/availability/?date=${todayStr}`)
@@ -121,6 +124,7 @@ export const StaffWalkInPage: React.FC = () => {
           slot_ids: selectedSlotIds,
           customer_name: customerName,
           customer_phone: customerPhone,
+          customer_email: customerEmail,
           payment_method: paymentMode,
           notes: `${notes ? notes + " • " : ""}Paid via ${paymentMode} at reception counter`,
         });
@@ -129,6 +133,7 @@ export const StaffWalkInPage: React.FC = () => {
         setSelectedSlotIds([]);
         setCustomerName("");
         setCustomerPhone("");
+        setCustomerEmail("");
         setNotes("");
         api
           .get(`/turfs/${selectedTurfId}/availability/?date=${todayStr}`)
@@ -377,7 +382,7 @@ export const StaffWalkInPage: React.FC = () => {
         </div>
 
         {/* Step 3: Player Details */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Input
             label="Player / Captain Name"
             isRequired
@@ -392,6 +397,13 @@ export const StaffWalkInPage: React.FC = () => {
             placeholder="+91 98765 43210"
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
+          />
+          <Input
+            label="Email Address (Optional)"
+            type="email"
+            placeholder="player@gmail.com"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
           />
         </div>
 

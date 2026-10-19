@@ -18,6 +18,8 @@ import { Turf, TimeSlot } from "../../types";
 import { Button, Input, Select } from "../ui";
 import { formatTime12h } from "../../utils/timeFormat";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
+import { AdminPaymentQRModal } from "../admin/AdminPaymentQRModal";
 
 interface WalkInPOSEmbedProps {
   onSuccess?: (booking: any) => void;
@@ -25,6 +27,8 @@ interface WalkInPOSEmbedProps {
 
 export const WalkInPOSEmbed: React.FC<WalkInPOSEmbedProps> = ({ onSuccess }) => {
   const toast = useToast();
+  const { isAdmin } = useAuth();
+  const [showUPIQR, setShowUPIQR] = useState(false);
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [selectedTurfId, setSelectedTurfId] = useState<string>("");
   const [todaySlots, setTodaySlots] = useState<TimeSlot[]>([]);
@@ -295,6 +299,17 @@ export const WalkInPOSEmbed: React.FC<WalkInPOSEmbedProps> = ({ onSuccess }) => 
               >
                 📱 Counter UPI QR
               </button>
+              {paymentMode === "UPI" && isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowUPIQR(true)}
+                  className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-[#059669] rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                  title="Display UPI QR code to customer"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Show QR</span>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center space-x-4">
@@ -315,6 +330,11 @@ export const WalkInPOSEmbed: React.FC<WalkInPOSEmbedProps> = ({ onSuccess }) => 
           </div>
         </form>
       )}
+
+      <AdminPaymentQRModal
+        isOpen={showUPIQR}
+        onClose={() => setShowUPIQR(false)}
+      />
     </div>
   );
 };

@@ -104,8 +104,12 @@ export const PitchCard: React.FC<PitchCardProps> = ({ turf, featured = false }) 
 
             {/* Price Badge */}
             <div className="text-right shrink-0">
-              <div className="text-[18px] sm:text-[20px] font-extrabold text-slate-900 leading-none">
-                ₹{Number(turf.base_price).toLocaleString("en-IN")}
+              <div className="text-[15px] sm:text-[17px] font-extrabold text-slate-900 leading-none">
+                {turf.min_price !== undefined &&
+                turf.max_price !== undefined &&
+                Number(turf.min_price) < Number(turf.max_price)
+                  ? `₹${Number(turf.min_price).toLocaleString("en-IN")} - ₹${Number(turf.max_price).toLocaleString("en-IN")}`
+                  : `₹${Number(turf.base_price).toLocaleString("en-IN")}`}
               </div>
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 per hr

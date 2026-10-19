@@ -21,6 +21,8 @@ import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import { AdminPaymentQRModal } from "./AdminPaymentQRModal";
 
 interface RecordOfflinePaymentModalProps {
   isOpen: boolean;
@@ -35,6 +37,8 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
   preselectedBookingId,
   onPaymentSuccess,
 }) => {
+  const { isAdmin } = useAuth();
+  const [showUPIQR, setShowUPIQR] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -386,6 +390,22 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
                       </button>
                     ))}
                   </div>
+
+                  {paymentMethod === "UPI" && isAdmin && (
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl mt-2 animate-in fade-in duration-150">
+                      <div className="flex items-center space-x-2 text-xs font-semibold text-emerald-900">
+                        <QrCode className="w-4 h-4 text-[#059669]" />
+                        <span>Present official Counter UPI QR to player</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowUPIQR(true)}
+                        className="px-2.5 py-1 bg-[#059669] hover:bg-[#047857] text-white text-[11px] font-bold rounded-lg transition shadow-2xs cursor-pointer"
+                      >
+                        Show QR Code
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Step 3: Amount */}
@@ -479,6 +499,11 @@ export const RecordOfflinePaymentModal: React.FC<RecordOfflinePaymentModalProps>
           </form>
         )}
       </div>
+
+      <AdminPaymentQRModal
+        isOpen={showUPIQR}
+        onClose={() => setShowUPIQR(false)}
+      />
     </Modal>
   );
 };

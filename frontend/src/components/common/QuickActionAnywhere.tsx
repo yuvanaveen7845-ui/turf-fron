@@ -19,6 +19,8 @@ import { NewBookingWizardModal } from "../admin/NewBookingWizardModal";
 import { RecordOfflinePaymentModal } from "../admin/RecordOfflinePaymentModal";
 import { QuickBlockSlotModal } from "../admin/QuickBlockSlotModal";
 import { QuickCustomerModal } from "../admin/QuickCustomerModal";
+import { QuickScannerModal } from "../admin/QuickScannerModal";
+import { AdminPaymentQRModal } from "../admin/AdminPaymentQRModal";
 
 export const QuickActionAnywhere: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +35,8 @@ export const QuickActionAnywhere: React.FC = () => {
   const [isOfflinePaymentOpen, setIsOfflinePaymentOpen] = useState(false);
   const [isBlockSlotOpen, setIsBlockSlotOpen] = useState(false);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isUPIQROpen, setIsUPIQROpen] = useState(false);
 
   // Check if currently on scanner page (hide scanner FAB when already there)
   const isScannerPage =
@@ -134,9 +138,25 @@ export const QuickActionAnywhere: React.FC = () => {
       feature: "QR_CHECKIN",
       onClick: () => {
         setIsOpen(false);
-        navigate(targetScannerPath);
+        setIsScannerOpen(true);
       },
     },
+    ...(user?.role === "ADMIN" || user?.is_superuser
+      ? [
+          {
+            id: "counter-upi-qr",
+            keyNum: "7",
+            title: "Counter UPI QR",
+            desc: "Display official super.money QR modal to collect offline payments",
+            icon: QrCode,
+            color: "bg-emerald-50 text-[#059669] border-emerald-300 hover:border-[#059669]",
+            onClick: () => {
+              setIsOpen(false);
+              setIsUPIQROpen(true);
+            },
+          },
+        ]
+      : []),
     {
       id: "add-customer",
       keyNum: "6",
@@ -165,9 +185,9 @@ export const QuickActionAnywhere: React.FC = () => {
         {canAccess("CHECKIN_SCAN", "QR_CHECKIN") && !isScannerPage && (
           <button
             type="button"
-            onClick={() => navigate(targetScannerPath)}
-            aria-label="QR Scanner (⌘Q)"
-            title="QR Scanner (⌘Q)"
+            onClick={() => setIsScannerOpen(true)}
+            aria-label="Quick QR Scanner Popup"
+            title="Quick QR Scanner Popup"
             className="group relative flex items-center justify-center w-10 h-10 bg-white hover:bg-emerald-50 text-[#059669] rounded-full shadow-md shadow-slate-900/8 hover:shadow-lg hover:shadow-emerald-600/15 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer border border-emerald-200 hover:border-emerald-300"
           >
             <ScanLine className="w-[18px] h-[18px] stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
@@ -288,6 +308,16 @@ export const QuickActionAnywhere: React.FC = () => {
       <QuickCustomerModal
         isOpen={isAddCustomerOpen}
         onClose={() => setIsAddCustomerOpen(false)}
+      />
+
+      <QuickScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+      />
+
+      <AdminPaymentQRModal
+        isOpen={isUPIQROpen}
+        onClose={() => setIsUPIQROpen(false)}
       />
     </>
   );

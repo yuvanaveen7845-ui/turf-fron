@@ -51,7 +51,7 @@ export const PrintReceiptPage: React.FC = () => {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="text-center space-y-3 text-white">
           <div className="w-10 h-10 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-bold">Generating Official GST Tax Invoice...</p>
+          <p className="text-sm font-bold">Generating Official Booking Receipt...</p>
         </div>
       </div>
     );
@@ -62,8 +62,8 @@ export const PrintReceiptPage: React.FC = () => {
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center max-w-md space-y-4 shadow-xl">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-          <h2 className="text-xl font-bold text-slate-900">Invoice Not Found</h2>
-          <p className="text-xs text-slate-500">{error || "No tax invoice record matches this reference."}</p>
+          <h2 className="text-xl font-bold text-slate-900">Receipt Not Found</h2>
+          <p className="text-xs text-slate-500">{error || "No booking receipt record matches this reference."}</p>
           <button
             onClick={() => navigate(-1)}
             className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer"
@@ -114,22 +114,22 @@ export const PrintReceiptPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-            GST Tax Invoice (1 Page Strict Fit)
+            Official Booking Receipt (1 Page Strict Fit)
           </span>
           <button
             onClick={() => window.print()}
             className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black shadow-emerald-glow transition cursor-pointer"
           >
             <Printer className="w-4 h-4" />
-            <span>Print Invoice / Save as PDF</span>
+            <span>Print Receipt / Save as PDF</span>
           </button>
         </div>
       </div>
 
-      {/* ── Printable Official Tax Invoice Document Template (Strict 1-Page A4) ── */}
+      {/* ── Printable Official Receipt Document Template (Strict 1-Page A4) ── */}
       <div className="w-full max-w-3xl bg-white border border-slate-300 print:border-0 rounded-3xl print:rounded-none shadow-2xl print:shadow-none p-6 sm:p-8 space-y-5 print:w-full print:max-w-none printable-card">
         
-        {/* Header Section with Brand Logo & GST details */}
+        {/* Header Section with Brand Logo */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 pb-5">
           <div className="space-y-1.5">
             <div className="flex items-center space-x-3">
@@ -149,14 +149,12 @@ export const PrintReceiptPage: React.FC = () => {
             </div>
             <p className="text-[11px] text-slate-500 max-w-sm leading-relaxed mt-1">
               Near Sirupooluvapatti, Kamatchepuram, Tiruppur, TN 641603
-              <br />
-              <strong>GSTIN:</strong> 33ABCDE1234F1Z5 | <strong>SAC Code:</strong> 999651
             </p>
           </div>
 
           <div className="sm:text-right space-y-1">
             <span className="inline-block px-3 py-0.5 bg-[#ECFDF5] border border-emerald-200 text-[#059669] font-black text-[10px] rounded-full uppercase tracking-wider">
-              TAX INVOICE & RECEIPT
+              BOOKING RECEIPT
             </span>
             <p className="text-xs font-bold text-slate-900 mt-1">
               Invoice: <span className="font-mono">{receipt.receipt_number}</span>
@@ -199,12 +197,9 @@ export const PrintReceiptPage: React.FC = () => {
             <thead className="bg-[#F8FAFC] border-b border-slate-200 text-slate-500 font-extrabold uppercase tracking-wider text-[9px]">
               <tr>
                 <th className="py-2.5 px-3">Description</th>
-                <th className="py-2.5 px-2 text-center">SAC Code</th>
                 <th className="py-2.5 px-2 text-right">Base Fee</th>
                 <th className="py-2.5 px-2 text-right">Discount</th>
-                <th className="py-2.5 px-2 text-right">Taxable Base</th>
-                <th className="py-2.5 px-2 text-right">GST (18% Incl.)</th>
-                <th className="py-2.5 px-3 text-right">Total (₹)</th>
+                <th className="py-2.5 px-3 text-right">Total Match Fee (₹)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -215,13 +210,10 @@ export const PrintReceiptPage: React.FC = () => {
                     Surface: FIFA Quality Pro 50mm | 500 Lux Arena Floodlights
                   </div>
                 </td>
-                <td className="py-3 px-2 text-center font-mono text-slate-500">999651</td>
                 <td className="py-3 px-2 text-right font-medium">₹{baseAmount.toFixed(2)}</td>
                 <td className="py-3 px-2 text-right font-medium text-emerald-600">
                   {discountAmount > 0 ? `-₹${discountAmount.toFixed(2)}` : "₹0.00"}
                 </td>
-                <td className="py-3 px-2 text-right font-medium">₹{taxableAmount.toFixed(2)}</td>
-                <td className="py-3 px-2 text-right font-medium">₹{taxAmount.toFixed(2)}</td>
                 <td className="py-3 px-3 text-right font-black text-slate-900">
                   ₹{totalAmount.toFixed(2)}
                 </td>
@@ -230,7 +222,7 @@ export const PrintReceiptPage: React.FC = () => {
           </table>
         </div>
 
-        {/* Calculation & Taxes Breakdown */}
+        {/* Calculation Breakdown */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pt-3 border-t border-slate-200">
           <div className="space-y-1.5 text-xs text-slate-500 max-w-sm">
             <span className="text-[9px] font-bold uppercase text-slate-400 block">
@@ -243,25 +235,23 @@ export const PrintReceiptPage: React.FC = () => {
               <strong>Transaction Ref:</strong> {receipt.payment?.transaction_reference || receipt.payment?.gateway_payment_id || receipt.payment?.payment_id || "N/A"}
             </p>
             <p className="text-[10px] text-slate-400 italic">
-              This is a computer-generated tax invoice. No physical signature is required under IT Act.
+              This is an official computer-generated receipt. No physical signature is required.
             </p>
           </div>
 
           <div className="w-full sm:w-64 space-y-1.5 text-xs">
             <div className="flex justify-between text-slate-600">
-              <span>Taxable Value (Excl. Tax)</span>
-              <span className="font-bold">₹{taxableAmount.toFixed(2)}</span>
+              <span>Standard Match Fee</span>
+              <span className="font-bold">₹{baseAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-slate-600">
-              <span>CGST (9.0% Included)</span>
-              <span className="font-bold">₹{cgst.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>SGST (9.0% Included)</span>
-              <span className="font-bold">₹{sgst.toFixed(2)}</span>
-            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-600">
+                <span>Promotional Discount</span>
+                <span className="font-bold">-₹{discountAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="pt-2 border-t-2 border-slate-900 flex justify-between text-sm font-black text-slate-900">
-              <span>Total Match Fee (GST Included)</span>
+              <span>Total Match Fee</span>
               <span className="text-[#059669]">₹{totalAmount.toFixed(2)}</span>
             </div>
 

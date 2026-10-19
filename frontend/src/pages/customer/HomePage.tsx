@@ -341,13 +341,13 @@ export const HomePage: React.FC = () => {
   // Filter slots by session (Morning / Afternoon / Night)
   const filteredSlots = useMemo(() => {
     if (selectedSession === "MORNING") {
-      return slots.filter((s) => s.start_time < "12:00:00");
+      return slots.filter((s) => s.start_time >= "05:00:00" && s.start_time < "12:00:00");
     }
     if (selectedSession === "AFTERNOON") {
       return slots.filter((s) => s.start_time >= "12:00:00" && s.start_time < "17:00:00");
     }
     if (selectedSession === "NIGHT") {
-      return slots.filter((s) => s.start_time >= "17:00:00");
+      return slots.filter((s) => s.start_time >= "17:00:00" || s.start_time < "05:00:00");
     }
     return slots;
   }, [slots, selectedSession]);
@@ -374,9 +374,9 @@ export const HomePage: React.FC = () => {
   const sessionCounts = useMemo(() => {
     return {
       all: slots.filter((s) => s.is_available).length,
-      morning: slots.filter((s) => s.is_available && s.start_time < "12:00:00").length,
+      morning: slots.filter((s) => s.is_available && s.start_time >= "05:00:00" && s.start_time < "12:00:00").length,
       afternoon: slots.filter((s) => s.is_available && s.start_time >= "12:00:00" && s.start_time < "17:00:00").length,
-      night: slots.filter((s) => s.is_available && s.start_time >= "17:00:00").length,
+      night: slots.filter((s) => s.is_available && (s.start_time >= "17:00:00" || s.start_time < "05:00:00")).length,
     };
   }, [slots]);
 
@@ -1022,7 +1022,11 @@ export const HomePage: React.FC = () => {
                             </h3>
                             <div className="text-right shrink-0 pl-1">
                               <span className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                                ₹{Number(turf.base_price).toLocaleString("en-IN")}
+                                {turf.min_price !== undefined &&
+                                turf.max_price !== undefined &&
+                                Number(turf.min_price) < Number(turf.max_price)
+                                  ? `₹${Number(turf.min_price).toLocaleString("en-IN")} - ₹${Number(turf.max_price).toLocaleString("en-IN")}`
+                                  : `₹${Number(turf.base_price).toLocaleString("en-IN")}`}
                               </span>
                               <span className="text-[10px] font-medium text-slate-500">/hr</span>
                             </div>

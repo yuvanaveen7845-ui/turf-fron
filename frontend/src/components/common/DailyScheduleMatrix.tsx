@@ -10,6 +10,10 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
+  Lock,
+  Phone,
+  X,
+  Info,
 } from "lucide-react";
 import api from "../../services/api";
 import { useSlotRealtime } from "../../hooks/useRealtime";
@@ -63,6 +67,11 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
   const [scheduleTurfs, setScheduleTurfs] = useState<ScheduleTurf[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>("ALL");
+  const [blockedSlotNotice, setBlockedSlotNotice] = useState<{
+    slot: ScheduleSlot;
+    turfName: string;
+    date: string;
+  } | null>(null);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const tomorrow = new Date();
@@ -337,12 +346,22 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                         const isLocked = slot.status === "LOCKED";
                         const isBooked = slot.status === "BOOKED";
 
+                        const isBlocked = slot.status === "MAINTENANCE";
+
                         return (
                           <button
                             key={slot.id}
                             type="button"
-                            disabled={!isAvail}
+                            disabled={!isAvail && !isBlocked}
                             onClick={() => {
+                              if (isBlocked) {
+                                setBlockedSlotNotice({
+                                  slot,
+                                  turfName: turf.name,
+                                  date: selectedDate,
+                                });
+                                return;
+                              }
                               if (!isAvail) return;
                               triggerHaptic("light");
 
@@ -363,22 +382,26 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
                             title={
                               isAvail
                                 ? `Click to book ${formatTimeSlot(slot.start_time)} (₹${slot.price})`
-                                : isOngoing
-                                  ? `Match currently in session (${formatTimeSlot(slot.start_time)} - ${formatTimeSlot(slot.end_time)})`
-                                  : isPast
-                                    ? `Slot time has ended (${formatTimeSlot(slot.start_time)})`
-                                    : slot.status
+                                : isBlocked
+                                  ? `Slot reserved by management (${formatTimeSlot(slot.start_time)} - ${formatTimeSlot(slot.end_time)}) • Click for details`
+                                  : isOngoing
+                                    ? `Match currently in session (${formatTimeSlot(slot.start_time)} - ${formatTimeSlot(slot.end_time)})`
+                                    : isPast
+                                      ? `Slot time has ended (${formatTimeSlot(slot.start_time)})`
+                                      : slot.status
                             }
                             className={`group px-3 py-2 rounded-xl text-left transition-all text-xs font-semibold ${
                               isAvail
                                 ? "bg-emerald-50 hover:bg-[#059669] hover:text-white border border-emerald-200 text-[#059669] hover:shadow-emerald-glow cursor-pointer"
-                                : isOngoing
-                                  ? "bg-amber-50/90 border border-amber-300 text-amber-900 cursor-not-allowed shadow-2xs"
-                                  : isPast
-                                    ? "bg-slate-100/70 border border-slate-200 text-slate-400 cursor-not-allowed opacity-60 line-through"
-                                    : isLocked
-                                      ? "bg-amber-50 border border-amber-200 text-amber-800 cursor-not-allowed opacity-80"
-                                      : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed line-through"
+                                : isBlocked
+                                  ? "bg-slate-700 hover:bg-slate-800 border border-slate-800 text-white cursor-pointer shadow-2xs ring-1 ring-slate-600"
+                                  : isOngoing
+                                    ? "bg-amber-50/90 border border-amber-300 text-amber-900 cursor-not-allowed shadow-2xs"
+                                    : isPast
+                                      ? "bg-slate-100/70 border border-slate-200 text-slate-400 cursor-not-allowed opacity-60 line-through"
+                                      : isLocked
+                                        ? "bg-amber-50 border border-amber-200 text-amber-800 cursor-not-allowed opacity-80"
+                                        : "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed line-through"
                             }`}
                           >
                             <div className="font-bold whitespace-nowrap flex items-center">
@@ -422,6 +445,91 @@ export const DailyScheduleMatrix: React.FC<DailyScheduleMatrixProps> = ({
           <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
+
+      {/* Blocked Slot Details Modal */}
+      {blockedSlotNotice && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setBlockedSlotNotice(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-slate-900 px-5 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">Reserved Slot Details</h3>
+                  <p className="text-[11px] text-slate-400">Turf Management Hold / Maintenance</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBlockedSlotNotice(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Pitch / Ground:</span>
+                  <span className="font-extrabold text-slate-900">{blockedSlotNotice.turfName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Slot Time:</span>
+                  <span className="font-black text-[#059669]">
+                    {formatTimeSlot(blockedSlotNotice.slot.start_time)} - {formatTimeSlot(blockedSlotNotice.slot.end_time)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Date:</span>
+                  <span className="font-bold text-slate-800">{blockedSlotNotice.date}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Status:</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    MANAGEMENT RESERVED
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-600 leading-relaxed bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 flex gap-2.5">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-900 mb-0.5">Why is this slot blocked?</p>
+                  <p className="text-[11px] text-amber-800">
+                    This slot is temporarily reserved by turf management for routine pitch grooming, floodlight checks, private coaching academy sessions, or scheduled maintenance.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-1 space-y-2">
+                <a
+                  href={`tel:${company.phone || "+919361989494"}`}
+                  className="w-full py-3 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-2 transition cursor-pointer"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Reception to Inquire: {company.phone || "+91 93619 89494"}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setBlockedSlotNotice(null)}
+                  className="w-full py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                >
+                  Close Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

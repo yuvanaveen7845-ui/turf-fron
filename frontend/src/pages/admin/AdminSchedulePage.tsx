@@ -30,6 +30,8 @@ interface SlotGridItem {
   end_time: string;
   status: "AVAILABLE" | "BOOKED" | "LOCKED" | "BLOCKED" | "MAINTENANCE";
   price: number;
+  is_offline?: boolean;
+  booking_type?: string;
   booking_info?: {
     id: string;
     booking_id: string;
@@ -38,6 +40,8 @@ interface SlotGridItem {
     amount_paid: number;
     balance_due: number;
     status: string;
+    is_offline?: boolean;
+    booking_type?: string;
   };
 }
 
@@ -114,31 +118,13 @@ export const AdminSchedulePage: React.FC = () => {
   const fetchSchedule = async () => {
     setLoading(true);
     try {
-      const turfsRes = await api.get("/turfs/");
-      const rawTurfs = turfsRes.data;
-      const turfList: Turf[] = Array.isArray(rawTurfs)
-        ? rawTurfs
-        : Array.isArray(rawTurfs?.results)
-          ? rawTurfs.results
-          : [];
-      const activeTurfs: Turf[] = turfList.filter((t: Turf) => t.is_active);
-      setTurfs(activeTurfs);
-
-      const rows: TurfScheduleRow[] = await Promise.all(
-        activeTurfs.map(async (turf) => {
-          try {
-            const availRes = await api.get(
-              `/turfs/${turf.id}/availability/?date=${selectedDate}`
-            );
-            return {
-              turf,
-              slots: availRes.data?.slots || [],
-            };
-          } catch (e) {
-            return { turf, slots: [] };
-          }
-        })
-      );
+      const res = await api.get(`/turfs/schedule/?date=${selectedDate}`);
+      const rawTurfs = res.data?.turfs || [];
+      const rows: TurfScheduleRow[] = rawTurfs.map((t: any) => ({
+        turf: t,
+        slots: t.slots || [],
+      }));
+      setTurfs(rawTurfs);
       setScheduleData(rows);
     } catch (err) {
       console.error(err);
@@ -225,7 +211,7 @@ export const AdminSchedulePage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string, isNextUp: boolean) => {
+  const getStatusColor = (status: string, isNextUp: boolean, isOffline: boolean = false) => {
     if (isNextUp) {
       return "bg-indigo-50 text-indigo-900 border-indigo-400 ring-2 ring-indigo-500 shadow-xs";
     }
@@ -233,7 +219,9 @@ export const AdminSchedulePage: React.FC = () => {
       case "AVAILABLE":
         return "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-[#059669]";
       case "BOOKED":
-        return "bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100 font-bold shadow-2xs";
+        return isOffline
+          ? "bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100 font-bold shadow-2xs ring-1 ring-sky-300"
+          : "bg-rose-50 text-rose-900 border-rose-300 hover:bg-rose-100 font-bold shadow-2xs";
       case "LOCKED":
         return "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100";
       case "MAINTENANCE":
@@ -387,19 +375,23 @@ export const AdminSchedulePage: React.FC = () => {
       <div className="flex flex-wrap items-center gap-4 text-xs px-1 text-slate-600 font-semibold">
         <div className="flex items-center space-x-1.5">
           <span className="w-3 h-3 rounded-md bg-emerald-50 border border-emerald-300" />
-          <span>Available (Click to book)</span>
+          <span>Available</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-3 h-3 rounded-md bg-rose-100 border border-rose-400" />
-          <span>Customer Booked (Red)</span>
+          <span>🌐 Online Booked (Rose)</span>
+        </div>
+        <div className="flex items-center space-x-1.5">
+          <span className="w-3 h-3 rounded-md bg-sky-100 border border-sky-400" />
+          <span>🏢 Offline / Desk Booked (Sky Blue)</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-3 h-3 rounded-md bg-slate-700 border border-slate-800" />
-          <span>Admin / Business Blocked</span>
+          <span>Admin Blocked</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-3 h-3 rounded-md bg-amber-100 border border-amber-300" />
-          <span>Held in Checkout (5m)</span>
+          <span>Held (5m)</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-3 h-3 rounded-md bg-indigo-100 border-2 border-indigo-500" />
@@ -527,6 +519,11 @@ export const AdminSchedulePage: React.FC = () => {
                         }
 
                         const isNextUp = matchingSlot.id === nextUpcomingSlotId;
+                        const isOffline = Boolean(
+                          matchingSlot.booking_info?.is_offline ||
+                          matchingSlot.is_offline ||
+                          matchingSlot.booking_info?.booking_type === "WALK_IN"
+                        );
 
                         return (
                           <td
@@ -542,7 +539,8 @@ export const AdminSchedulePage: React.FC = () => {
                               onClick={() => handleSlotClick(turf, matchingSlot)}
                               className={`w-full h-14 p-1.5 rounded-xl border text-[11px] flex flex-col items-center justify-between transition cursor-pointer relative overflow-hidden ${getStatusColor(
                                 matchingSlot.status,
-                                isNextUp
+                                isNextUp,
+                                isOffline
                               )}`}
                             >
                               {/* Header Row with Times & Optional In-Card Next Up Pill */}
@@ -580,9 +578,13 @@ export const AdminSchedulePage: React.FC = () => {
                                     <span className="text-[8px] font-black text-indigo-700 leading-none">
                                       {formatRelativeTime(selectedDate, matchingSlot.start_time)}
                                     </span>
+                                  ) : isOffline ? (
+                                    <span className="px-1 py-0.2 rounded text-[7.5px] font-black bg-sky-200 text-sky-950 uppercase tracking-tighter leading-none inline-flex items-center gap-0.5">
+                                      <span>🏢 Desk</span>
+                                    </span>
                                   ) : (
-                                    <span className="text-[8px] font-black text-rose-700 leading-none uppercase">
-                                      {matchingSlot.booking_info?.status || "CONFIRMED"}
+                                    <span className="px-1 py-0.2 rounded text-[7.5px] font-black bg-rose-200 text-rose-950 uppercase tracking-tighter leading-none inline-flex items-center gap-0.5">
+                                      <span>🌐 Online</span>
                                     </span>
                                   )}
                                 </>
@@ -627,6 +629,11 @@ export const AdminSchedulePage: React.FC = () => {
                       if (matchingSlots.length === 1) {
                         const singleSlot = matchingSlots[0];
                         const isNextUp = singleSlot.id === nextUpcomingSlotId;
+                        const isSingleOffline = Boolean(
+                          singleSlot.booking_info?.is_offline ||
+                          singleSlot.is_offline ||
+                          singleSlot.booking_info?.booking_type === "WALK_IN"
+                        );
                         return (
                           <td
                             key={timeHeader}
@@ -641,7 +648,8 @@ export const AdminSchedulePage: React.FC = () => {
                               onClick={() => handleSlotClick(turf, singleSlot)}
                               className={`w-full h-14 p-1.5 rounded-xl border text-[11px] flex flex-col items-center justify-between transition cursor-pointer relative overflow-hidden ${getStatusColor(
                                 singleSlot.status,
-                                isNextUp
+                                isNextUp,
+                                isSingleOffline
                               )}`}
                             >
                               <div className="w-full flex items-center justify-between text-[9px] font-mono font-bold leading-none">
@@ -670,8 +678,10 @@ export const AdminSchedulePage: React.FC = () => {
                                   <span className="font-black truncate max-w-[75px]">
                                     {singleSlot.booking_info?.customer_name?.split(" ")[0] || "Booked"}
                                   </span>
-                                  <span className="text-[8px] font-black text-rose-700 uppercase">
-                                    {singleSlot.booking_info?.status || "CONFIRMED"}
+                                  <span className={`text-[7.5px] font-black uppercase ${
+                                    isSingleOffline ? "text-sky-800" : "text-rose-700"
+                                  }`}>
+                                    {isSingleOffline ? "🏢 Desk" : "🌐 Online"}
                                   </span>
                                 </>
                               )}
@@ -682,11 +692,16 @@ export const AdminSchedulePage: React.FC = () => {
 
                       // 2 slots in this hour (30m pitch)
                       const [s1, s2] = matchingSlots;
-                      const bothAvailable = s1.status === "AVAILABLE" && s2.status === "AVAILABLE";
+                      const bothAvailable = s1 && s2 && s1.status === "AVAILABLE" && s2.status === "AVAILABLE";
                       const bothBookedSame =
+                        s1 &&
+                        s2 &&
                         s1.status === "BOOKED" &&
                         s2.status === "BOOKED" &&
                         s1.booking_info?.id === s2.booking_info?.id;
+
+                      const s1Offline = Boolean(s1?.booking_info?.is_offline || s1?.is_offline || s1?.booking_info?.booking_type === "WALK_IN");
+                      const s2Offline = Boolean(s2?.booking_info?.is_offline || s2?.is_offline || s2?.booking_info?.booking_type === "WALK_IN");
 
                       return (
                         <td
@@ -724,24 +739,40 @@ export const AdminSchedulePage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleSlotClick(turf, s1)}
-                              className="w-full h-14 p-1 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 flex flex-col items-center justify-between hover:bg-rose-100 transition cursor-pointer shadow-2xs"
+                              className={`w-full h-14 p-1 rounded-xl border flex flex-col items-center justify-between transition cursor-pointer shadow-2xs ${
+                                s1Offline
+                                  ? "border-sky-300 bg-sky-50 text-sky-950 hover:bg-sky-100 ring-1 ring-sky-300"
+                                  : "border-rose-300 bg-rose-50 text-rose-900 hover:bg-rose-100"
+                              }`}
                             >
-                              <span className="text-[9px] font-mono text-rose-600 font-bold">{timeHeader} (60m)</span>
-                              <span className="text-xs font-black truncate max-w-[75px]">
+                              <div className="flex items-center justify-between w-full text-[8.5px] font-mono px-0.5">
+                                <span className={s1Offline ? "text-sky-700 font-bold" : "text-rose-700 font-bold"}>{timeHeader} (60m)</span>
+                                <span className={`px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tighter ${
+                                  s1Offline ? "bg-sky-200 text-sky-900" : "bg-rose-200 text-rose-900"
+                                }`}>
+                                  {s1Offline ? "🏢 Desk" : "🌐 Online"}
+                                </span>
+                              </div>
+                              <span className="text-xs font-black truncate max-w-[80px]">
                                 {s1.booking_info?.customer_name?.split(" ")[0] || "Booked"}
                               </span>
-                              <span className="text-[8px] font-black text-rose-700 uppercase">CONFIRMED</span>
+                              <span className={`text-[7.5px] font-black uppercase ${s1Offline ? "text-sky-800" : "text-rose-700"}`}>
+                                {s1.booking_info?.status || "CONFIRMED"}
+                              </span>
                             </button>
                           ) : (
                             <div className="w-full h-14 rounded-xl border border-slate-200 overflow-hidden grid grid-cols-2 divide-x divide-slate-200 shadow-2xs">
-                              {[s1, s2].map((slotItem, idx) => (
+                              {[s1, s2].map((slotItem, idx) => {
+                                const isItemOffline = Boolean(slotItem.booking_info?.is_offline || slotItem.is_offline || slotItem.booking_info?.booking_type === "WALK_IN");
+                                return (
                                 <button
                                   key={slotItem.id}
                                   type="button"
                                   onClick={() => handleSlotClick(turf, slotItem)}
                                   className={`h-full p-1 flex flex-col items-center justify-between transition cursor-pointer ${getStatusColor(
                                     slotItem.status,
-                                    slotItem.id === nextUpcomingSlotId
+                                    slotItem.id === nextUpcomingSlotId,
+                                    isItemOffline
                                   )}`}
                                 >
                                   <span className="text-[8px] font-mono font-bold">{idx === 0 ? ":00" : ":30"}</span>
@@ -755,11 +786,14 @@ export const AdminSchedulePage: React.FC = () => {
                                       <span className="font-bold text-[9px] truncate max-w-[34px]">
                                         {slotItem.booking_info?.customer_name?.split(" ")[0] || "Booked"}
                                       </span>
-                                      <span className="text-[7px] font-black uppercase text-rose-700">Booked</span>
+                                      <span className={`text-[6.5px] font-black uppercase ${isItemOffline ? "text-sky-700" : "text-rose-700"}`}>
+                                        {isItemOffline ? "Desk" : "Online"}
+                                      </span>
                                     </>
                                   )}
                                 </button>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </td>

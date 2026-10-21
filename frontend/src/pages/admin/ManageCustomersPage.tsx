@@ -200,8 +200,15 @@ export const ManageCustomersPage: React.FC = () => {
             )}
             {user.phone && (
               <div className="flex items-center gap-1 font-mono text-[11px] text-slate-600">
-                <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>{user.phone}</span>
+                <Phone className="w-3 h-3 text-[#059669] shrink-0" />
+                <a
+                  href={`tel:${user.phone.replace(/[^0-9+]/g, "")}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[#059669] hover:underline hover:text-[#047857] font-bold"
+                  title="Click to dial customer"
+                >
+                  {user.phone}
+                </a>
               </div>
             )}
             {isSynthetic && !user.phone && (
@@ -500,8 +507,19 @@ export const ManageCustomersPage: React.FC = () => {
                   <span>{crmCustomer.customer.email}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{crmCustomer.customer.phone || "No phone listed"}</span>
+                  <Phone className="w-3.5 h-3.5 text-[#059669]" />
+                  {crmCustomer.customer.phone ? (
+                    <a
+                      href={`tel:${crmCustomer.customer.phone.replace(/[^0-9+]/g, "")}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[#059669] hover:underline hover:text-[#047857] font-bold"
+                      title="Click to dial customer"
+                    >
+                      {crmCustomer.customer.phone}
+                    </a>
+                  ) : (
+                    <span>No phone listed</span>
+                  )}
                 </div>
               </div>
             </div>

@@ -127,9 +127,21 @@ export const ManageBookingsPage: React.FC = () => {
           <p className="font-bold text-slate-900">
             {b.customer_details?.full_name || "Customer"}
           </p>
-          <p className="text-[11px] text-slate-400">
-            {b.customer_details?.phone || b.customer_details?.email}
-          </p>
+          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+            {b.customer_details?.phone ? (
+              <a
+                href={`tel:${b.customer_details.phone.replace(/[^0-9+]/g, "")}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[#059669] hover:underline hover:text-[#047857] font-semibold inline-flex items-center gap-1"
+                title="Click to dial customer"
+              >
+                <Phone className="w-3 h-3" />
+                <span>{b.customer_details.phone}</span>
+              </a>
+            ) : (
+              <span>{b.customer_details?.email}</span>
+            )}
+          </div>
         </div>
       ),
     },
@@ -173,7 +185,22 @@ export const ManageBookingsPage: React.FC = () => {
     {
       key: "status",
       header: "Status",
-      render: (b: Booking) => <StatusBadge status={b.status} size="sm" />,
+      render: (b: Booking) => (
+        <div className="space-y-1">
+          <StatusBadge status={b.status} size="sm" />
+          <div>
+            {b.booking_type === "WALK_IN" ? (
+              <span className="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase bg-sky-100 text-sky-900 border border-sky-300">
+                🏢 Walk-in
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase bg-rose-50 text-rose-800 border border-rose-200">
+                🌐 Online
+              </span>
+            )}
+          </div>
+        </div>
+      ),
     },
     {
       key: "actions",

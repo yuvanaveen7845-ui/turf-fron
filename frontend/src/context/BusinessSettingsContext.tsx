@@ -12,6 +12,7 @@ export interface CompanySettings {
   instagram?: string;
   facebook?: string;
   whatsapp?: string;
+  google_review_url?: string;
   timezone?: string;
   currency?: string;
   gstin?: string;
@@ -97,6 +98,7 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettingsState, "loading" | "refreshS
     instagram: "@friendsturf_tiruppur",
     facebook: "@friendsturf_tiruppur",
     whatsapp: "+91 93639 89494",
+    google_review_url: "https://maps.google.com/?q=Friends+Turf+Tiruppur",
     timezone: "Asia/Kolkata",
     currency: "INR",
     gstin: "",

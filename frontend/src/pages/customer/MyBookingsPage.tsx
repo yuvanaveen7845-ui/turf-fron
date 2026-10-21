@@ -570,21 +570,99 @@ export const MyBookingsPage: React.FC = () => {
           ))}
         </div>
       ) : bookings.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-            <Calendar className="w-6 h-6" />
+        <div className="text-center py-12 sm:py-16 px-4 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#059669] flex items-center justify-center mx-auto border border-emerald-100">
+            <Calendar className="w-7 h-7" />
           </div>
-          <p className="text-base font-bold text-slate-900">
-            {activeTab === "upcoming"
-              ? "No upcoming matches scheduled."
-              : "No past match history found."}
-          </p>
-          <Link
-            to="/"
-            className="inline-block px-6 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-emerald-glow transition-all"
-          >
-            Book a Ground Now
-          </Link>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900">
+              {activeTab === "upcoming"
+                ? "No upcoming matches scheduled under your phone."
+                : "No past match history found."}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              {activeTab === "upcoming"
+                ? "If you have already played this session, check your Past Matches tab or look up your pass below."
+                : "Your completed, cancelled, or past match bookings will be archived here for easy receipt & review access."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            <Link
+              to="/"
+              className="px-5 py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-emerald-glow transition-all active:scale-95"
+            >
+              Book a Ground Now
+            </Link>
+            {activeTab === "upcoming" && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("past")}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                View Past Matches
+              </button>
+            )}
+          </div>
+
+          {/* Quick Match Pass Lookup by Phone / Booking ID */}
+          <div className="max-w-md mx-auto pt-5 border-t border-slate-100">
+            <p className="text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-center gap-1.5">
+              <Search className="w-3.5 h-3.5 text-[#059669]" />
+              <span>Booked as guest or used another mobile number?</span>
+            </p>
+            <p className="text-[11px] text-slate-400 mb-3">
+              Enter the 10-digit phone number or booking reference to pull up your match pass instantly.
+            </p>
+
+            <form onSubmit={handleLookupGuestPass} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter 10-digit phone or BK-... ID"
+                value={lookupQuery}
+                onChange={(e) => setLookupQuery(e.target.value)}
+                className="flex-1 px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#059669] bg-slate-50 focus:bg-white transition"
+              />
+              <button
+                type="submit"
+                disabled={lookupLoading || !lookupQuery.trim()}
+                className="px-4 py-2 bg-[#059669] hover:bg-[#047857] disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer shrink-0"
+              >
+                {lookupLoading ? "Searching..." : "Find Pass"}
+              </button>
+            </form>
+
+            {lookupError && (
+              <p className="text-[11px] text-rose-500 font-semibold mt-2 text-left flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                <span>{lookupError}</span>
+              </p>
+            )}
+
+            {lookupResults && lookupResults.length > 0 && (
+              <div className="mt-3.5 space-y-2 text-left">
+                <p className="text-[11px] font-bold text-emerald-800">Found {lookupResults.length} Match Pass(es):</p>
+                {lookupResults.map((res: any) => (
+                  <div key={res.booking_id} className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between gap-2 shadow-2xs">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[11px] font-black text-[#059669]">{res.booking_id}</span>
+                        <span className="text-[10px] font-bold text-slate-400">• {res.status}</span>
+                      </div>
+                      <p className="text-xs font-bold text-slate-900">{res.turf_name}</p>
+                      <p className="text-[11px] text-slate-500">📅 {res.date} • ⏰ {res.start_time} - {res.end_time}</p>
+                    </div>
+                    <Link
+                      to={res.pass_url || `/confirmation/${res.booking_id}`}
+                      className="px-3 py-1.5 rounded-lg bg-[#059669] text-white text-[11px] font-bold hover:bg-[#047857] shrink-0"
+                    >
+                      View Pass
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

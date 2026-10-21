@@ -18,6 +18,7 @@ import {
   UserPlus,
   Wrench,
   Sparkles,
+  Phone,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -319,8 +320,19 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           <div className="font-bold text-slate-900 group-hover:text-[#059669] transition">
                             {c.name}
                           </div>
-                          <div className="text-[11px] text-slate-500">
-                            {c.email} {c.phone && `• ${c.phone}`}
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span>{c.email}</span>
+                            {c.phone && (
+                              <a
+                                href={`tel:${c.phone.replace(/[^0-9+]/g, "")}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[#059669] hover:underline hover:text-[#047857] font-semibold inline-flex items-center gap-1"
+                                title="Click to dial customer"
+                              >
+                                <Phone className="w-2.5 h-2.5 text-[#059669]" />
+                                <span>{c.phone}</span>
+                              </a>
+                            )}
                           </div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#059669] transition" />

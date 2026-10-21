@@ -10,6 +10,7 @@ import {
   Search,
   Filter,
   Sparkles,
+  Phone,
 } from "lucide-react";
 import api from "../../services/api";
 import { Review } from "../../types";
@@ -225,8 +226,23 @@ export const ManageReviewsPage: React.FC = () => {
                         • {rev.turf_name}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400">
-                      Booking Ref: {rev.booking_reference} • {new Date(rev.created_at).toLocaleDateString()}
+                    <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-1.5">
+                      <span>{rev.booking_reference ? `Booking Ref: ${rev.booking_reference}` : "Direct Player Review"}</span>
+                      <span>•</span>
+                      <span>{new Date(rev.created_at).toLocaleDateString()}</span>
+                      {(rev as any).guest_phone && (
+                        <>
+                          <span>•</span>
+                          <a
+                            href={`tel:${(rev as any).guest_phone}`}
+                            className="inline-flex items-center gap-1 font-bold text-[#059669] hover:underline"
+                            title="Call customer natively"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{(rev as any).guest_phone}</span>
+                          </a>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

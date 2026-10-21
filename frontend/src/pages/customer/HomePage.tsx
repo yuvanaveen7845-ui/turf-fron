@@ -24,6 +24,8 @@ import {
   Download,
   Check,
   ExternalLink,
+  Phone,
+  X,
 } from "lucide-react";
 import api from "../../services/api";
 import { Turf, TimeSlot } from "../../types";
@@ -146,6 +148,11 @@ export const HomePage: React.FC = () => {
 
   // Location Modal & PWA Trigger
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [blockedSlotNotice, setBlockedSlotNotice] = useState<{
+    slot: TimeSlot;
+    turfName: string;
+    date: string;
+  } | null>(null);
   const triggerPwaInstall = () => {
     window.dispatchEvent(new CustomEvent("ft-trigger-pwa-install"));
   };
@@ -214,6 +221,19 @@ export const HomePage: React.FC = () => {
     new Map()
   );
 
+  // Helper: check if a slot is genuinely selectable (open, not booked, not blocked, not held, not past)
+  const isSlotSelectable = (s: TimeSlot): boolean => {
+    const isCustomerBooked = s.status === "BOOKED" || s.schedule_state === "BOOKED";
+    const isAdminBlocked =
+      s.status === "MAINTENANCE" ||
+      s.status === "BLOCKED" ||
+      s.schedule_state === "BLOCKED" ||
+      s.slot_state === "MAINTENANCE";
+    const isHeld = s.status === "LOCKED" || s.schedule_state === "LOCKED";
+    const isPast = Boolean(s.is_past || s.slot_state === "PAST" || s.slot_state === "COMPLETED");
+    return Boolean(s.is_available && !isCustomerBooked && !isAdminBlocked && !isHeld && !isPast);
+  };
+
   // Fetch slots for active turf (with SWR client cache)
   const fetchSlots = (turfId: string | number, date: string, options?: { force?: boolean }) => {
     if (!turfId) return;
@@ -269,6 +289,16 @@ export const HomePage: React.FC = () => {
         setSlots(loadedSlots);
         setAvailableSlotsCount(count);
         setIsFastFill(fastFill);
+
+        // Prune any selected slots that are no longer available in the fresh data
+        setSelectedSlotIds((prevSelected) => {
+          if (!prevSelected.length) return prevSelected;
+          const stillValid = prevSelected.filter((id) => {
+            const found = loadedSlots.find((s) => String(s.id) === String(id));
+            return found && isSlotSelectable(found);
+          });
+          return stillValid;
+        });
 
         // Auto select slot from query if requested
         if (querySlot) {
@@ -492,19 +522,6 @@ export const HomePage: React.FC = () => {
       setSelectedDate(sat.toISOString().split("T")[0]);
       setSelectedSession("ALL");
     }
-  };
-
-  // Helper: check if a slot is genuinely selectable (open, not booked, not blocked, not held, not past)
-  const isSlotSelectable = (s: TimeSlot): boolean => {
-    const isCustomerBooked = s.status === "BOOKED" || s.schedule_state === "BOOKED";
-    const isAdminBlocked =
-      s.status === "MAINTENANCE" ||
-      s.status === "BLOCKED" ||
-      s.schedule_state === "BLOCKED" ||
-      s.slot_state === "MAINTENANCE";
-    const isHeld = s.status === "LOCKED" || s.schedule_state === "LOCKED";
-    const isPast = Boolean(s.is_past || s.slot_state === "PAST" || s.slot_state === "COMPLETED");
-    return Boolean(s.is_available && !isCustomerBooked && !isAdminBlocked && !isHeld && !isPast);
   };
 
   // Helper: collect consecutive available slots starting from kickoff up to targetMins, with backward fallback if forward is bounded
@@ -816,6 +833,8 @@ export const HomePage: React.FC = () => {
         "Could not lock the selected slots. Someone may have just reserved them.";
       setLockError(errorMsg);
       triggerHaptic("error");
+      // Deselect stale slots so the user is not stuck resubmitting an expired/held slot
+      setSelectedSlotIds([]);
       if (activeTurf?.id) {
         fetchSlots(activeTurf.id, selectedDate, { force: true });
       }
@@ -1467,15 +1486,25 @@ export const HomePage: React.FC = () => {
                         key={slot.id}
                         id={`slot-${slot.id}`}
                         type="button"
-                        disabled={!isAvail}
-                        onClick={() => toggleSlotSelection(slot)}
+                        disabled={!isAvail && !isAdminBlocked}
+                        onClick={() => {
+                          if (isAdminBlocked) {
+                            setBlockedSlotNotice({
+                              slot,
+                              turfName: activeTurf?.name || "Pitch",
+                              date: selectedDate,
+                            });
+                            return;
+                          }
+                          toggleSlotSelection(slot);
+                        }}
                         title={
                           isAvail
                             ? `Click to select ${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)} (${slotMins}m, ₹${Number(slot.price)})`
                             : isCustomerBooked
                               ? `Booked by customer (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
                               : isAdminBlocked
-                                ? `Slot reserved / blocked by business management`
+                                ? `Slot reserved by management (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)}) • Click for details & inquiry`
                                 : isOngoing
                                   ? `Match in session (${formatSlotTime(slot.start_time)} - ${formatSlotTime(slot.end_time)})`
                                   : isHeld
@@ -1496,7 +1525,7 @@ export const HomePage: React.FC = () => {
                               : isCustomerBooked
                                 ? "bg-rose-50 border-rose-300 text-rose-900 cursor-not-allowed shadow-2xs"
                                 : isAdminBlocked
-                                  ? "bg-slate-700 border-slate-800 text-white cursor-not-allowed shadow-2xs"
+                                  ? "bg-slate-700 border-slate-800 text-white hover:bg-slate-800 hover:border-slate-600 cursor-pointer shadow-2xs ring-1 ring-slate-600"
                                   : isHeld
                                     ? "bg-amber-50/90 border-amber-300 text-amber-950 cursor-not-allowed opacity-95"
                                     : isOngoing
@@ -2026,6 +2055,91 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Blocked Slot Details Modal */}
+      {blockedSlotNotice && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setBlockedSlotNotice(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-slate-900 px-5 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">Reserved Slot Details</h3>
+                  <p className="text-[11px] text-slate-400">Turf Management Hold / Maintenance</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBlockedSlotNotice(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Pitch / Ground:</span>
+                  <span className="font-extrabold text-slate-900">{blockedSlotNotice.turfName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Slot Time:</span>
+                  <span className="font-black text-[#059669]">
+                    {formatSlotTime(blockedSlotNotice.slot.start_time)} - {formatSlotTime(blockedSlotNotice.slot.end_time)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Date:</span>
+                  <span className="font-bold text-slate-800">{blockedSlotNotice.date}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Status:</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    MANAGEMENT RESERVED
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-600 leading-relaxed bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 flex gap-2.5">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-amber-900 mb-0.5">Why is this slot blocked?</p>
+                  <p className="text-[11px] text-amber-800">
+                    This slot is temporarily reserved by turf management for routine pitch grooming, floodlight checks, private coaching academy sessions, or scheduled maintenance.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-1 space-y-2">
+                <a
+                  href={`tel:${company.phone || "+919361989494"}`}
+                  className="w-full py-3 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-2 transition cursor-pointer"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Call Reception to Inquire: {company.phone || "+91 93619 89494"}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setBlockedSlotNotice(null)}
+                  className="w-full py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                >
+                  Close Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Location Directions & Helpdesk Modal */}
       <LocationModal
         isOpen={isLocationModalOpen}

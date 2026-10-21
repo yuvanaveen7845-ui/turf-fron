@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Sparkles,
   User,
+  Star,
+  ExternalLink,
 } from "lucide-react";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -538,6 +540,36 @@ export const BookingCheckoutPage: React.FC = () => {
           }}
           showActions={true}
         />
+
+        {/* Google Rate Tab / Banner */}
+        <div className="bg-gradient-to-r from-amber-50/90 via-white to-amber-50/90 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-3.5 text-center sm:text-left">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+              <Star className="w-6 h-6 fill-white" />
+            </div>
+            <div>
+              <div className="flex items-center justify-center sm:justify-start space-x-1 mb-0.5">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                ))}
+                <span className="text-xs font-black text-slate-800 ml-1">4.9 / 5.0 Google Rating</span>
+              </div>
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">Enjoyed your match booking experience?</h3>
+              <p className="text-[11px] text-slate-500">Rate Friends Turf on Google Maps to help fellow players find our FIFA-standard grounds.</p>
+            </div>
+          </div>
+
+          <a
+            href={companySettings.google_review_url || "https://maps.google.com/?q=Friends+Turf+Tiruppur"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-md shadow-amber-500/20 transition flex items-center space-x-1.5 shrink-0 active:scale-95 cursor-pointer"
+          >
+            <Star className="w-3.5 h-3.5 fill-white" />
+            <span>Rate Us on Google</span>
+            <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
+          </a>
+        </div>
       </div>
     );
   }
@@ -1239,13 +1271,58 @@ export const BookingCheckoutPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Subtotal row (when adjustments or discounts apply) */}
+                {(priceBreakdown.total_adjustments !== 0 ||
+                  priceBreakdown.membership_discount > 0 ||
+                  priceBreakdown.coupon_discount > 0) && (
+                  <div className="flex justify-between text-slate-500 font-semibold border-t border-slate-100 pt-1.5">
+                    <span>Subtotal</span>
+                    <span className="text-slate-800">
+                      ₹{priceBreakdown.subtotal}
+                    </span>
+                  </div>
+                )}
 
+                {/* Membership Tier Privilege Discount */}
+                {priceBreakdown.membership_discount > 0 && (
+                  <div className="flex justify-between text-[#059669] font-bold bg-[#ECFDF5] border border-emerald-200/80 px-2.5 py-1.5 rounded-xl">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#059669] shrink-0" />
+                      <span>{priceBreakdown.discount_sources?.[0]?.label || "Membership Privilege Discount"}</span>
+                    </span>
+                    <span>-₹{priceBreakdown.membership_discount}</span>
+                  </div>
+                )}
+
+                {/* Coupon Discount */}
+                {priceBreakdown.coupon_discount > 0 && (
+                  <div className="flex justify-between text-[#059669] font-bold bg-[#ECFDF5] border border-emerald-200/80 px-2.5 py-1.5 rounded-xl">
+                    <span>Coupon Discount ({priceBreakdown.coupon_code || "Applied"})</span>
+                    <span>-₹{priceBreakdown.coupon_discount}</span>
+                  </div>
+                )}
+
+                {/* Admin / Manual Discount */}
+                {priceBreakdown.admin_discount > 0 && (
+                  <div className="flex justify-between text-[#059669] font-bold bg-[#ECFDF5] border border-emerald-200/80 px-2.5 py-1.5 rounded-xl">
+                    <span>Special Authorized Discount</span>
+                    <span>-₹{priceBreakdown.admin_discount}</span>
+                  </div>
+                )}
+
+                {/* Non-inclusive Tax / GST if configured */}
+                {!priceBreakdown.is_tax_included && priceBreakdown.tax_amount > 0 && (
+                  <div className="flex justify-between text-slate-500">
+                    <span>GST ({priceBreakdown.tax_rate_percent}%)</span>
+                    <span>+₹{priceBreakdown.tax_amount}</span>
+                  </div>
+                )}
 
                 <div className="pt-3 border-t border-slate-100 flex justify-between text-base font-black text-slate-900">
                   <div>
                     <span>Total Match Price</span>
                     <span className="text-[10px] text-slate-400 font-medium block">
-                      Net Payable Amount
+                      {priceBreakdown.is_tax_included ? "Net Payable Amount (GST Included)" : "Net Payable Amount"}
                     </span>
                   </div>
                   <span className="text-[#059669]">
@@ -1299,6 +1376,33 @@ export const BookingCheckoutPage: React.FC = () => {
                 <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
                 <span>Instant Cryptographic QR Pass Upon Verified Payment</span>
               </div>
+            </div>
+
+            {/* Google Rating & Review Trust Tab */}
+            <div className="pt-2">
+              <a
+                href={companySettings.google_review_url || "https://maps.google.com/?q=Friends+Turf+Tiruppur"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full p-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/50 border border-amber-200/80 hover:border-amber-300 transition-all flex items-center justify-between group shadow-2xs hover:shadow-sm"
+              >
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Star className="w-4 h-4 fill-white" />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs font-black text-slate-900">4.9 ★★★★★ on Google</span>
+                      <span className="text-[9px] font-extrabold text-emerald-800 bg-emerald-100/90 px-1.5 py-0.2 rounded-full">350+ Reviews</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-500">Rated #1 Sports Turf in Tiruppur</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1 text-slate-500 group-hover:text-amber-700 text-xs font-bold shrink-0">
+                  <span className="text-[10px]">Google Rate</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </div>
+              </a>
             </div>
           </div>
         </div>

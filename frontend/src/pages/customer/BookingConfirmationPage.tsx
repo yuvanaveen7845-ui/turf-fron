@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useParams, useNavigate, Link } from "react-router-dom";
-import { CheckCircle, ArrowRight, ArrowLeft, Receipt, Ticket, Calendar } from "lucide-react";
+import { CheckCircle, ArrowRight, ArrowLeft, Receipt, Ticket, Calendar, Star, ExternalLink } from "lucide-react";
 import api from "../../services/api";
 import { Booking } from "../../types";
 import { FriendsTurfMatchPass } from "../../components/booking/FriendsTurfMatchPass";
 import { ReceiptModal } from "../../components/payment/ReceiptModal";
 import { Button } from "../../components/ui";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 export const BookingConfirmationPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { bookingId } = useParams<{ bookingId: string }>();
+  const { company } = useBusinessSettings();
 
   const state = location.state as { booking: Booking; payment?: any } | null;
   const [passData, setPassData] = useState<any>(null);
@@ -171,6 +173,36 @@ export const BookingConfirmationPage: React.FC = () => {
       {/* Render Official Match Pass Component */}
       <div id="match-pass-section">
         <FriendsTurfMatchPass passData={passData} showActions={true} />
+      </div>
+
+      {/* Google Rate Tab / Card */}
+      <div className="max-w-2xl mx-auto bg-gradient-to-r from-amber-50/90 via-white to-amber-50/90 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center space-x-3.5 text-center sm:text-left">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+            <Star className="w-6 h-6 fill-white" />
+          </div>
+          <div>
+            <div className="flex items-center justify-center sm:justify-start space-x-1 mb-0.5">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              ))}
+              <span className="text-xs font-black text-slate-800 ml-1">4.9 / 5.0 Google Rating</span>
+            </div>
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">Rate Friends Turf on Google</h3>
+            <p className="text-[11px] text-slate-500">Your rating helps fellow athletes and sports lovers in Tiruppur discover our grounds.</p>
+          </div>
+        </div>
+
+        <a
+          href={company.google_review_url || "https://maps.google.com/?q=Friends+Turf+Tiruppur"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-md shadow-amber-500/25 transition flex items-center space-x-1.5 shrink-0 cursor-pointer active:scale-95"
+        >
+          <Star className="w-3.5 h-3.5 fill-white" />
+          <span>Rate on Google</span>
+          <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
+        </a>
       </div>
 
       {/* Post-Booking Navigation Links */}

@@ -9,6 +9,7 @@ import {
   Sparkles,
   MapPin,
   Navigation,
+  Phone,
   ChevronRight,
   ChevronLeft,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { Button } from "../ui/Button";
 import { LocationModal } from "./LocationModal";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useBusinessSettings } from "../../hooks/useBusinessSettings";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -36,6 +38,7 @@ declare global {
 export const PwaInstallPrompt: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const { company } = useBusinessSettings();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIos, setIsIos] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -176,6 +179,7 @@ export const PwaInstallPrompt: React.FC = () => {
           >
             <ChevronLeft className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#059669] transition-colors" />
             <MapPin className="w-3.5 h-3.5 text-[#059669]" />
+            <Phone className="w-3.5 h-3.5 text-[#059669]" />
             <Smartphone className="w-3.5 h-3.5 text-[#059669]" />
           </button>
         ) : (
@@ -190,6 +194,19 @@ export const PwaInstallPrompt: React.FC = () => {
               <MapPin className="w-3.5 h-3.5 text-[#059669]" />
               <span>Directions</span>
             </button>
+
+            {/* Divider */}
+            <span className="w-px h-3.5 bg-slate-200" />
+
+            {/* Direct Call Action */}
+            <a
+              href={`tel:${(company.phone || "+919361989494").replace(/[^\d+]/g, "")}`}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#059669] transition cursor-pointer px-1 py-0.5 rounded-full hover:bg-slate-50"
+              title={`Call Friends Turf (${company.phone || "+91 93619 89494"})`}
+            >
+              <Phone className="w-3.5 h-3.5 text-[#059669]" />
+              <span>Call</span>
+            </a>
 
             {/* Divider */}
             <span className="w-px h-3.5 bg-slate-200" />

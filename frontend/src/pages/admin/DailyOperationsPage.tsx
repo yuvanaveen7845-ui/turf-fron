@@ -24,6 +24,7 @@ import {
   Info,
   Check,
   Zap,
+  Phone,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
@@ -804,6 +805,19 @@ export const DailyOperationsPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-black text-sm text-slate-900">{p.customer_name}</h3>
+                    {p.customer_phone && p.customer_phone !== "N/A" && (
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3 h-3 text-[#059669]" />
+                        <a
+                          href={`tel:${p.customer_phone.replace(/[^0-9+]/g, "")}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[#059669] hover:underline hover:text-[#047857] font-bold"
+                          title="Click to dial customer"
+                        >
+                          {p.customer_phone}
+                        </a>
+                      </div>
+                    )}
                     <p className="text-xs text-slate-600 mt-0.5">{p.turf_name} ({p.match_time})</p>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">

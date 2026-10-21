@@ -328,9 +328,20 @@ export const ContextualBookingDrawer: React.FC<ContextualBookingDrawerProps> = (
               <div className="font-bold text-slate-900 text-sm">
                 {booking.customer_details?.full_name || "Guest Customer"}
               </div>
-              <div className="text-slate-600 flex items-center gap-1 mt-0.5">
-                <Phone className="w-3 h-3 text-slate-400" />
-                <span>{booking.customer_details?.phone || "No phone"}</span>
+              <div className="text-slate-600 flex items-center gap-1.5 mt-0.5">
+                <Phone className="w-3 h-3 text-[#059669] shrink-0" />
+                {booking.customer_details?.phone ? (
+                  <a
+                    href={`tel:${booking.customer_details.phone.replace(/[^0-9+]/g, "")}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-[#059669] hover:underline font-bold text-xs"
+                    title="Click to dial customer"
+                  >
+                    {booking.customer_details.phone}
+                  </a>
+                ) : (
+                  <span className="text-slate-400 text-xs">No phone</span>
+                )}
               </div>
               <div className="text-slate-500 truncate flex items-center gap-1">
                 <Mail className="w-3 h-3 text-slate-400" />

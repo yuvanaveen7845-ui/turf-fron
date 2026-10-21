@@ -24,6 +24,7 @@ import {
   ArrowRight,
   ExternalLink,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import api from "../../services/api";
@@ -235,7 +236,7 @@ export const StaffQRScannerPage: React.FC = () => {
     setCameraLoading(false);
   };
 
-  // Safe Camera Start
+  // Safe Camera Start with Multi-Camera Fallback (Environment -> User / Webcam)
   const startCamera = async () => {
     setCameraError("");
     setCameraLoading(true);
@@ -258,31 +259,77 @@ export const StaffQRScannerPage: React.FC = () => {
           const html5Qr = new Html5Qrcode("friends-turf-qr-reader");
           scannerInstanceRef.current = html5Qr;
 
-          await html5Qr.start(
-            { facingMode: "environment" },
-            {
-              fps: 12,
-              qrbox: { width: 250, height: 250 },
-              aspectRatio: 1.0,
-            },
-            (decodedText: string) => {
-              if (cooldownRef.current) return;
-              cooldownRef.current = true;
+          const scanConfig = {
+            fps: 12,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+          };
 
-              // Immediately pause/stop camera on successful scan
-              stopCamera();
-              setInputCode(decodedText);
-              executeValidation(decodedText, "CAMERA_SCAN");
+          const onScanSuccess = (decodedText: string) => {
+            if (cooldownRef.current) return;
+            cooldownRef.current = true;
 
-              // Cooldown timer
-              setTimeout(() => {
-                cooldownRef.current = false;
-              }, 1500);
-            },
-            () => {
-              // Frame parse ignore
+            // Immediately pause/stop camera on successful scan
+            stopCamera();
+            setInputCode(decodedText);
+            executeValidation(decodedText, "CAMERA_SCAN");
+
+            // Cooldown timer
+            setTimeout(() => {
+              cooldownRef.current = false;
+            }, 1500);
+          };
+
+          const onScanError = () => {
+            // Frame parse ignore
+          };
+
+          // Step 1: Try environment (rear) camera
+          let started = false;
+          try {
+            await html5Qr.start(
+              { facingMode: "environment" },
+              scanConfig,
+              onScanSuccess,
+              onScanError
+            );
+            started = true;
+          } catch (envErr) {
+            console.warn("Back camera failed, trying available video devices...", envErr);
+          }
+
+          // Step 2: Fallback to enumerated cameras (e.g. desktop webcam or front camera)
+          if (!started) {
+            try {
+              const cameras = await Html5Qrcode.getCameras();
+              if (cameras && cameras.length > 0) {
+                // Prefer rear camera if named, otherwise use the first device
+                const backCam = cameras.find((c) =>
+                  /back|rear|environment/i.test(c.label)
+                );
+                const selectedCameraId = backCam ? backCam.id : cameras[0].id;
+                await html5Qr.start(
+                  selectedCameraId,
+                  scanConfig,
+                  onScanSuccess,
+                  onScanError
+                );
+                started = true;
+              }
+            } catch (camListErr) {
+              console.warn("Camera enumeration failed, falling back to user facing...", camListErr);
             }
-          );
+          }
+
+          // Step 3: Final attempt with user facing mode
+          if (!started) {
+            await html5Qr.start(
+              { facingMode: "user" },
+              scanConfig,
+              onScanSuccess,
+              onScanError
+            );
+          }
 
           isScanningRef.current = true;
           setCameraLoading(false);
@@ -292,8 +339,10 @@ export const StaffQRScannerPage: React.FC = () => {
             err?.name === "NotAllowedError" || String(err).includes("Permission")
               ? "Camera permission denied by browser. Please allow camera access in your browser settings, or enter the booking code manually."
               : err?.name === "NotFoundError" || String(err).includes("NotFound")
-              ? "No camera device detected. Enter the booking code manually or upload a QR image."
-              : "Unable to start optical scanner. Please check device permissions.";
+              ? "No camera device detected on this system. Enter the booking code manually or upload a QR image."
+              : err?.name === "OverconstrainedError"
+              ? "Camera constraints not satisfied. Please ensure your camera is not in use by another application."
+              : "Unable to start optical scanner. Please check camera permissions or HTTPS connection.";
           setCameraError(msg);
           await stopCamera();
         }
@@ -599,11 +648,16 @@ export const StaffQRScannerPage: React.FC = () => {
               <span>Camera active — Align match pass QR inside target frame</span>
             </div>
 
-            <div
-              id="friends-turf-qr-reader"
-              className="mx-auto rounded-2xl overflow-hidden max-w-sm border-2 border-emerald-500/50 shadow-2xl bg-black min-h-[260px] flex items-center justify-center text-slate-500 text-xs"
-            >
-              {cameraLoading && <p className="animate-pulse">Initializing camera stream...</p>}
+            <div className="relative mx-auto rounded-2xl overflow-hidden max-w-sm border-2 border-emerald-500/50 shadow-2xl bg-black min-h-[260px] flex items-center justify-center">
+              {cameraLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/85 text-emerald-400 text-xs z-10 p-4">
+                  <p className="flex items-center space-x-2 animate-pulse font-medium">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span>Connecting optical camera stream...</span>
+                  </p>
+                </div>
+              )}
+              <div id="friends-turf-qr-reader" className="w-full h-full min-h-[260px]" />
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1">

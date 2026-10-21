@@ -16,39 +16,6 @@ import { Review, Turf } from "../../types";
 import { normalizeList } from "../../utils/helpers";
 import { useAuth } from "../../context/AuthContext";
 
-const FALLBACK_REVIEWS = [
-  {
-    id: "rev-1",
-    customer_name: "Karthik Raja",
-    rating: 5,
-    turf_name: "FIFA Pro 7v7 Arena",
-    review_text:
-      "The turf quality in Tiruppur is unmatched. Monofilament grass with even rubber in-fill makes high-speed turning smooth. Floodlights are bright with zero blind spots.",
-    created_at: "2 days ago",
-    match_tag: "Verified Weekend Match",
-  },
-  {
-    id: "rev-2",
-    customer_name: "Vignesh Kumar",
-    rating: 5,
-    turf_name: "Box Cricket Pitch A",
-    review_text:
-      "The 5-minute slot lock feature is fantastic. My group was able to confirm without worrying about someone snatching the 7 PM prime slot. Clean dugout and chilled water available.",
-    created_at: "5 days ago",
-    match_tag: "Verified League Fixture",
-  },
-  {
-    id: "rev-3",
-    customer_name: "Mohammed Farhan",
-    rating: 5,
-    turf_name: "Multi-Sport Arena B",
-    review_text:
-      "Fast contactless QR scan at the reception. We walked straight onto the pitch without waiting in lines. Best tournament turf facility in Tiruppur.",
-    created_at: "1 week ago",
-    match_tag: "Verified Evening Slot",
-  },
-];
-
 const RATING_LABELS: Record<number, string> = {
   5: "★★★★★ - Extraordinary Match Experience!",
   4: "★★★★☆ - Great Turf & Floodlighting",
@@ -59,7 +26,8 @@ const RATING_LABELS: Record<number, string> = {
 
 export const VerifiedReviewsSection: React.FC = () => {
   const { user } = useAuth();
-  const [reviews, setReviews] = useState<any[]>(FALLBACK_REVIEWS);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [turfs, setTurfs] = useState<Turf[]>([]);
 
   // Review Form State
@@ -90,25 +58,26 @@ export const VerifiedReviewsSection: React.FC = () => {
         const list = normalizeList<Review>(res.data).filter(
           (r) => Number(r.rating || 5) >= 4
         );
-        if (list.length > 0) {
-          setReviews(
-            list.map((r) => ({
-              id: r.id,
-              customer_name: r.customer_name || "Verified Athlete",
-              rating: r.rating || 5,
-              turf_name: r.turf_name || "Friends Turf Arena",
-              review_text: r.review_text,
-              created_at: new Date(r.created_at).toLocaleDateString("en-IN", {
-                month: "short",
-                day: "numeric",
-              }),
-              match_tag: "Verified Match Player",
-            }))
-          );
-        }
+        setReviews(
+          list.map((r) => ({
+            id: r.id,
+            customer_name: r.customer_name || "Verified Athlete",
+            rating: r.rating || 5,
+            turf_name: r.turf_name || "Friends Turf Arena",
+            review_text: r.review_text,
+            created_at: new Date(r.created_at).toLocaleDateString("en-IN", {
+              month: "short",
+              day: "numeric",
+            }),
+            match_tag: "Verified Match Player",
+          }))
+        );
       })
       .catch(() => {
-        // Retain fallback reviews gracefully
+        setReviews([]);
+      })
+      .finally(() => {
+        setLoading(false);
       });
 
     api
@@ -190,9 +159,17 @@ export const VerifiedReviewsSection: React.FC = () => {
   };
 
   const activeRatingDisplay = hoverRating || rating;
+  const totalReviewsCount = reviews.length;
+  const averageRating =
+    totalReviewsCount > 0
+      ? (
+          reviews.reduce((acc, r) => acc + Number(r.rating || 5), 0) /
+          totalReviewsCount
+        ).toFixed(1)
+      : null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -200,11 +177,15 @@ export const VerifiedReviewsSection: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Player Testimonials & Feedback</span>
           </span>
-          <h2 className="text-[22px] sm:text-[28px] font-extrabold text-slate-900 tracking-tight">
-            Rated 4.9 / 5 by Local Squads
+          <h2 className="text-[20px] sm:text-[26px] font-extrabold text-slate-900 tracking-tight">
+            {totalReviewsCount > 0
+              ? `Rated ${averageRating} / 5 by Local Squads`
+              : "Community Match Reviews"}
           </h2>
-          <p className="text-sm text-slate-600 mt-0.5">
-            Real match reviews from football clubs, corporate squads, and box cricket teams in Tiruppur.
+          <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+            {totalReviewsCount > 0
+              ? "Real match reviews from verified football, cricket, and athletic squads."
+              : "Honest feedback and ratings from athletes and teams playing at Friends Turf."}
           </p>
         </div>
 
@@ -222,17 +203,28 @@ export const VerifiedReviewsSection: React.FC = () => {
             <span>{isPostingOpen ? "Close Review Box" : "Write a Review"}</span>
           </button>
 
-          <div className="flex items-center space-x-3 p-2.5 px-3.5 rounded-2xl bg-[#ECFDF5] border border-emerald-200 shadow-2xs">
-            <div className="flex items-center space-x-1 text-amber-500">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-              ))}
+          {totalReviewsCount > 0 && averageRating && (
+            <div className="flex items-center space-x-2.5 p-2 px-3.5 rounded-2xl bg-[#ECFDF5] border border-emerald-200 shadow-2xs">
+              <div className="flex items-center space-x-1 text-amber-500">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star
+                    key={i}
+                    className={`w-3.5 h-3.5 ${
+                      i <= Math.round(Number(averageRating))
+                        ? "fill-amber-400 text-amber-400"
+                        : "text-slate-300"
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="text-xs">
+                <span className="font-extrabold text-slate-900">{averageRating} / 5</span>
+                <span className="text-slate-500 ml-1 font-medium">
+                  ({totalReviewsCount} {totalReviewsCount === 1 ? "Review" : "Reviews"})
+                </span>
+              </div>
             </div>
-            <div className="text-xs">
-              <span className="font-extrabold text-slate-900">4.9 / 5</span>
-              <span className="text-slate-500 ml-1 font-medium">(2,400+ Matches)</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -414,44 +406,81 @@ export const VerifiedReviewsSection: React.FC = () => {
         </div>
       )}
 
-      {/* Reviews Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {reviews.map((rev) => (
-          <div
-            key={rev.id}
-            className="rounded-2xl bg-white border border-slate-200/80 p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4 group"
-          >
-            <div className="space-y-3">
-              {/* Star row & Verified Badge */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1 text-amber-400">
-                  {Array.from({ length: rev.rating || 5 }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400" />
-                  ))}
+      {/* Reviews Content: Authentic reviews grid or welcoming invitation state */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-40 bg-slate-100 rounded-2xl border border-slate-200/60 p-6 space-y-3" />
+          ))}
+        </div>
+      ) : reviews.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {reviews.slice(0, 6).map((rev) => (
+            <div
+              key={rev.id}
+              className="rounded-2xl bg-white border border-slate-200/80 p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4 group"
+            >
+              <div className="space-y-3">
+                {/* Star row & Verified Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1 text-amber-400">
+                    {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-amber-400" />
+                    ))}
+                  </div>
+                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-[#059669] text-[10px] font-bold border border-emerald-200">
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>{rev.match_tag || "Verified Athlete"}</span>
+                  </span>
                 </div>
-                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-[#059669] text-[10px] font-bold border border-emerald-200">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>{rev.match_tag || "Verified Athlete"}</span>
-                </span>
+
+                {/* Review Text */}
+                <p className="text-[13px] text-slate-700 leading-relaxed italic">
+                  "{rev.review_text}"
+                </p>
               </div>
 
-              {/* Review Text */}
-              <p className="text-[13px] text-slate-700 leading-relaxed italic">
-                "{rev.review_text}"
+              {/* Author Row */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">{rev.customer_name}</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">{rev.turf_name}</p>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">{rev.created_at}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        !isPostingOpen && (
+          <div className="rounded-2xl bg-gradient-to-r from-emerald-50/50 via-slate-50/80 to-emerald-50/50 border border-emerald-200/60 p-6 sm:p-8 text-center space-y-3 shadow-2xs">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 text-[#059669] flex items-center justify-center mx-auto shadow-2xs">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                Be the First to Review Friends Turf!
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Have you played a friendly match, weekend league, or practice session with us? Help other players by leaving the first verified review.
               </p>
             </div>
-
-            {/* Author Row */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">{rev.customer_name}</h4>
-                <p className="text-[11px] text-slate-500 font-medium">{rev.turf_name}</p>
-              </div>
-              <span className="text-[11px] text-slate-400 font-medium">{rev.created_at}</span>
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPostingOpen(true);
+                  setErrorMessage(null);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#059669] text-white hover:bg-[#047857] shadow-sm transition cursor-pointer"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                <span>Write a Review</span>
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        )
+      )}
     </div>
   );
 };

@@ -18,6 +18,7 @@ import {
   Zap,
   Volume2,
   VolumeX,
+  Loader2,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import api from "../../services/api";
@@ -155,40 +156,101 @@ export const RapidScannerEmbed: React.FC<RapidScannerEmbedProps> = ({
   const startCamera = async () => {
     setCameraError("");
     setCameraLoading(true);
+    setScannerActive(true);
+
     try {
       if (scannerInstanceRef.current && isScanningRef.current) {
         await scannerInstanceRef.current.stop();
         isScanningRef.current = false;
       }
 
-      const html5QrCode = new Html5Qrcode("embed-qr-reader-container");
-      scannerInstanceRef.current = html5QrCode;
+      // Small delay to ensure container is rendered and unhidden in DOM
+      setTimeout(async () => {
+        try {
+          const container = document.getElementById("embed-qr-reader-container");
+          if (!container) {
+            setCameraLoading(false);
+            return;
+          }
 
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        {
-          fps: 15,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        (decodedText) => {
-          if (cooldownRef.current) return;
-          cooldownRef.current = true;
-          setInputCode(decodedText);
-          handleValidate(decodedText);
-          setTimeout(() => {
-            cooldownRef.current = false;
-          }, 2500);
-        },
-        () => {}
-      );
+          const html5QrCode = new Html5Qrcode("embed-qr-reader-container");
+          scannerInstanceRef.current = html5QrCode;
 
-      isScanningRef.current = true;
-      setScannerActive(true);
+          const scanConfig = {
+            fps: 15,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+          };
+
+          const onScanSuccess = (decodedText: string) => {
+            if (cooldownRef.current) return;
+            cooldownRef.current = true;
+            setInputCode(decodedText);
+            handleValidate(decodedText);
+            setTimeout(() => {
+              cooldownRef.current = false;
+            }, 2500);
+          };
+
+          const onScanError = () => {};
+
+          // Try 1: Environment facing (back)
+          let started = false;
+          try {
+            await html5QrCode.start(
+              { facingMode: "environment" },
+              scanConfig,
+              onScanSuccess,
+              onScanError
+            );
+            started = true;
+          } catch (envErr) {
+            console.warn("Rapid scanner: environment camera not available, checking devices...", envErr);
+          }
+
+          // Try 2: Enumerate devices
+          if (!started) {
+            try {
+              const cameras = await Html5Qrcode.getCameras();
+              if (cameras && cameras.length > 0) {
+                const backCam = cameras.find((c) => /back|rear|environment/i.test(c.label));
+                const targetId = backCam ? backCam.id : cameras[0].id;
+                await html5QrCode.start(targetId, scanConfig, onScanSuccess, onScanError);
+                started = true;
+              }
+            } catch (camErr) {
+              console.warn("Rapid scanner: camera listing failed, trying user camera...", camErr);
+            }
+          }
+
+          // Try 3: User facing camera (laptop / desktop webcam)
+          if (!started) {
+            await html5QrCode.start(
+              { facingMode: "user" },
+              scanConfig,
+              onScanSuccess,
+              onScanError
+            );
+          }
+
+          isScanningRef.current = true;
+          setCameraLoading(false);
+        } catch (err: any) {
+          console.error("Camera start error in RapidScanner:", err);
+          const msg =
+            err?.name === "NotAllowedError" || String(err).includes("Permission")
+              ? "Camera permission denied. Please allow camera access in browser settings."
+              : err?.name === "NotFoundError" || String(err).includes("NotFound")
+              ? "No camera found on this device."
+              : "Failed to start camera. Please check browser permissions.";
+          setCameraError(msg);
+          setScannerActive(false);
+          setCameraLoading(false);
+        }
+      }, 100);
     } catch (err: any) {
       setCameraError(err.message || "Failed to start camera. Please check browser permissions.");
       setScannerActive(false);
-    } finally {
       setCameraLoading(false);
     }
   };
@@ -197,12 +259,16 @@ export const RapidScannerEmbed: React.FC<RapidScannerEmbedProps> = ({
     if (scannerInstanceRef.current && isScanningRef.current) {
       try {
         await scannerInstanceRef.current.stop();
-        isScanningRef.current = false;
+        scannerInstanceRef.current.clear();
       } catch (e) {
         console.error("Error stopping camera", e);
+      } finally {
+        scannerInstanceRef.current = null;
+        isScanningRef.current = false;
       }
     }
     setScannerActive(false);
+    setCameraLoading(false);
   };
 
   useEffect(() => {
@@ -269,7 +335,15 @@ export const RapidScannerEmbed: React.FC<RapidScannerEmbedProps> = ({
 
       {/* Camera Video Viewport */}
       <div className={scannerActive ? "block" : "hidden"}>
-        <div className="relative max-w-md mx-auto aspect-square bg-slate-950 rounded-2xl overflow-hidden border-2 border-[#059669] shadow-inner">
+        <div className="relative max-w-md mx-auto aspect-square bg-slate-950 rounded-2xl overflow-hidden border-2 border-[#059669] shadow-inner flex items-center justify-center">
+          {cameraLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/85 text-emerald-400 text-xs z-10 p-4">
+              <p className="flex items-center space-x-2 animate-pulse font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                <span>Opening optical camera...</span>
+              </p>
+            </div>
+          )}
           <div id="embed-qr-reader-container" className="w-full h-full" />
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
             <div className="w-48 h-48 border-2 border-dashed border-emerald-400/80 rounded-2xl animate-pulse" />

@@ -88,7 +88,7 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { company, booking: bookingRules } = useBusinessSettings();
+  const { company, booking: bookingRules, features } = useBusinessSettings();
 
   // Social Media URLs and Display Handles from Admin Configuration
   const instagramUrl = useMemo(() => getInstagramUrl(company.instagram), [company.instagram]);
@@ -1978,9 +1978,11 @@ export const HomePage: React.FC = () => {
         </section>
 
         {/* 4. Verified Player Reviews Strip */}
-        <section className="space-y-3">
-          <VerifiedReviewsSection />
-        </section>
+        {features?.REVIEWS !== false && (
+          <section className="space-y-3">
+            <VerifiedReviewsSection />
+          </section>
+        )}
 
         {/* 5. Match Day FAQs */}
         <section className="space-y-3">
